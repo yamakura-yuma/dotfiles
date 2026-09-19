@@ -63,10 +63,16 @@ being consciously invoked:
   non-interactive launches (e.g. Orca starting `claude` directly in a
   worktree terminal, which wouldn't see a `.bashrc` shell-function wrapper).
   Verify with `headroom doctor`.
-- **graphify** also needs `just agents-init` once per host: `graphify claude
-  install` writes a managed section into `~/.claude/CLAUDE.md` and adds a
-  `PreToolUse` hook, so Claude consults the knowledge graph automatically
-  instead of requiring an explicit `/graphify` invocation.
+- **graphify** also needs `just agents-init` once per host: `graphify install
+  --platform claude` installs the `/graphify` skill globally
+  (`~/.claude/skills/graphify/SKILL.md`) and a short pointer in
+  `~/.claude/CLAUDE.md`. `graphify claude install` then adds the automatic
+  part — a detailed CLAUDE.md section plus a `.claude/settings.json`
+  `PreToolUse` hook, so Claude consults the graph without anyone typing
+  `/graphify`. That second command writes relative to whatever directory
+  it's run in, so the recipe runs it from `$HOME` (`~/CLAUDE.md` +
+  `~/.claude/settings.json`) to make it apply globally rather than scoping
+  it to whatever project happens to be the current directory.
 
 ## Multi-host orchestration (Orca)
 

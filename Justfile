@@ -14,4 +14,5 @@ reload:
 agents-init:
     headroom install apply --target claude
     headroom init --global claude
-    graphify claude install
+    graphify install --platform claude
+    cd ~ && graphify claude install
