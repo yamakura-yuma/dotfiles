@@ -19,6 +19,11 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 - `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
   the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
   that section there, edit this file and re-run `just reload` instead.
+- `.apm/instructions/` + `AGENTS.md` — agent instructions for this repo
+  (currently just "respond in Japanese"), authored as an APM instructions
+  primitive and compiled to `AGENTS.md` via `apm compile --target agents`.
+  Edit the source under `.apm/instructions/`, not `AGENTS.md` directly, and
+  re-run that command to regenerate it.
 - `setup.sh` — one-shot bootstrap for a fresh host: chains
   `install-nix.sh` → `nix profile install` → `just reload` → `just
   agents-init`. Safe to re-run.
