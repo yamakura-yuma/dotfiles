@@ -40,7 +40,10 @@ step "executable bits"
 # production.
 while IFS= read -r f; do
   [ -x "$f" ] || fail "$f is not executable"
-done < <(ls_src 'makura-agents/.apm/hooks/scripts/*.sh' '.agent/*.sh' 'makura-agents/tests/*.sh')
+# Eval cases are excluded: run.sh sources them for PROMPT/setup/holds rather
+# than executing them, so a +x bit there would claim something untrue.
+done < <(ls_src 'makura-agents/.apm/hooks/scripts/*.sh' '.agent/*.sh' \
+  'makura-agents/tests/*.sh' ':(exclude)makura-agents/tests/eval/cases/*')
 
 step "json well-formed"
 while IFS= read -r f; do

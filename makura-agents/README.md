@@ -64,6 +64,11 @@ Both live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
 gets the hooks and rules without the tests, while the tests stay next to what
 they cover. dotfiles' own `.agent/verify.sh` runs both.
 
+`tests/eval/` asks the other question — whether installing this changes what an
+agent does — by running one prompt in two fixture repos, with and without the
+package, and requiring the behavior to appear only in the first. It costs real
+money per case, so it is not part of `verify.sh`; see `makura-agents/tests/eval/README.md`.
+
 `harness-check.sh` is about drift rather than behavior — AGENTS.md matching what
 the instructions compile to, quoted paths existing, flags quoted for
 `orca`/`graphify`/`codegraph`/`apm` still existing according to the tool itself,

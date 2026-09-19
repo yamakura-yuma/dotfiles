@@ -66,7 +66,9 @@ check_owned_paths() {
       case "$p" in
         *'<'* | *'>'* | *'*'*) continue ;;          # placeholders and globs
         .agent/*) continue ;;                       # names, not shipped files
-        .apm/*) target="$pkg/$p" ;;
+        # These docs live inside the package, so an unprefixed path is relative
+        # to it; only a path that names the package is relative to the repo.
+        .apm/* | tests/*) target="$pkg/$p" ;;
         .claude/*) [ -d "$repo/.claude" ] || continue; target="$repo/$p" ;;
         *) target="$repo/$p" ;;
       esac
