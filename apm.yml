@@ -1,27 +1,23 @@
 name: agent-environment
 version: 1.0.0
-description: Declaratively-managed MCP servers for the Claude Code agent environment
+description: Claude Code environment for this repo, authored as APM primitives
 author: yyamakura
 # Which agent platforms to deploy to.
 # Resolution order: --target flag > this field > auto-detect from filesystem.
 targets:
 - claude
+# Everything here is installed at *project* scope: `apm install` (no -g) in
+# this checkout deploys .apm/ plus the dependencies below into ./.claude/, and
+# nothing into ~/.claude/. Host-wide pieces live in host-apm.yml instead.
 dependencies:
-  apm: []
-  mcp:
-  - name: codegraph
-    registry: false
-    transport: stdio
-    command: codegraph
-    args:
-    - serve
-    - --mcp
-  - name: headroom
-    registry: false
-    transport: stdio
-    command: headroom
-    args:
-    - mcp
-    - serve
-includes: auto
+  apm:
+  # Visual explanation skill: diagrams, code-shape sketches, and standalone HTML
+  # artifacts. Upstream publishes no tags, so pin the commit rather than track
+  # a branch that could change under us.
+  - git: https://github.com/humanlayer/skills.git
+    path: plugins/show-me
+    ref: ca7c8088db69e315a8b2deea43820270457f8f3c
+    alias: show-me
+    targets:
+    - claude
 scripts: {}

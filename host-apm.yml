@@ -1,0 +1,35 @@
+# The user-scope APM manifest: `setup.sh reload` copies this to ~/.apm/apm.yml
+# and runs `apm install -g` against it.
+#
+# This is deliberately the *only* thing this repo installs host-wide. MCP
+# servers are capabilities — they add tools — rather than behaviour, and both
+# of these are expected to be reachable from every repo on the host. Anything
+# that instructs an agent (rules, skills, the default-branch hook) lives in
+# ./apm.yml + ./.apm/ instead and is deployed into this repo's own .claude/
+# only, so working in an unrelated repo is unaffected by what is checked in
+# here.
+#
+# It is copied rather than symlinked because apm rejects an apm.yml that is a
+# symlink ("apm.yml must be a regular, non-symlink file"), which silently
+# breaks `apm install -g`.
+name: user-agent-environment
+version: 1.0.0
+description: Host-wide MCP servers for Claude Code
+targets:
+- claude
+dependencies:
+  mcp:
+  - name: codegraph
+    registry: false
+    transport: stdio
+    command: codegraph
+    args:
+    - serve
+    - --mcp
+  - name: headroom
+    registry: false
+    transport: stdio
+    command: headroom
+    args:
+    - mcp
+    - serve

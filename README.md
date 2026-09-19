@@ -28,14 +28,17 @@ live in each project's own `flake.nix` / `.devcontainer/`.
   `~/.nix-profile/bin` on `PATH` and runs `starship init bash`. Sourced from
   `~/.bashrc` (see "Bootstrap on a new host"), and a no-op when `starship`
   isn't installed yet, so a half-set-up host still gets a working shell.
-- `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
-  the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
-  that section there, edit this file and re-run `./setup.sh reload` instead.
-- `.apm/instructions/` + `AGENTS.md` — agent instructions for this repo
-  (currently just "respond in Japanese"), authored as an APM instructions
-  primitive and compiled to `AGENTS.md` via `apm compile --target agents`.
-  Edit the source under `.apm/instructions/`, not `AGENTS.md` directly, and
-  re-run that command to regenerate it.
+- `host-apm.yml` — the *host-wide* manifest, copied to `~/.apm/apm.yml` by
+  `./setup.sh reload`. Declares the `codegraph` and `headroom` MCP servers
+  (the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
+  that section there) and deliberately nothing else.
+- `apm.yml` — the *project* manifest, applied to this repo only. Declares the
+  `show-me` skill vendored from `humanlayer/skills`, pinned to a commit since
+  upstream publishes no tags.
+- `.apm/` — the agent behaviour this repo installs into Claude Code, authored
+  as APM primitives and deployed into `./.claude/`. See "Agent harness" below.
+- `AGENTS.md` — generated from `.apm/instructions/` by
+  `apm compile --target agents`. Edit the sources, not this file.
 - `setup.sh` — the only entry point; plain shell, no task runner. Subcommands:
   - `./setup.sh install-nix` — one-time: installs Nix itself.
   - `./setup.sh nix-tools` — installs/upgrades the `flake.nix` bundle
@@ -43,8 +46,9 @@ live in each project's own `flake.nix` / `.devcontainer/`.
   - `./setup.sh reload` — runs `nix-tools`, re-links the symlinks above,
     installs/upgrades `apm`, `codegraph` (npm), `graphifyy` and
     `headroom-ai` (uv tool) — the four tools with no nixpkgs package, each
-    via its own installer — then `apm install -g` to apply `apm.yml`'s MCP
-    servers. Safe to re-run any time, including after moving this repo to a
+    via its own installer — then `apm install -g` for `host-apm.yml`'s MCP
+    servers and `apm install` inside this checkout for everything under
+    `.apm/`. Safe to re-run any time, including after moving this repo to a
     new path.
   - `./setup.sh agents-init` — one-time per host: installs headroom's
     persistent proxy service and durable Claude Code routing hook, and
@@ -68,7 +72,7 @@ if you need to debug one, e.g. `./setup.sh reload`.
 
 The statusline and `starship.toml` are symlinked automatically by `reload`.
 MCP servers (`codegraph`, `headroom`) are applied by `reload` via `apm
-install -g` from `apm.yml` — no manual `~/.claude.json` editing needed
+install -g` from `host-apm.yml` — no manual `~/.claude.json` editing needed
 anymore.
 
 The starship prompt is hooked into your shell by `reload` too. This repo
@@ -86,6 +90,70 @@ block is written exactly once and survives moving this repo. Re-running
 `reload` won't duplicate it, and deleting the block uninstalls the prompt.
 Open a new shell to pick it up. Only `bash` is wired up — change
 `hook_bashrc` in `setup.sh` if this host ever switches to zsh.
+
+## Agent harness
+
+The agent behaviour this repo defines is authored once under `.apm/` and
+deployed by `apm`, never by hand-editing Claude Code's files.
+
+**It is scoped to this repo on purpose.** `./setup.sh reload` runs `apm
+install` *inside this checkout*, not `apm install -g`, so every rule, skill
+and hook below lands in `./.claude/` and applies only to a Claude Code
+session whose project directory is this repo. Working in an unrelated repo is
+unaffected by what is checked in here. The one exception is `host-apm.yml`'s
+MCP servers, which are capabilities rather than behaviour and stay host-wide
+in `~/.claude.json`.
+
+| Source | Lands at |
+| --- | --- |
+| `.apm/instructions/*.instructions.md` | `./.claude/rules/` |
+| `.apm/skills/<name>/SKILL.md` | `./.claude/skills/<name>/` |
+| `apm.yml` `dependencies.apm` | `./.claude/skills/` (+ `./apm_modules/`) |
+| `.apm/hooks/*.json` | merged into `./.claude/settings.json` |
+| `host-apm.yml` `dependencies.mcp` | `~/.claude.json` (host-wide) |
+
+`./.claude/` and `./apm_modules/` are generated, and therefore gitignored —
+`.apm/` is the thing to edit and review. A fresh clone has no `.claude/`
+until `./setup.sh reload` (or a bare `apm install`) runs in it; until then
+the guardrail below simply isn't installed.
+
+This goes through apm rather than a Claude Code plugin because a plugin can't
+express the rest of it (`AGENTS.md` generation, the pinned upstream skill),
+and because apm *merges* hook entries into `settings.json` rather than
+overwriting the file, recording ownership in a sibling `apm-hooks.json` so a
+re-install replaces only its own entries. That property is what keeps
+`~/.claude/settings.json` — shared with four other writers (Orca, headroom,
+graphify, codegraph) — safe on the rare occasion something does need to go
+host-wide.
+
+### The default-branch guardrail
+
+`.apm/hooks/guard-default-branch.json` registers a `PreToolUse` hook on
+`Bash` that refuses `git commit` and `git push` while HEAD is on the
+repository's default branch. It exits 2, which blocks the call and hands its
+stderr back to the agent as the reason — pointing it at `orca worktree
+create` or `git worktree add -b` instead.
+
+Being project-scoped, it protects this repo's `main` and nothing else; a
+session opened in another repo gets no such protection. Note also that
+`apm` rewrites the hook command to `${CLAUDE_PROJECT_DIR}/.claude/hooks/...`,
+which resolves against the directory the session started in — a worktree of
+this repo needs its own `apm install` to carry the hook.
+
+The script (`.apm/hooks/scripts/guard-default-branch.sh`) is deliberately
+fail-open: exit 0 in Claude Code's hook protocol means "no opinion", not
+"approved", so anything it can't evaluate confidently (no `jq`, not a repo,
+detached HEAD, unparseable payload) falls through to exit 0. It reads `cwd`
+from the hook payload rather than `${CLAUDE_PROJECT_DIR}`, which stays
+pinned to where the session started and doesn't follow Claude into a
+worktree, and it resolves the default branch from the local
+`refs/remotes/origin/HEAD` ref — never `git remote show origin`, which would
+put a network round trip in front of every Bash call.
+
+To lift it, export `DOTFILES_ALLOW_MAIN=1` before starting Claude Code.
+It's an environment variable and not a marker file on purpose: hooks inherit
+Claude Code's environment rather than the one a Bash tool call builds, so an
+agent can't grant it to itself by prefixing a command.
 
 ## Automatic agent tooling
 
@@ -122,6 +190,16 @@ dispatches work to SSH targets — this WSL host, `ubuntu`, and `ZCU104` — via
 `orca worktree create --host ...` / `orca terminal create`. Orca injects its
 own hooks into `~/.claude/settings.json` on each target host so sessions
 there are observable from the primary.
+
+There is deliberately no orchestration layer in this repo. Orca already has
+one (`orca orchestration run-create` / `worker-start --worktree new-child` /
+`check --wait`), and `orca skills get orchestration` returns the full
+supervisor playbook on demand. Copying that here would only produce a stale
+duplicate, so `.apm/skills/orca-orchestration/` is a thin pointer: it says to
+go read the real playbook, and records the conventions specific to this
+workspace. Like the rest of `.apm/`, it is installed at project scope, so it
+shows up in a session opened here — the place you'd start an orchestration
+run from — and not in the worktrees the workers get dispatched into.
 
 Orca's host list and pairing state live entirely in the Orca app's own data
 (paired via its GUI/CLI, e.g. `orca environment add`), not in files this

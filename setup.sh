@@ -7,8 +7,8 @@
 #   install-nix   one-time: installs Nix itself (system/multi-user)
 #   nix-tools     installs/upgrades jq/uv/node via `nix profile`
 #   reload        symlinks, the ~/.bashrc starship prompt hook, apm/codegraph/
-#                 graphifyy/headroom-ai installs, apply apm.yml's MCP servers.
-#                 Safe to re-run any time.
+#                 graphifyy/headroom-ai installs, host-apm.yml's MCP servers
+#                 and this repo's own .apm/ primitives. Safe to re-run any time.
 #   agents-init   one-time per host: durable headroom + graphify integrations
 #   all (default) install-nix + reload + agents-init
 set -euo pipefail
@@ -71,11 +71,26 @@ hook_bashrc() {
   echo "setup.sh: hooked the starship prompt into $rc (open a new shell to pick it up)" >&2
 }
 
+# Put host-apm.yml in place as ~/.apm/apm.yml, the manifest `apm install -g`
+# reads. That manifest declares MCP servers and nothing else; the rules, skills
+# and hooks under .apm/ are installed at project scope into this repo's own
+# .claude/ so they never apply to an unrelated repo.
+#
+# Copied rather than symlinked because apm rejects an apm.yml that is a symlink
+# ("apm.yml must be a regular, non-symlink file"), which silently breaks
+# `apm install -g`.
+install_host_apm_manifest() {
+  # `rm` first: `cp` onto the symlink older hosts still have would write
+  # *through* it and clobber the repo's own file.
+  rm -f ~/.apm/apm.yml
+  cp "$DIR/host-apm.yml" ~/.apm/apm.yml
+}
+
 cmd_reload() {
   cmd_nix_tools
   mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config ~/.config/dotfiles
   ln -sfn "$DIR/claude/statusline.sh" ~/.claude/statusline.sh
-  ln -sfn "$DIR/apm.yml" ~/.apm/apm.yml
+  install_host_apm_manifest
   ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
   hook_bashrc
@@ -86,7 +101,12 @@ cmd_reload() {
   npm install -g --prefix "$HOME/.local" @colbymchenry/codegraph@latest
   uv tool upgrade graphifyy || uv tool install graphifyy
   uv tool upgrade headroom-ai || uv tool install 'headroom-ai[mcp,proxy]'
+  # Host scope: MCP servers only (host-apm.yml).
   apm install -g
+  # Project scope: deploy .apm/ and apm.yml's dependencies into $DIR/.claude/.
+  # Both of those are generated and gitignored, so this rewrites nothing that
+  # is tracked; AGENTS.md stays a deliberate `apm compile --target agents`.
+  ( cd "$DIR" && apm install )
 }
 
 cmd_agents_init() {

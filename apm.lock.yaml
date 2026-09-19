@@ -1,0 +1,107 @@
+lockfile_version: '1'
+apm_version: 0.31.0
+dependencies:
+- repo_url: humanlayer/skills
+  name: show-me
+  host: github.com
+  resolved_commit: ca7c8088db69e315a8b2deea43820270457f8f3c
+  resolved_ref: ca7c8088db69e315a8b2deea43820270457f8f3c
+  version: 1.0.1
+  virtual_path: plugins/show-me
+  is_virtual: true
+  package_type: marketplace_plugin
+  deployed_files:
+  - .claude/skills/show-me
+  - .claude/skills/show-me/SKILL.md
+  - .claude/skills/show-me/agents/openai.yaml
+  deployed_file_hashes:
+    .claude/skills/show-me/SKILL.md: sha256:434a2346cc95e313b0d367d477dda2e23ba642dd2181757415a09500664af100
+    .claude/skills/show-me/agents/openai.yaml: sha256:a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94
+  content_hash: sha256:de758a556e8d6d87730641d2c5a6a1107d65f64173e486a08575e3e8720f74a5
+  target_subset:
+  - claude
+  declared_license: MIT
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/hooks/agent-environment/.apm/hooks/scripts/guard-default-branch.sh
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:8c03825046253bc7fb72221db1d8c716ff4746dfd49beb95ec92d0f867f173b8
+- kind: project-relative
+  target: claude
+  value: .claude/rules/git-workflow.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:29f13a673b479c97b8cc1d9564ea4103ea9b24bbc709558e435a30b495821b98
+- kind: project-relative
+  target: claude
+  value: .claude/rules/language.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:8052b7ac91fedfd57c4659d24f6e78e5edbb211006a9d7f45f58bf2ac026d33a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/orca-orchestration
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/orca-orchestration/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:b117e1a3865842a0720fb5c00bbe4c87eb7fa185bf8bcb063ac0abb323d8f75f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/show-me
+  runtime: null
+  scope: project
+  owners:
+  - humanlayer/skills/plugins/show-me
+  active_owner: humanlayer/skills/plugins/show-me
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/show-me/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - humanlayer/skills/plugins/show-me
+  active_owner: humanlayer/skills/plugins/show-me
+  content_hash: sha256:434a2346cc95e313b0d367d477dda2e23ba642dd2181757415a09500664af100
+- kind: project-relative
+  target: claude
+  value: .claude/skills/show-me/agents/openai.yaml
+  runtime: null
+  scope: project
+  owners:
+  - humanlayer/skills/plugins/show-me
+  active_owner: humanlayer/skills/plugins/show-me
+  content_hash: sha256:a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94
+local_deployed_files:
+- .claude/hooks/agent-environment/.apm/hooks/scripts/guard-default-branch.sh
+- .claude/rules/git-workflow.md
+- .claude/rules/language.md
+- .claude/skills/orca-orchestration
+- .claude/skills/orca-orchestration/SKILL.md
+local_deployed_file_hashes:
+  .claude/hooks/agent-environment/.apm/hooks/scripts/guard-default-branch.sh: sha256:8c03825046253bc7fb72221db1d8c716ff4746dfd49beb95ec92d0f867f173b8
+  .claude/rules/git-workflow.md: sha256:29f13a673b479c97b8cc1d9564ea4103ea9b24bbc709558e435a30b495821b98
+  .claude/rules/language.md: sha256:8052b7ac91fedfd57c4659d24f6e78e5edbb211006a9d7f45f58bf2ac026d33a
+  .claude/skills/orca-orchestration/SKILL.md: sha256:b117e1a3865842a0720fb5c00bbe4c87eb7fa185bf8bcb063ac0abb323d8f75f
