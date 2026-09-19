@@ -12,6 +12,7 @@ specific. The rule for what may live here is simply that it has to be true of
 
 | | |
 | --- | --- |
+| `language` rule | Respond in Japanese, except where an existing file's language should win (commit messages, READMEs, code comments). |
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
 | `git-workflow` rule | Why that hook exists, so an agent reads it before being blocked rather than after. |
 | `orca-orchestration` skill | A pointer at `orca skills get orchestration`, plus the conventions of this workspace. |

@@ -8,11 +8,13 @@ dependencies:
   deployed_files:
   - .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh
   - .claude/rules/git-workflow.md
+  - .claude/rules/language.md
   - .claude/skills/orca-orchestration
   - .claude/skills/orca-orchestration/SKILL.md
   deployed_file_hashes:
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh: sha256:79b2d37ab9eda3b55053b9e03ef42bd012fdf5d77f5237e2620083bba47eb9ea
     .claude/rules/git-workflow.md: sha256:db9bd534a73a07a291f43ac4296c54142fbe4646701a27249241fa5746a37557
+    .claude/rules/language.md: sha256:8052b7ac91fedfd57c4659d24f6e78e5edbb211006a9d7f45f58bf2ac026d33a
     .claude/skills/orca-orchestration/SKILL.md: sha256:d185585e09b37b5773f06d58e21d3d10c83d0c6ead056712305e7715c0e2f89e
   source: local
   local_path: ./makura-agents
@@ -63,8 +65,9 @@ deployments:
   runtime: null
   scope: project
   owners:
+  - ./makura-agents
   - .
-  active_owner: .
+  active_owner: ./makura-agents
   content_hash: sha256:8052b7ac91fedfd57c4659d24f6e78e5edbb211006a9d7f45f58bf2ac026d33a
 - kind: project-relative
   target: claude

@@ -6,14 +6,15 @@ author: yyamakura
 # Resolution order: --target flag > this field > auto-detect from filesystem.
 targets:
 - claude
-# Everything here is installed at *project* scope: `apm install` (no -g) in
-# this checkout deploys .apm/ plus the dependency below into ./.claude/, and
-# nothing into ~/.claude/. Host-wide pieces live in host-apm.yml instead.
+# Installed at *project* scope: `apm install` (no -g) in this checkout deploys
+# the dependency below into ./.claude/, and nothing into ~/.claude/. Host-wide
+# pieces live in host-apm.yml instead.
 #
-# This repo is just the first consumer of ./makura-agents — it depends on that
-# package the same way any other repo would, so whatever breaks for them breaks
-# here too. What stays in ./.apm/ is only what is true of *this* repo and would
-# be wrong anywhere else.
+# There is no ./.apm/ here: every rule, skill and hook turned out to be true of
+# any repo, so all of it lives in ./makura-agents and this repo is just its
+# first consumer — it depends on the package the same way another repo would,
+# so whatever breaks for them breaks here too. Add ./.apm/ back only for
+# something that would be wrong outside this repo.
 dependencies:
   apm:
   - path: ./makura-agents

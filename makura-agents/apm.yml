@@ -1,12 +1,14 @@
 name: makura-agents
 version: 1.0.0
-description: Shared Claude Code agent config — branch guardrail, orchestration pointer, show-me
+description: Shared Claude Code agent config — response language, branch guardrail, orchestration pointer, show-me
 author: yyamakura
 targets:
 - claude
 # This package is meant to be depended on from other repos, so it must contain
 # nothing that is specific to dotfiles. Anything phrased as "in *this* repo"
-# belongs in ../apm.yml's own .apm/ instead, where it stays put.
+# belongs in a ../.apm/ instead, where it stays put — note that apm cannot
+# deploy part of a package, so the only way to hold something back is to keep
+# it out of this directory.
 dependencies:
   apm:
   # Visual explanation skill: diagrams, code-shape sketches, and standalone HTML
