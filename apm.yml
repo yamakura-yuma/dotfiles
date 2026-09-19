@@ -1,0 +1,27 @@
+name: agent-environment
+version: 1.0.0
+description: Declaratively-managed MCP servers for the Claude Code agent environment
+author: yyamakura
+# Which agent platforms to deploy to.
+# Resolution order: --target flag > this field > auto-detect from filesystem.
+targets:
+- claude
+dependencies:
+  apm: []
+  mcp:
+  - name: codegraph
+    registry: false
+    transport: stdio
+    command: codegraph
+    args:
+    - serve
+    - --mcp
+  - name: headroom
+    registry: false
+    transport: stdio
+    command: headroom
+    args:
+    - mcp
+    - serve
+includes: auto
+scripts: {}

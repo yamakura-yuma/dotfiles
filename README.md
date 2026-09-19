@@ -16,14 +16,21 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 - `bin/install-apm.sh` — installs/upgrades `apm` from its GitHub release
   binaries (not in nixpkgs).
 - `claude/statusline.sh` — the Claude Code statusline script.
+- `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
+  the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
+  that section there, edit this file and re-run `just reload` instead.
 - `Justfile`:
   - `just nix-tools` — installs/upgrades the `flake.nix` bundle
     (`jq`/`just`/`uv`/`node`) via `nix profile`.
-  - `just reload` — runs `nix-tools`, re-links the statusline symlink, and
-    installs/upgrades `apm`, `codegraph` (npm), `graphifyy` and
-    `headroom-ai` (uv tool) — the four tools with no nixpkgs package, each
-    via its own installer. Safe to re-run any time, including after moving
-    this repo to a new path.
+  - `just reload` — runs `nix-tools`, re-links the symlinks below, installs/
+    upgrades `apm`, `codegraph` (npm), `graphifyy` and `headroom-ai` (uv
+    tool) — the four tools with no nixpkgs package, each via its own
+    installer — then `apm install -g` to apply `apm.yml`'s MCP servers.
+    Safe to re-run any time, including after moving this repo to a new path.
+  - `just agents-init` — one-time per host: installs headroom's persistent
+    proxy service and durable Claude Code routing hook, and graphify's
+    durable Claude Code integration (see "Automatic agent tooling" below).
+    Not part of `reload` since it starts long-lived background processes.
 
 ## Bootstrap on a new host
 
@@ -38,14 +45,59 @@ cd ~/dotfiles
 # nix-packaged tools: jq, just, uv, node (gets you `just`, among others)
 nix profile install path:.#agent-tools
 
-# everything else: symlinks, apm/codegraph/graphifyy/headroom-ai installs
+# everything else: symlinks, apm/codegraph/graphifyy/headroom-ai installs,
+# apply apm.yml's MCP servers
 just reload
+
+# one-time: durable headroom + graphify integrations (see below)
+just agents-init
 ```
 
-Then register the statusline and MCP servers in `~/.claude/settings.json` /
-`~/.claude.json` (see the `statusLine` field and the `codegraph` / `headroom`
-entries in `mcpServers` — not tracked here since they live in Claude Code's
-own config files alongside unrelated settings).
+The statusline is symlinked automatically by `reload`. MCP servers
+(`codegraph`, `headroom`) are applied by `reload` via `apm install -g` from
+`apm.yml` — no manual `~/.claude.json` editing needed anymore.
+
+## Automatic agent tooling
+
+The goal is that `codegraph`, `graphify`, and `headroom` all work without
+being consciously invoked:
+
+- **codegraph** fires on every prompt via a `UserPromptSubmit` hook
+  (`codegraph prompt-hook`) that Claude Code registers once the MCP server
+  from `apm.yml` is installed — nothing else to set up.
+- **headroom** needs `just agents-init` once per host: `headroom install
+  apply --target claude` installs the optimization proxy as a persistent
+  background service (systemd/launchd), and `headroom init --global claude`
+  installs a durable hook so a plain `claude` invocation always routes
+  through it — no `headroom wrap claude` needed, and it also covers
+  non-interactive launches (e.g. Orca starting `claude` directly in a
+  worktree terminal, which wouldn't see a `.bashrc` shell-function wrapper).
+  Verify with `headroom doctor`.
+- **graphify** also needs `just agents-init` once per host: `graphify install
+  --platform claude` installs the `/graphify` skill globally
+  (`~/.claude/skills/graphify/SKILL.md`) and a short pointer in
+  `~/.claude/CLAUDE.md`. `graphify claude install` then adds the automatic
+  part — a detailed CLAUDE.md section plus a `.claude/settings.json`
+  `PreToolUse` hook, so Claude consults the graph without anyone typing
+  `/graphify`. That second command writes relative to whatever directory
+  it's run in, so the recipe runs it from `$HOME` (`~/CLAUDE.md` +
+  `~/.claude/settings.json`) to make it apply globally rather than scoping
+  it to whatever project happens to be the current directory.
+
+## Multi-host orchestration (Orca)
+
+This workspace uses Orca to orchestrate Claude Code across machines: the
+primary Orca app (the Windows workstation) is the Orchestrator, and it
+dispatches work to SSH targets — this WSL host, `ubuntu`, and `ZCU104` — via
+`orca worktree create --host ...` / `orca terminal create`. Orca injects its
+own hooks into `~/.claude/settings.json` on each target host so sessions
+there are observable from the primary.
+
+Orca's host list and pairing state live entirely in the Orca app's own data
+(paired via its GUI/CLI, e.g. `orca environment add`), not in files this
+repo can track — there's nothing to symlink or declare here for it. Use
+`orca host list` on the primary to see current targets and connection
+status.
 
 ## Note on shell activation
 
