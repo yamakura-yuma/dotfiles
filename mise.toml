@@ -6,6 +6,7 @@
 [tools]
 apm = "latest"
 jq = "latest"
+just = "latest"
 uv = "latest"
 node = "24"
 "npm:@colbymchenry/codegraph" = "latest"

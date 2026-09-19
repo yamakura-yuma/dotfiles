@@ -7,27 +7,28 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 ## Contents
 
 - `mise.toml` — tool versions for the Claude Code harness tooling: `apm`
-  (skill package manager), `jq` (statusline), `uv` + `node` (runtimes backing
-  the other tools), and the code-intelligence/context tools `codegraph`,
-  `graphify`, `headroom`.
+  (skill package manager), `jq` (statusline), `just` (task runner for this
+  repo), `uv` + `node` (runtimes backing the other tools), and the
+  code-intelligence/context tools `codegraph`, `graphify`, `headroom`.
 - `claude/statusline.sh` — the Claude Code statusline script.
+- `Justfile` — `just reload` re-links the symlinks below (relative to
+  wherever this repo currently lives) and runs `mise install`. Safe to
+  re-run any time, including after moving this repo to a new path.
 
 ## Bootstrap on a new host
 
 ```bash
-git clone <this-repo> ~/dotfiles
+git clone <this-repo> ~/dotfiles   # any path works; just reload is location-independent
 
 # mise itself
 curl -fsSL https://mise.run | sh
 echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
 
-# wire up the symlinks
-mkdir -p ~/.config/mise ~/.claude
-ln -s ~/dotfiles/mise.toml ~/.config/mise/config.toml
-ln -s ~/dotfiles/claude/statusline.sh ~/.claude/statusline.sh
-
-# install the declared tools
+# install the declared tools (gets you `just`, among others)
 ~/.local/bin/mise install
+
+# wire up the symlinks (mkdir + ln -sfn + mise install)
+just reload
 ```
 
 Then register the statusline and MCP servers in `~/.claude/settings.json` /
