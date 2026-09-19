@@ -21,6 +21,22 @@ Decide first **which** `.apm/` the skill belongs to:
 apm cannot deploy part of a package, so keeping something out of the shared
 package is the only way to hold it back.
 
+Everything goes through apm — skills, instructions, hooks, agents and prompts
+alike. Do not package agent config as a Claude Code plugin or marketplace entry
+instead. Two distribution mechanisms writing the same `.claude/` tree means
+neither one's record of what it owns stays true, and apm's record is what
+`apm.lock.yaml` and the idempotent merge into `.claude/settings.json` rely on.
+
+What apm deploys where, for all five primitives:
+
+| Source under `.apm/` | Lands at |
+| --- | --- |
+| `instructions/<name>.instructions.md` | `.claude/rules/<name>.md`, and compiles into `AGENTS.md` |
+| `skills/<name>/` | `.claude/skills/<name>/` |
+| `agents/<name>.agent.md` | `.claude/agents/<name>.md` |
+| `prompts/<name>.prompt.md` | `.claude/commands/<name>.md`, i.e. `/<name>` |
+| `hooks/*.json` | merged into `.claude/settings.json`, with ownership recorded in `.claude/apm-hooks.json` |
+
 ## Add a new skill
 
 1. Pick a lowercase-hyphenated name and create
