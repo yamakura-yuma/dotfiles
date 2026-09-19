@@ -8,8 +8,9 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 
 - `flake.nix` — the nixpkgs-available subset of the tooling (`jq` for the
   statusline, `uv` + `node` as runtimes backing the other tools, `starship`
-  for the shell prompt), bundled into one `agent-tools` package. Update
-  versions with `nix flake update` (bumps the pinned nixpkgs revision, then
+  for the shell prompt), bundled into one `agent-tools` package. `flake.lock`
+  is committed, so every host resolves the same nixpkgs revision. Update
+  versions with `nix flake update` (bumps that pinned revision, then
   `./setup.sh reload` picks up the new build) rather than an implicit
   "latest".
 - `bin/install-nix.sh` — one-time, per-host: installs Nix itself (system/
@@ -23,6 +24,10 @@ live in each project's own `flake.nix` / `.devcontainer/`.
   modified/staged/untracked files are visible at a glance. The branch name
   itself and in-progress rebase/merge state come from starship's defaults.
   Symlinked to `~/.config/starship.toml` by `./setup.sh reload`.
+- `shell/prompt.sh` — the interactive-shell side of the prompt: puts
+  `~/.nix-profile/bin` on `PATH` and runs `starship init bash`. Sourced from
+  `~/.bashrc` (see "Bootstrap on a new host"), and a no-op when `starship`
+  isn't installed yet, so a half-set-up host still gets a working shell.
 - `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
   the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
   that section there, edit this file and re-run `./setup.sh reload` instead.
@@ -66,12 +71,21 @@ MCP servers (`codegraph`, `headroom`) are applied by `reload` via `apm
 install -g` from `apm.yml` — no manual `~/.claude.json` editing needed
 anymore.
 
-`starship` itself still needs to be hooked into your shell — this repo
-doesn't track shell rc files, so add to `~/.bashrc` manually:
+The starship prompt is hooked into your shell by `reload` too. This repo
+doesn't track `~/.bashrc` (it's yours, and full of host-specific lines), so
+`reload` appends one marked block to it instead:
 
 ```bash
-eval "$(starship init bash)"
+# >>> dotfiles >>>
+[ -r "$HOME/.config/dotfiles/prompt.sh" ] && . "$HOME/.config/dotfiles/prompt.sh"
+# <<< dotfiles <<<
 ```
+
+That path is a symlink to `shell/prompt.sh` that `reload` re-points, so the
+block is written exactly once and survives moving this repo. Re-running
+`reload` won't duplicate it, and deleting the block uninstalls the prompt.
+Open a new shell to pick it up. Only `bash` is wired up — change
+`hook_bashrc` in `setup.sh` if this host ever switches to zsh.
 
 ## Automatic agent tooling
 
@@ -122,7 +136,11 @@ equivalent profile.d hook) to `PATH` for every shell, interactive or not —
 `nix profile install` binaries are plain symlinks there, not shims requiring
 an `activate` step. This is unlike the tool this repo previously used
 (mise), whose `mise activate` only took effect in shells that source
-`~/.bashrc`, silently missing non-interactive automation paths. `codegraph`
+`~/.bashrc`, silently missing non-interactive automation paths. The prompt
+is the one deliberate exception: `shell/prompt.sh` is sourced from
+`~/.bashrc` and returns early for non-interactive shells, because a prompt
+is meaningless there and its escape sequences would corrupt captured output.
+`codegraph`
 and `headroom` are registered in `~/.claude.json` as bare commands, which
 also fall back to any same-named binary already on `PATH` — keep that in
 mind before removing a tool's original install.

@@ -6,8 +6,9 @@
 # Usage: ./setup.sh [install-nix|nix-tools|reload|agents-init|all]
 #   install-nix   one-time: installs Nix itself (system/multi-user)
 #   nix-tools     installs/upgrades jq/uv/node via `nix profile`
-#   reload        symlinks, apm/codegraph/graphifyy/headroom-ai installs,
-#                 apply apm.yml's MCP servers. Safe to re-run any time.
+#   reload        symlinks, the ~/.bashrc starship prompt hook, apm/codegraph/
+#                 graphifyy/headroom-ai installs, apply apm.yml's MCP servers.
+#                 Safe to re-run any time.
 #   agents-init   one-time per host: durable headroom + graphify integrations
 #   all (default) install-nix + reload + agents-init
 set -euo pipefail
@@ -30,15 +31,54 @@ cmd_install_nix() {
 
 cmd_nix_tools() {
   ensure_nix_on_path
-  nix profile upgrade agent-tools 2>/dev/null || nix profile install "path:$DIR#agent-tools"
+  if ! command -v nix >/dev/null 2>&1; then
+    echo "setup.sh: nix not on PATH; run './setup.sh install-nix' first" >&2
+    return 1
+  fi
+  # `nix profile upgrade` warns and exits 0 when nothing matches, so an
+  # `upgrade || install` chain silently installs nothing on a fresh profile.
+  # Check first instead, and let real errors surface rather than hiding them.
+  if nix profile list | grep -qE '^Name:[[:space:]]+agent-tools$'; then
+    nix profile upgrade agent-tools
+  else
+    nix profile install "path:$DIR#agent-tools"
+  fi
+  command -v starship >/dev/null 2>&1 ||
+    echo "setup.sh: warning: starship still not on PATH after nix profile install" >&2
+}
+
+RC_MARK_BEGIN="# >>> dotfiles >>>"
+RC_MARK_END="# <<< dotfiles <<<"
+
+# Append a marked block to ~/.bashrc sourcing shell/prompt.sh. The block
+# points at a fixed path under ~/.config that cmd_reload symlinks, so moving
+# this repo only re-points the symlink and never rewrites ~/.bashrc. Deleting
+# the block between the markers uninstalls it cleanly.
+hook_bashrc() {
+  local rc="$HOME/.bashrc"
+  [ -e "$rc" ] || return 0
+  # Plain `grep -q ... && return 0` as the last statement would return 1 on no
+  # match and kill the script under `set -e`.
+  if grep -qF "$RC_MARK_BEGIN" "$rc"; then
+    return 0
+  fi
+  # Single quotes keep $HOME literal in ~/.bashrc instead of baking in a path.
+  {
+    printf '\n%s\n' "$RC_MARK_BEGIN"
+    printf '%s\n' '[ -r "$HOME/.config/dotfiles/prompt.sh" ] && . "$HOME/.config/dotfiles/prompt.sh"'
+    printf '%s\n' "$RC_MARK_END"
+  } >>"$rc"
+  echo "setup.sh: hooked the starship prompt into $rc (open a new shell to pick it up)" >&2
 }
 
 cmd_reload() {
   cmd_nix_tools
-  mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config
+  mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config ~/.config/dotfiles
   ln -sfn "$DIR/claude/statusline.sh" ~/.claude/statusline.sh
   ln -sfn "$DIR/apm.yml" ~/.apm/apm.yml
   ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
+  ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
+  hook_bashrc
   "$DIR/bin/install-apm.sh"
   npm install -g @colbymchenry/codegraph@latest
   uv tool upgrade graphifyy || uv tool install graphifyy
