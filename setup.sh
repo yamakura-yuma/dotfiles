@@ -25,7 +25,7 @@ ensure_nix_on_path() {
 }
 
 cmd_install_nix() {
-  "$DIR/install-nix.sh"
+  "$DIR/bin/install-nix.sh"
 }
 
 cmd_nix_tools() {

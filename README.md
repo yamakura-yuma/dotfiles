@@ -12,7 +12,7 @@ live in each project's own `flake.nix` / `.devcontainer/`.
   versions with `nix flake update` (bumps the pinned nixpkgs revision, then
   `./setup.sh reload` picks up the new build) rather than an implicit
   "latest".
-- `install-nix.sh` — one-time, per-host: installs Nix itself (system/
+- `bin/install-nix.sh` — one-time, per-host: installs Nix itself (system/
   multi-user).
 - `bin/install-apm.sh` — installs/upgrades `apm` from its GitHub release
   binaries (not in nixpkgs).
@@ -53,7 +53,7 @@ cd ~/dotfiles
 ./setup.sh   # needs sudo for the one-time, multi-user Nix install
 ```
 
-That runs `install-nix.sh`, `nix-tools`, `reload`, and `agents-init` in
+That runs `bin/install-nix.sh`, `nix-tools`, `reload`, and `agents-init` in
 order (see "Contents" above for what each does); run them individually only
 if you need to debug one, e.g. `./setup.sh reload`.
 
