@@ -35,8 +35,9 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 - `apm.yml` — the *project* manifest, applied to this repo only. Its one
   dependency is `./makura-agents`.
 - `makura-agents/` — a standalone APM package holding the whole agent config:
-  the response-language, git-workflow, testing and workspace-scope rules, two
-  git guardrail hooks, the `verifier` subagent, the `/verify` and `/worktree`
+  the response-language, git-workflow, testing, workspace-scope and
+  code-navigation rules, two git guardrail hooks, the `verifier` subagent,
+  the `/verify` and `/worktree`
   commands, the `orca-orchestration` / `session-retro` / `skill-authoring`
   skills, and `show-me` vendored from `humanlayer/skills`. It has its own
   README explaining how another repo installs it, and its own tests under
@@ -180,7 +181,11 @@ needs its own `apm install` to carry the hook.
 ## Automatic agent tooling
 
 The goal is that `codegraph`, `graphify`, and `headroom` all work without
-being consciously invoked:
+being consciously invoked. Installing them is only half of that — an agent
+that has them and still reaches for `grep` gains nothing — so
+`makura-agents`' `code-navigation` rule states the order: `graphify` to decide
+where to look, `codegraph` for the source itself, `Read`/`Grep` when there is
+no index or those miss.
 
 - **codegraph** fires on every prompt via a `UserPromptSubmit` hook
   (`codegraph prompt-hook`) that Claude Code registers once the MCP server

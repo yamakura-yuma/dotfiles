@@ -11,6 +11,7 @@ dependencies:
   - .claude/commands/worktree.md
   - .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh
   - .claude/hooks/makura-agents/.apm/hooks/scripts/guard-destructive-git.sh
+  - .claude/rules/code-navigation.md
   - .claude/rules/git-workflow.md
   - .claude/rules/language.md
   - .claude/rules/testing.md
@@ -27,6 +28,7 @@ dependencies:
     .claude/commands/worktree.md: sha256:f3aba1e92b58e31a80de68853b6c0cf5bb6606fcf1a3bd92e609c8704e3ffe95
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
+    .claude/rules/code-navigation.md: sha256:a44085d6330669f3581fad7b58dbee980dccf1c04e749b1c38c4a4baff2f1d27
     .claude/rules/git-workflow.md: sha256:71881ee97e5687f5af43f87ba7c78c257e30e98c3e874f09f6193c7a4b0606e5
     .claude/rules/language.md: sha256:98ca7d138b43317d4687c4642baff89652406dad71a5a7705584387b2ffb5fdf
     .claude/rules/testing.md: sha256:6b0f0783fcb10404649bb9c886b70fefc127164786b81c201f9642c28ff068cc
@@ -104,6 +106,15 @@ deployments:
   - ./makura-agents
   active_owner: ./makura-agents
   content_hash: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
+- kind: project-relative
+  target: claude
+  value: .claude/rules/code-navigation.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:a44085d6330669f3581fad7b58dbee980dccf1c04e749b1c38c4a4baff2f1d27
 - kind: project-relative
   target: claude
   value: .claude/rules/git-workflow.md

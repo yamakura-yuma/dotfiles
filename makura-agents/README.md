@@ -18,6 +18,7 @@ specific. The rule for what may live here is simply that it has to be true of
 | `git-workflow` rule | Why those hooks exist, so an agent reads it before being blocked rather than after. |
 | `testing` rule | Changes come with tests; don't report something as working that no test exercised; `.agent/verify.sh` is how a repo is verified. |
 | `workspace-scope` rule | Keep edits inside the repo, and never hand-edit `~/.claude/settings.json` — five tools write to it. |
+| `code-navigation` rule | Reach for `graphify` (where to look) and `codegraph` (verbatim source plus call paths) first; `Read`/`Grep` are the fallback when there is no index or those miss. Also why large dumps are a bad bet under the headroom proxy. |
 | `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
 | `/verify` command | Runs the repo's verification through that subagent. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
