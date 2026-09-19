@@ -7,17 +7,15 @@ author: yyamakura
 targets:
 - claude
 # Everything here is installed at *project* scope: `apm install` (no -g) in
-# this checkout deploys .apm/ plus the dependencies below into ./.claude/, and
+# this checkout deploys .apm/ plus the dependency below into ./.claude/, and
 # nothing into ~/.claude/. Host-wide pieces live in host-apm.yml instead.
+#
+# This repo is just the first consumer of ./makura-agents — it depends on that
+# package the same way any other repo would, so whatever breaks for them breaks
+# here too. What stays in ./.apm/ is only what is true of *this* repo and would
+# be wrong anywhere else.
 dependencies:
   apm:
-  # Visual explanation skill: diagrams, code-shape sketches, and standalone HTML
-  # artifacts. Upstream publishes no tags, so pin the commit rather than track
-  # a branch that could change under us.
-  - git: https://github.com/humanlayer/skills.git
-    path: plugins/show-me
-    ref: ca7c8088db69e315a8b2deea43820270457f8f3c
-    alias: show-me
-    targets:
-    - claude
+  - path: ./makura-agents
+    alias: makura-agents
 scripts: {}

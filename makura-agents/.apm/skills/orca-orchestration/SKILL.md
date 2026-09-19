@@ -23,8 +23,8 @@ orca skills get orchestration
   エージェントの起動をまとめて面倒を見る。
 - **プライマリはオーケストレーションに徹する。** 実作業は worktree 側のワーカーが行い、
   プライマリは `orca orchestration check --wait` で結果を待つ。
-- **このリポジトリのデフォルトブランチでは commit / push できない。**
-  guard-default-branch hook が exit 2 で拒否する。hook はプロジェクトスコープなので
-  dotfiles を開いたセッションにしか効かず、他リポジトリのワーカーは対象外。
+- **デフォルトブランチでは commit / push できない。** guard-default-branch hook が
+  exit 2 で拒否する。hook はプロジェクトスコープなので、makura-agents を導入した
+  リポジトリでだけ効く。ワーカーは自分の worktree のブランチ上にいるので素通りする。
 - **`wsl` 以外のホストにも撒ける。** `orca host list` で接続状態を確認し、
   `worker-start --on <environment>` で配置先を選ぶ。

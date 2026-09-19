@@ -1,0 +1,21 @@
+name: makura-agents
+version: 1.0.0
+description: Shared Claude Code agent config — branch guardrail, orchestration pointer, show-me
+author: yyamakura
+targets:
+- claude
+# This package is meant to be depended on from other repos, so it must contain
+# nothing that is specific to dotfiles. Anything phrased as "in *this* repo"
+# belongs in ../apm.yml's own .apm/ instead, where it stays put.
+dependencies:
+  apm:
+  # Visual explanation skill: diagrams, code-shape sketches, and standalone HTML
+  # artifacts. Upstream publishes no tags, so pin the commit rather than track
+  # a branch that could change under us.
+  - git: https://github.com/humanlayer/skills.git
+    path: plugins/show-me
+    ref: ca7c8088db69e315a8b2deea43820270457f8f3c
+    alias: show-me
+    targets:
+    - claude
+scripts: {}

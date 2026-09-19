@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) guardrail: refuse `git commit` / `git push` while HEAD sits on
 # the repository's default branch. Registered by ../guard-default-branch.json,
-# which `apm install -g` merges into ~/.claude/settings.json.
+# which `apm install` merges into the consuming repo's .claude/settings.json.
 #
 # Contract: exit 2 blocks the tool call and hands stderr back to the agent as
 # the reason. Exit 0 means "no opinion", NOT "approved" -- so every condition we
@@ -26,9 +26,9 @@ command -v git >/dev/null 2>&1 || exit 0
 # The escape hatch is an environment variable rather than a marker file so that
 # an agent cannot grant it to itself: this hook inherits Claude Code's
 # environment, not the one a Bash tool call builds, so writing
-# `DOTFILES_ALLOW_MAIN=1 git push` in a command has no effect here. A human
+# `MAKURA_ALLOW_MAIN=1 git push` in a command has no effect here. A human
 # exports it before starting Claude Code.
-if [ "${DOTFILES_ALLOW_MAIN:-}" = "1" ]; then
+if [ "${MAKURA_ALLOW_MAIN:-}" = "1" ]; then
   exit 0
 fi
 
@@ -78,7 +78,7 @@ Give the work a branch of its own first:
   orca worktree create --agent claude --prompt "<what to do>"
   git worktree add -b <branch> ../<dir>     # when not going through Orca
 
-The human at the terminal can export DOTFILES_ALLOW_MAIN=1 before starting
+The human at the terminal can export MAKURA_ALLOW_MAIN=1 before starting
 Claude Code to lift this. You cannot set it yourself -- prefixing the command
 with it does not reach this hook.
 
