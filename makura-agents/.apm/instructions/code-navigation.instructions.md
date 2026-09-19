@@ -24,6 +24,10 @@ grep を総当たりで撒く代わりになる。`graphify-out/wiki/index.md` �
 先に読む。`GRAPH_REPORT.md` は広く見渡したいときだけ。
 
 コードを変更したら `graphify update .` でグラフを更新する（AST のみ・API コスト無し）。
+**`graphify-out/` は必ず `.gitignore` に入れる。** ソースから再生成できるマシンローカルな
+派生物で、`cache/ast/` 以下にハッシュ名の JSON が大量にできるため、コミットすると差分が
+ノイズだらけになる。`graphify update .` を初めて走らせたリポジトリでは、その場で
+`.gitignore` を確認すること。
 
 ## codegraph — 中身を読む
 

@@ -7,11 +7,13 @@ dependencies:
   package_type: apm_package
   deployed_files:
   - .claude/agents/verifier.md
+  - .claude/commands/retro.md
   - .claude/commands/verify.md
   - .claude/commands/worktree.md
   - .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh
   - .claude/hooks/makura-agents/.apm/hooks/scripts/guard-destructive-git.sh
   - .claude/rules/code-navigation.md
+  - .claude/rules/communication.md
   - .claude/rules/git-workflow.md
   - .claude/rules/language.md
   - .claude/rules/testing.md
@@ -24,17 +26,19 @@ dependencies:
   - .claude/skills/skill-authoring/SKILL.md
   deployed_file_hashes:
     .claude/agents/verifier.md: sha256:6cc24ddd52cc38d95dda7d42e31d64331c9a2d5983c006ae6495846ea27d3e46
+    .claude/commands/retro.md: sha256:faf8de959f2389aa65d130423bf3009f38f24f279988f1c50785a546acfa34e1
     .claude/commands/verify.md: sha256:6dc91fe6c6fa244fa8a2d05afff9960cc89a6d063df64b665051d7cf3e105ef5
     .claude/commands/worktree.md: sha256:f3aba1e92b58e31a80de68853b6c0cf5bb6606fcf1a3bd92e609c8704e3ffe95
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
-    .claude/rules/code-navigation.md: sha256:a44085d6330669f3581fad7b58dbee980dccf1c04e749b1c38c4a4baff2f1d27
+    .claude/rules/code-navigation.md: sha256:4b6be388dc5608631288ccc98777889858cf2533a32316ef551a4033b82697db
+    .claude/rules/communication.md: sha256:92654a1733f09a7777a6fbb2ff7a1e5bbc5abdc4e5be47ac1003ad4231acce32
     .claude/rules/git-workflow.md: sha256:71881ee97e5687f5af43f87ba7c78c257e30e98c3e874f09f6193c7a4b0606e5
     .claude/rules/language.md: sha256:98ca7d138b43317d4687c4642baff89652406dad71a5a7705584387b2ffb5fdf
     .claude/rules/testing.md: sha256:6b0f0783fcb10404649bb9c886b70fefc127164786b81c201f9642c28ff068cc
     .claude/rules/workspace-scope.md: sha256:0fe312b0bd93be185d6b399164af2f5539449cc12af2c8f27fca11b5151e9ace
     .claude/skills/orca-orchestration/SKILL.md: sha256:7736eba4668c4af9212656b6a03e0513b365a4c3572cf2ec2585f930a8a28104
-    .claude/skills/session-retro/SKILL.md: sha256:984fb305d0b49914c533c9f9e058a1f7405736685e695c7d78c5f152a155cf9e
+    .claude/skills/session-retro/SKILL.md: sha256:5201001036a9952f08d479d69e390f85903ccda8da22186605709eda974eaab6
     .claude/skills/skill-authoring/SKILL.md: sha256:b9cacf60d3fabde79f67648024f5a299a85f9e3df44afa3c4fe9553bc41ca899
   source: local
   local_path: ./makura-agents
@@ -70,6 +74,15 @@ deployments:
   - ./makura-agents
   active_owner: ./makura-agents
   content_hash: sha256:6cc24ddd52cc38d95dda7d42e31d64331c9a2d5983c006ae6495846ea27d3e46
+- kind: project-relative
+  target: claude
+  value: .claude/commands/retro.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:faf8de959f2389aa65d130423bf3009f38f24f279988f1c50785a546acfa34e1
 - kind: project-relative
   target: claude
   value: .claude/commands/verify.md
@@ -114,7 +127,16 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:a44085d6330669f3581fad7b58dbee980dccf1c04e749b1c38c4a4baff2f1d27
+  content_hash: sha256:4b6be388dc5608631288ccc98777889858cf2533a32316ef551a4033b82697db
+- kind: project-relative
+  target: claude
+  value: .claude/rules/communication.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:92654a1733f09a7777a6fbb2ff7a1e5bbc5abdc4e5be47ac1003ad4231acce32
 - kind: project-relative
   target: claude
   value: .claude/rules/git-workflow.md
@@ -186,7 +208,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:984fb305d0b49914c533c9f9e058a1f7405736685e695c7d78c5f152a155cf9e
+  content_hash: sha256:5201001036a9952f08d479d69e390f85903ccda8da22186605709eda974eaab6
 - kind: project-relative
   target: claude
   value: .claude/skills/show-me

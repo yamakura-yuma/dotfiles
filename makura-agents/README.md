@@ -19,17 +19,58 @@ specific. The rule for what may live here is simply that it has to be true of
 | `testing` rule | Changes come with tests; don't report something as working that no test exercised; `.agent/verify.sh` is how a repo is verified. |
 | `workspace-scope` rule | Keep edits inside the repo, and never hand-edit `~/.claude/settings.json` — five tools write to it. |
 | `code-navigation` rule | Reach for `graphify` (where to look) and `codegraph` (verbatim source plus call paths) first; `Read`/`Grep` are the fallback when there is no index or those miss. Also why large dumps are a bad bet under the headroom proxy. |
+| `communication` rule | Show a design as a rendered diagram, not as a few hundred lines of prose; cut to what the reader needs in order to decide. |
 | `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
 | `/verify` command | Runs the repo's verification through that subagent. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
+| `/retro` command | Runs `session-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
 | `orca-orchestration` skill | A pointer at `orca skills get orchestration`, plus the conventions of this workspace. |
-| `session-retro` skill | At the end of a session or after a correction, decide whether a durable lesson was learned and which `.apm/` it belongs in. |
+| `session-retro` skill | At the end of a session or after a correction, decide whether a durable lesson was learned and which `.apm/` it belongs in — then delete the memory it was promoted from. |
 | `skill-authoring` skill | How to add or improve a skill through apm, and whether a given piece of knowledge is a skill, an instruction, or a CLAUDE.md line. |
 | `show-me` skill | Vendored from `humanlayer/skills` at a pinned commit: diagrams and standalone HTML explanations. |
 
 Only the *name* `.agent/verify.sh` is shared. What it runs is always local — build
 and test look different in every language — so the package defines the calling
 convention and each repo supplies the contents.
+
+## Growing it
+
+Claude Code already accumulates lessons on its own, under
+`~/.claude/projects/<slugified-absolute-path>/memory/`. Capture is not the
+problem; *keeping* is. That store is keyed by absolute path, so a lesson in it
+does not survive the repo being moved, does not reach a worktree, never leaves
+the host, and is never reviewed by anyone. Repos that moved out of `~` into a
+workspace directory left their memories stranded at keys nothing reads anymore.
+
+Everything under `.apm/` has none of those problems, because it moves with the
+repo, is copied into every worktree, is pushed to every host, and shows up in a
+diff. So the division is: **capture is automatic, promotion is deliberate.**
+`session-retro` decides whether a lesson is real and which `.apm/` it belongs
+in, `/retro` is what invokes it, and the memory it came from gets deleted so
+that only one copy can go stale.
+
+No hook drives this. A reminder that fires on every tool call gets tuned out —
+that has been observed directly here — while the thing that actually changes
+behavior next session is the rule being in git.
+
+## Tests
+
+```bash
+./makura-agents/tests/guards.sh         # guard hooks, by feeding them payloads
+./makura-agents/tests/harness-check.sh  # invariants of the package itself
+```
+
+Both live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
+gets the hooks and rules without the tests, while the tests stay next to what
+they cover. dotfiles' own `.agent/verify.sh` runs both.
+
+`harness-check.sh` is about drift rather than behavior — AGENTS.md matching what
+the instructions compile to, quoted paths existing, flags quoted for
+`orca`/`graphify`/`codegraph`/`apm` still existing according to the tool itself,
+sources and deployed output staying one-to-one, and no repo keeping a private
+fork of a skill it also receives. The flag check exists because three places
+once documented `orca worktree create` without its required `--name`, and
+nothing noticed until an agent ran it.
 
 ## Installing it in another repo
 
@@ -87,10 +128,6 @@ refuses on its own when the remote has moved. Note that `--force` and
 `--force-with-lease` share a prefix, so the match requires a separator after
 `--force`; `makura-agents/tests/guards.sh` pins that case specifically,
 because it is the one a sloppier regex would break every day.
-
-Run those tests with `./makura-agents/tests/guards.sh`. They live outside
-`.apm/` because apm deploys only `.apm/`, so a consuming repo gets the hooks
-without the tests while the tests stay next to what they cover.
 
 Two details worth knowing before editing it:
 
