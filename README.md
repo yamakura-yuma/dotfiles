@@ -11,6 +11,10 @@ live in each project's own `flake.nix` / `.devcontainer/`.
   the other tools), and the code-intelligence/context tools `codegraph`,
   `graphify`, `headroom`.
 - `claude/statusline.sh` — the Claude Code statusline script.
+- `flake.nix` — provides the `starship` package via Nix (installed with
+  `nix profile install`, separate from the mise-managed tools above).
+- `starship.toml` — starship prompt config; enables the `kubernetes` module
+  so the prompt shows the current cluster context.
 
 ## Bootstrap on a new host
 
@@ -28,6 +32,16 @@ ln -s ~/dotfiles/claude/statusline.sh ~/.claude/statusline.sh
 
 # install the declared tools
 ~/.local/bin/mise install
+
+# nix itself (if not already installed), with flakes enabled
+sh <(curl -L https://nixos.org/nix/install) --no-daemon
+mkdir -p ~/.config/nix
+echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+
+# starship, via the flake, plus its config symlink
+nix profile install ~/dotfiles#starship
+ln -s ~/dotfiles/starship.toml ~/.config/starship.toml
+echo 'eval "$(starship init bash)"' >> ~/.bashrc
 ```
 
 Then register the statusline and MCP servers in `~/.claude/settings.json` /
