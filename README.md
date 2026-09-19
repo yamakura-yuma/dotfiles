@@ -19,6 +19,9 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 - `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
   the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
   that section there, edit this file and re-run `just reload` instead.
+- `setup.sh` — one-shot bootstrap for a fresh host: chains
+  `install-nix.sh` → `nix profile install` → `just reload` → `just
+  agents-init`. Safe to re-run.
 - `Justfile`:
   - `just nix-tools` — installs/upgrades the `flake.nix` bundle
     (`jq`/`just`/`uv`/`node`) via `nix profile`.
@@ -37,7 +40,13 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 ```bash
 git clone <this-repo> ~/dotfiles   # any path works; just reload is location-independent
 cd ~/dotfiles
+./setup.sh   # needs sudo for the one-time, multi-user Nix install
+```
 
+`setup.sh` chains everything below in order; run the steps individually only
+if you need to debug one:
+
+```bash
 # Nix itself (one-time per host; needs sudo for the multi-user install)
 ./install-nix.sh
 # open a new shell (or source the nix-daemon profile script) so `nix` is on PATH
