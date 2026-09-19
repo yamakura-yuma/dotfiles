@@ -1,5 +1,5 @@
 {
-  description = "Nix-packaged subset of the Claude Code agent-environment tools (jq, just, uv, node)";
+  description = "Nix-packaged subset of the Claude Code agent-environment tools (jq, uv, node)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -14,7 +14,7 @@
         in {
           agent-tools = pkgs.symlinkJoin {
             name = "agent-tools";
-            paths = with pkgs; [ jq just uv nodejs_24 ];
+            paths = with pkgs; [ jq uv nodejs_24 ];
           };
           default = self.packages.${system}.agent-tools;
         });
