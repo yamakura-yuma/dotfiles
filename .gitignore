@@ -1,1 +1,4 @@
 .DS_Store
+
+# Graphify local knowledge graph (machine-local, rebuilds via `graphify update .`)
+graphify-out/
