@@ -17,8 +17,12 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 - `bin/install-apm.sh` — installs/upgrades `apm` from its GitHub release
   binaries (not in nixpkgs).
 - `claude/statusline.sh` — the Claude Code statusline script.
-- `starship.toml` — the shell prompt config (only the `kubernetes` module is
-  enabled). Symlinked to `~/.config/starship.toml` by `./setup.sh reload`.
+- `starship.toml` — the shell prompt config. Enables the `kubernetes` module
+  (off by default) and makes `git_status` report counts rather than bare
+  symbols, so ahead/behind vs the remote and the number of
+  modified/staged/untracked files are visible at a glance. The branch name
+  itself and in-progress rebase/merge state come from starship's defaults.
+  Symlinked to `~/.config/starship.toml` by `./setup.sh reload`.
 - `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
   the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
   that section there, edit this file and re-run `./setup.sh reload` instead.
