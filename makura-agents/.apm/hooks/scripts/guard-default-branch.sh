@@ -75,7 +75,7 @@ Blocked: '$branch' is the default branch of $cwd, and this repo does not take
 commits or pushes directly on it.
 
 Give the work a branch of its own first:
-  orca worktree create --agent claude --prompt "<what to do>"
+  orca worktree create --name <name> --agent claude --prompt "<what to do>"
   git worktree add -b <branch> ../<dir>     # when not going through Orca
 
 The human at the terminal can export MAKURA_ALLOW_MAIN=1 before starting

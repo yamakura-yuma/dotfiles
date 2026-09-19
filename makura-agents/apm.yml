@@ -1,6 +1,6 @@
 name: makura-agents
 version: 1.0.0
-description: Shared Claude Code agent config — response language, branch guardrail, orchestration pointer, show-me
+description: Shared Claude Code agent config — response language, git guardrails, testing discipline, verifier subagent, orchestration
 author: yyamakura
 targets:
 - claude

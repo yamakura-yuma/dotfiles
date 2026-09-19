@@ -14,9 +14,21 @@ specific. The rule for what may live here is simply that it has to be true of
 | --- | --- |
 | `language` rule | Respond in Japanese, except where an existing file's language should win (commit messages, READMEs, code comments). |
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
-| `git-workflow` rule | Why that hook exists, so an agent reads it before being blocked rather than after. |
+| `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
+| `git-workflow` rule | Why those hooks exist, so an agent reads it before being blocked rather than after. |
+| `testing` rule | Changes come with tests; don't report something as working that no test exercised; `.agent/verify.sh` is how a repo is verified. |
+| `workspace-scope` rule | Keep edits inside the repo, and never hand-edit `~/.claude/settings.json` — five tools write to it. |
+| `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
+| `/verify` command | Runs the repo's verification through that subagent. |
+| `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
 | `orca-orchestration` skill | A pointer at `orca skills get orchestration`, plus the conventions of this workspace. |
+| `session-retro` skill | At the end of a session or after a correction, decide whether a durable lesson was learned and which `.apm/` it belongs in. |
+| `skill-authoring` skill | How to add or improve a skill through apm, and whether a given piece of knowledge is a skill, an instruction, or a CLAUDE.md line. |
 | `show-me` skill | Vendored from `humanlayer/skills` at a pinned commit: diagrams and standalone HTML explanations. |
+
+Only the *name* `.agent/verify.sh` is shared. What it runs is always local — build
+and test look different in every language — so the package defines the calling
+convention and each repo supplies the contents.
 
 ## Installing it in another repo
 
@@ -51,13 +63,33 @@ Everything deploys into the consuming repo's own `./.claude/`, never into
 `~/.claude/`. Those files are generated, so gitignore `.claude/` and
 `apm_modules/` there the way `dotfiles` does.
 
-## The default-branch guardrail
+## The guardrail hooks
 
-The hook exits 2, which blocks the tool call and hands its stderr back to the
-agent as the reason. It is deliberately fail-open: exit 0 in Claude Code's
-hook protocol means "no opinion", not "approved", so anything it cannot
-evaluate confidently (no `jq`, not a repo, detached HEAD, unparseable payload)
-falls through to exit 0.
+Both hooks exit 2, which blocks the tool call and hands their stderr back to
+the agent as the reason. They are deliberately fail-open: exit 0 in Claude
+Code's hook protocol means "no opinion", not "approved", so anything they
+cannot evaluate confidently (no `jq`, not a repo, detached HEAD, unparseable
+payload) falls through to exit 0.
+
+There are only two of them, and that is on purpose. A blocking hook is
+asymmetric — a false positive costs something every single time it fires,
+while the thing it prevents may never have happened. So the bar is "frequent,
+irreversible, and hard to mistake for ordinary work". Writing outside the repo
+does not clear that bar despite there being a real incident behind it
+(`~/.claude/settings.json.graphify-bak`), so it is a rule in
+`workspace-scope.instructions.md` rather than a third hook.
+
+`guard-destructive-git` draws its line at *what cannot be recovered*, not at
+what sounds alarming. `git reset --soft`, `git checkout <branch>` and
+`git push --force-with-lease` all pass, because each either keeps the work or
+refuses on its own when the remote has moved. Note that `--force` and
+`--force-with-lease` share a prefix, so the match requires a separator after
+`--force`; `makura-agents/tests/guards.sh` pins that case specifically,
+because it is the one a sloppier regex would break every day.
+
+Run those tests with `./makura-agents/tests/guards.sh`. They live outside
+`.apm/` because apm deploys only `.apm/`, so a consuming repo gets the hooks
+without the tests while the tests stay next to what they cover.
 
 Two details worth knowing before editing it:
 
@@ -68,7 +100,8 @@ Two details worth knowing before editing it:
   ref, never `git remote show origin` — that would put a network round trip in
   front of every Bash call.
 
-To lift it, export `MAKURA_ALLOW_MAIN=1` before starting Claude Code. It is an
-environment variable and not a marker file on purpose: hooks inherit Claude
-Code's environment rather than the one a Bash tool call builds, so an agent
-cannot grant it to itself by prefixing a command.
+To lift them, export `MAKURA_ALLOW_MAIN=1` or `MAKURA_ALLOW_DESTRUCTIVE=1`
+before starting Claude Code. They are environment variables and not marker
+files on purpose: hooks inherit Claude Code's environment rather than the one a
+Bash tool call builds, so an agent cannot grant itself either one by prefixing
+a command.
