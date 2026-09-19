@@ -80,7 +80,10 @@ cmd_reload() {
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
   hook_bashrc
   "$DIR/bin/install-apm.sh"
-  npm install -g @colbymchenry/codegraph@latest
+  # nixpkgs' npm defaults its global prefix to its own read-only /nix/store
+  # path, so -g needs an explicit writable prefix. ~/.local/bin is on PATH
+  # already and is where install-apm.sh puts its binary too.
+  npm install -g --prefix "$HOME/.local" @colbymchenry/codegraph@latest
   uv tool upgrade graphifyy || uv tool install graphifyy
   uv tool upgrade headroom-ai || uv tool install 'headroom-ai[mcp,proxy]'
   apm install -g
