@@ -65,6 +65,13 @@ done < <(ls_src 'makura-agents/.apm/instructions/*.instructions.md')
 step "guard hooks"
 ./makura-agents/tests/guards.sh || fail "guard hook tests"
 
+step "harness invariants"
+# Drift between the .apm/ sources, the generated output, and the tools the
+# rules quote. Deterministic and cheap, so it belongs here. The behavioural
+# evals under makura-agents/tests/eval/ deliberately do not: they cost tokens
+# and do not give the same answer twice.
+./makura-agents/tests/harness-check.sh || fail "harness invariant checks"
+
 printf '\n'
 if [ "$failures" != 0 ]; then
   printf '%s check(s) failed\n' "$failures" >&2
