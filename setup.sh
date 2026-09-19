@@ -35,9 +35,10 @@ cmd_nix_tools() {
 
 cmd_reload() {
   cmd_nix_tools
-  mkdir -p ~/.claude ~/.local/bin ~/.apm
+  mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config
   ln -sfn "$DIR/claude/statusline.sh" ~/.claude/statusline.sh
   ln -sfn "$DIR/apm.yml" ~/.apm/apm.yml
+  ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
   "$DIR/bin/install-apm.sh"
   npm install -g @colbymchenry/codegraph@latest
   uv tool upgrade graphifyy || uv tool install graphifyy

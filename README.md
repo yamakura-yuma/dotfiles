@@ -7,15 +7,18 @@ live in each project's own `flake.nix` / `.devcontainer/`.
 ## Contents
 
 - `flake.nix` — the nixpkgs-available subset of the tooling (`jq` for the
-  statusline, `uv` + `node` as runtimes backing the other tools), bundled
-  into one `agent-tools` package. Update versions with `nix flake update`
-  (bumps the pinned nixpkgs revision, then `./setup.sh reload` picks up the
-  new build) rather than an implicit "latest".
+  statusline, `uv` + `node` as runtimes backing the other tools, `starship`
+  for the shell prompt), bundled into one `agent-tools` package. Update
+  versions with `nix flake update` (bumps the pinned nixpkgs revision, then
+  `./setup.sh reload` picks up the new build) rather than an implicit
+  "latest".
 - `install-nix.sh` — one-time, per-host: installs Nix itself (system/
   multi-user).
 - `bin/install-apm.sh` — installs/upgrades `apm` from its GitHub release
   binaries (not in nixpkgs).
 - `claude/statusline.sh` — the Claude Code statusline script.
+- `starship.toml` — the shell prompt config (only the `kubernetes` module is
+  enabled). Symlinked to `~/.config/starship.toml` by `./setup.sh reload`.
 - `apm.yml` — declares the `codegraph` and `headroom` MCP servers. This is
   the source of truth for `mcpServers` in `~/.claude.json`; don't hand-edit
   that section there, edit this file and re-run `./setup.sh reload` instead.
@@ -54,9 +57,17 @@ That runs `install-nix.sh`, `nix-tools`, `reload`, and `agents-init` in
 order (see "Contents" above for what each does); run them individually only
 if you need to debug one, e.g. `./setup.sh reload`.
 
-The statusline is symlinked automatically by `reload`. MCP servers
-(`codegraph`, `headroom`) are applied by `reload` via `apm install -g` from
-`apm.yml` — no manual `~/.claude.json` editing needed anymore.
+The statusline and `starship.toml` are symlinked automatically by `reload`.
+MCP servers (`codegraph`, `headroom`) are applied by `reload` via `apm
+install -g` from `apm.yml` — no manual `~/.claude.json` editing needed
+anymore.
+
+`starship` itself still needs to be hooked into your shell — this repo
+doesn't track shell rc files, so add to `~/.bashrc` manually:
+
+```bash
+eval "$(starship init bash)"
+```
 
 ## Automatic agent tooling
 
