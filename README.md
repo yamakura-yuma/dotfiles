@@ -57,7 +57,7 @@ being consciously invoked:
   from `apm.yml` is installed — nothing else to set up.
 - **headroom** needs `just agents-init` once per host: `headroom install
   apply --target claude` installs the optimization proxy as a persistent
-  background service (systemd/launchd), and `headroom init claude --global`
+  background service (systemd/launchd), and `headroom init --global claude`
   installs a durable hook so a plain `claude` invocation always routes
   through it — no `headroom wrap claude` needed, and it also covers
   non-interactive launches (e.g. Orca starting `claude` directly in a

@@ -13,5 +13,5 @@ reload:
 # not part of `reload` since it starts long-lived processes.
 agents-init:
     headroom install apply --target claude
-    headroom init claude --global
+    headroom init --global claude
     graphify claude install
