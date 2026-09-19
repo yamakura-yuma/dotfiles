@@ -1,0 +1,13 @@
+# Declarative "agent environment" tool versions — shared across repos and
+# hosts (this file is symlinked to ~/.config/mise/config.toml). Project-
+# specific toolchains (e.g. temporal-saga's Go + Temporal CLI) belong in that
+# project's own flake.nix / devcontainer instead of here.
+
+[tools]
+apm = "latest"
+jq = "latest"
+uv = "latest"
+node = "24"
+"npm:@colbymchenry/codegraph" = "latest"
+"pypi:graphifyy" = "latest"
+"pypi:headroom-ai" = { version = "latest", extras = ["mcp"] }
