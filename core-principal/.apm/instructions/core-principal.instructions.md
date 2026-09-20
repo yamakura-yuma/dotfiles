@@ -17,12 +17,11 @@ description: "Core principles: response language, then which skill or tool to re
 まず索引を引く。`Read` / `Grep` / `Glob` は、索引が無いとき、索引で当たらなかった
 とき、編集する行の現物が要るときの手段とする。
 
-- `graphify-out/` があれば `graphify query "<質問>"` で**どこを見るか**を決める
-- `.codegraph/` があれば `codegraph explore "<シンボルや質問>"` で**逐語ソースと
-  呼び出し経路**を読む
+- `graphify` — `graphify-out/` があれば `graphify query "<質問>"` で**どこを見るか**を決める
+- `codegraph` — `.codegraph/` があれば `codegraph explore "<シンボルや質問>"` で
+  **逐語ソースと呼び出し経路**を読む
 
-索引を作るかどうかは人間が決めること。自分の判断で `graphify` や `codegraph init`
-を走らせない。詳しくは `core-tools` スキル。
+索引が無いディレクトリでは、許可を待たずに作ってよい。詳しくは `core-tools` スキル。
 
 ## 説明する
 

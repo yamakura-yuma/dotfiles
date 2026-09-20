@@ -24,11 +24,11 @@ dependencies:
     .claude/commands/worktree.md: sha256:d6b8193a78d292189a446fb0316f3c9213c087b229d072c288e7a441943424e3
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
-    .claude/rules/core-principal.md: sha256:6b64231403f4ea77d0fbd0ff6040c73b4645b5d734be85ef99e9c0e266de72e4
+    .claude/rules/core-principal.md: sha256:d056be0f0f4f3a15d2f96bb1903a5c457bd39819d704cee9f961255ad32c75c6
     .claude/skills/core-communication/SKILL.md: sha256:290c4cfbd8095fd64035de93e5fae4c3ab5e80fbd110f0317d272231e5060750
     .claude/skills/core-harness/SKILL.md: sha256:99c045d95e8dc280ded6ea6b097a2be74250332c29ed88d4f234484f2cfc88f0
     .claude/skills/core-retro/SKILL.md: sha256:eb696797ce02014584b939277d35552c9f02844402d480fb97f152bf56969c09
-    .claude/skills/core-tools/SKILL.md: sha256:794730ad19834926b96782917b48132d0afa90003e479957bd4b2db864474442
+    .claude/skills/core-tools/SKILL.md: sha256:14ae4206d3a5b10d5d68c8720f7357f5a218d3b509e59bcb2e00ad8a88fb8fe2
   source: local
   local_path: ./core-principal
 - repo_url: dietrichgebert/ponytail
@@ -719,7 +719,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:6b64231403f4ea77d0fbd0ff6040c73b4645b5d734be85ef99e9c0e266de72e4
+  content_hash: sha256:d056be0f0f4f3a15d2f96bb1903a5c457bd39819d704cee9f961255ad32c75c6
 - kind: project-relative
   target: claude
   value: .claude/skills/cognitive-rhythm-writing
@@ -827,7 +827,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:794730ad19834926b96782917b48132d0afa90003e479957bd4b2db864474442
+  content_hash: sha256:14ae4206d3a5b10d5d68c8720f7357f5a218d3b509e59bcb2e00ad8a88fb8fe2
 - kind: project-relative
   target: claude
   value: .claude/skills/find-skills
