@@ -20,4 +20,123 @@ dependencies:
     alias: show-me
     targets:
     - claude
+
+  # --- Finding skills before writing one -------------------------------------
+  # Consulted first whenever a skill or a procedure is about to be added or
+  # improved: borrow a published skill where one fits, write one only where
+  # none does.
+  - git: https://github.com/vercel-labs/skills.git
+    path: skills/find-skills
+    ref: 7407f3893ad4dceab546ac002c3ef806e4000c73
+    alias: find-skills
+    targets:
+    - claude
+
+  # --- Japanese prose ---------------------------------------------------------
+  # Norms for Japanese technical writing, and the rhythm skill that builds on
+  # it. cognitive-rhythm-writing reads ../japanese-tech-writing/SKILL.md, so the
+  # two aliases have to stay exactly these names and deploy as siblings.
+  #
+  # Pinned to the revisions that were handed over. Upstream has moved on for
+  # japanese-tech-writing; bump deliberately with `apm update` rather than by
+  # tracking HEAD.
+  - git: https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
+    ref: 209db7d6d19bc4727139844c0e8d786542e9ff68
+    alias: japanese-tech-writing
+    targets:
+    - claude
+  - git: https://gist.github.com/k16shikano/eb2929f13ed19c97188393d297be8432.git
+    ref: a3b1e26beced71d582e13314fb6f5b179b023c76
+    alias: cognitive-rhythm-writing
+    targets:
+    - claude
+
+  # --- Productivity skills ----------------------------------------------------
+  # mattpocock/skills, skills/productivity. Taken one skill at a time rather
+  # than as a directory, because apm resolves a dependency to a single package
+  # and the upstream directory is a collection, not one.
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/grill-me
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: grill-me
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/grilling
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: grilling
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/handoff
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: handoff
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/teach
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: teach
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/to-questionnaire
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: to-questionnaire
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/wait-what
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: wait-what
+    targets:
+    - claude
+  - git: https://github.com/mattpocock/skills.git
+    path: skills/productivity/writing-for-agents
+    ref: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
+    alias: writing-for-agents
+    targets:
+    - claude
+
+  # --- ponytail ---------------------------------------------------------------
+  # Upstream ships as a plugin with its own PreToolUse hooks; only the skills
+  # are taken. Two reasons, both standing policy here: agent config arrives
+  # through apm rather than as a Claude plugin, and a blocking hook has to earn
+  # its place one at a time.
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail
+    targets:
+    - claude
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-audit
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-audit
+    targets:
+    - claude
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-debt
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-debt
+    targets:
+    - claude
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-gain
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-gain
+    targets:
+    - claude
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-help
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-help
+    targets:
+    - claude
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-review
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-review
+    targets:
+    - claude
 scripts: {}
