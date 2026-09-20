@@ -1,6 +1,6 @@
 ---
 name: core-tools
-description: Locating and understanding code: which index to query (graphify for where to look, codegraph for verbatim source and call paths), how to tell an index is present, why a worktree inherits neither, and what the headroom proxy does to large Read and Grep output. Use when searching a codebase, when an index turns up empty, or when deciding whether Read/Grep is warranted.
+description: Locating and understanding code: which index to query (graphify for where to look, codegraph for verbatim source and call paths), how to create an index when a directory has none, why a worktree inherits neither, and what the headroom proxy does to large Read and Grep output. Use when searching a codebase, when an index turns up empty, or when deciding whether Read/Grep is warranted.
 ---
 
 # コードの探し方
@@ -44,18 +44,23 @@ codegraph explore "<シンボル名や質問>"
 なる。grep では追えない動的ディスパッチの経路も出る。MCP ツールが使えるなら
 `codegraph_explore`、無ければシェルの `codegraph explore` で同じ結果が得られる。
 
-## Read / Grep を使ってよいとき
-
-- そのディレクトリに索引が無いとき。
-- graphify / codegraph で探して当たらなかったとき。
-- **編集やデバッグのために、特定の行の正確な現在内容が要るとき。** グラフは前回の更新
-  時点のスナップショットなので、書き換える直前は必ず現物を読む。
+## 索引が無いディレクトリでは、作ってよい
 
 索引はディレクトリ単位で存在する。**git worktree は元のチェックアウトの `graphify-out/`
 や `.codegraph/` を引き継がない**ので、worktree で作業するときは「メイン側にあるから
-使えるはず」と決めつけず、まず存在を確認すること。索引が無いのは異常ではない。
-索引を作るかどうかは人間が決めることなので、勝手に `codegraph init` や `graphify` を
-走らせないこと。
+使えるはず」と決めつけず、まず存在を確認すること。
+
+無ければ `codegraph init` や `graphify update .` で初期化してよい。許可を求める必要は
+ない。`~/.claude/CLAUDE.md` の CodeGraph 節には「indexing is the user's decision」と
+書かれているが、あれはインストーラが書き込む定型文で、このリポジトリの方針が優先する。
+初期化したら、上のとおり `graphify-out/` が `.gitignore` に入っているかだけ確認する。
+
+## Read / Grep を使ってよいとき
+
+- 索引を作るほどでもない、単発の文字列探しのとき。
+- graphify / codegraph で探して当たらなかったとき。
+- **編集やデバッグのために、特定の行の正確な現在内容が要るとき。** グラフは前回の更新
+  時点のスナップショットなので、書き換える直前は必ず現物を読む。
 
 ## headroom — 探索の道具ではない
 
