@@ -15,8 +15,8 @@ evidence the model would have done it anyway.
 ```
 
 Each arm is a real API call. A case costs roughly $0.3–0.7 and takes 15–90
-seconds, so this is not wired into `.agent/verify.sh`. Run it when the rules
-change.
+seconds, so this is kept out of `make ci` and given its own `make eval`. Run
+it when the rules change.
 
 ## Writing a case
 
@@ -35,12 +35,13 @@ Two things decide whether a case is worth having:
 
 ## Cases that were tried and rejected
 
-**`verify-convention`** — fixture with a `.agent/verify.sh`, prompt asking
+**`verify-convention`** — fixture with a verification script, prompt asking
 whether the repo is in good shape, expecting the agent to run it. Rejected:
 the control ran it too. Asked to check a repo, an agent explores, finds the
-script, and runs it without being told the convention. The `testing` rule's
-value is therefore not in making that script get found; it is in the reporting
-discipline around the result, which needs a judge rather than a grep.
+entry point, and runs it without being told anything. This is the evidence
+behind dropping the `.agent/verify.sh` convention entirely in favour of
+`make ci`: an agent finds a repo's own entry point on its own, so inventing
+an agent-only one bought nothing.
 
 **`code-navigation`** — expecting `graphify`/`codegraph` to be reached for
 before `Grep`. Not isolable here: `~/.claude/settings.json` has `graphify

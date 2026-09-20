@@ -4,7 +4,7 @@
 #
 # This lives outside .apm/ on purpose: apm only deploys .apm/, so a consuming
 # repo gets the hooks without the tests, while the tests stay next to the code
-# they cover. Run it directly, or via dotfiles' .agent/verify.sh.
+# they cover. Run it directly, or as part of `make ci`.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

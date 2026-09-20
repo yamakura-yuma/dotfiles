@@ -10,7 +10,7 @@
 # None of that is about behaviour, so none of it needs a model to check.
 #
 # Like guards.sh this lives outside .apm/, so apm never deploys it to a
-# consuming repo. Run it directly, or via dotfiles' .agent/verify.sh.
+# consuming repo. Run it directly, or as part of `make ci`.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,8 +28,8 @@ skip() {
 
 # --- 1. AGENTS.md is what the instructions currently compile to --------------
 # Compiles into a throwaway copy rather than in place: this script is reached
-# through .agent/verify.sh, which the verifier subagent runs, and verification
-# must not modify the repo it is verifying.
+# through `make ci`, which the verifier subagent runs, and verification must
+# not modify the repo it is verifying.
 check_agents_md() {
   command -v apm >/dev/null 2>&1 || { skip "no apm, not checking AGENTS.md"; return; }
   [ -f "$repo/AGENTS.md" ] || { skip "no AGENTS.md to check"; return; }
@@ -54,10 +54,8 @@ check_agents_md() {
 #   - Conditional paths belonging to another tool. code-navigation points at
 #     graphify-out/wiki/index.md guarded by "if it exists", and treating that
 #     as a promise would make this check cry wolf.
-#   - Anything under .agent/. That directory is the per-repo convention area
-#     where makura-agents shares the *name* and each repo supplies the file --
-#     and .agent/report.md is written by a worker at runtime, so its normal
-#     state is absent.
+#   - .agent/report.md, which a worker writes at runtime in a worktree that
+#     does not exist yet, so its normal state here is absent.
 check_owned_paths() {
   local doc p target seen
   while IFS= read -r doc; do
@@ -160,7 +158,7 @@ check_deploy_parity() {
 }
 
 # --- 5. No repo keeps its own fork of a skill it also receives ---------------
-# A sibling repo having its own session-retro is fine while it is independent.
+# A sibling repo having its own retro skill is fine while it is independent.
 # It stops being fine the moment that repo also depends on makura-agents,
 # because then two copies of the same skill name are in play and only one of
 # them gets maintained.

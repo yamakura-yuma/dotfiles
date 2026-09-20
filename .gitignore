@@ -8,5 +8,5 @@ graphify-out/
 apm_modules/
 
 # Worker output: an orchestrated agent writes its report here (see the
-# orca-orchestration skill). .agent/verify.sh is tracked; the report is not.
+# /worktree command).
 .agent/report.md

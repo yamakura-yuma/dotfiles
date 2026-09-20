@@ -22,17 +22,14 @@ has to be in effect before there is any chance to open a skill.
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
 | `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
 | `git-workflow` rule + skill | Rule: work on a branch, and the safe substitute for each refused command. Skill: how the hooks decide, where the line falls, how a human lifts one. |
-| `testing` rule + skill | Rule: ship the test with the change, run `.agent/verify.sh`, report only what was verified. Skill: how to place tests, how to cover what must *not* trip, why self-verification drifts green. |
-| `workspace-scope` rule + skill | Rule: stay inside the repo, edit `.apm/` sources rather than generated `.claude/`, leave `~/.claude/settings.json` alone. Skill: the overwrite incident behind it, and why this is a rule and not a third hook. |
 | `code-navigation` rule + skill | Rule: query the index first — `graphify` for where to look, `codegraph` for verbatim source and call paths — with `Read`/`Grep` as the fallback. Skill: what each returns, the worktree gap, and what the headroom proxy does to large output. |
 | `communication` rule + skill | Rule: lead with a diagram or table and cut to the decision. Skill: why long prose goes unread, and what to remove. |
 | `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
 | `/verify` command | Runs the repo's verification through that subagent. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
-| `/retro` command | Runs `session-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
-| `orca-orchestration` skill | A pointer at `orca skills get orchestration`, plus the conventions of this workspace. |
-| `session-retro` skill | At the end of a session or after a correction, decide whether a durable lesson was learned and which `.apm/` it belongs in — then delete the memory it was promoted from. |
-| `skill-authoring` skill | How to add or improve a skill through apm, and whether a given piece of knowledge is a skill, an instruction, or a CLAUDE.md line. |
+| `/retro` command | Runs `retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
+| `retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
+| `harness-factory` skill | How this harness is built: search the published ecosystem first, then decide whether a piece of knowledge is a check, a rule, a skill or nothing, and deploy it through apm. |
 
 ### Skills pulled in from elsewhere
 
@@ -46,10 +43,12 @@ repo that depends on this package and move forward with `apm update`.
 | `writing-for-agents`, `grill-me`, `grilling`, `handoff`, `teach`, `to-questionnaire`, `wait-what` | mattpocock's `skills/productivity`. `writing-for-agents` is the one this package's own rule/skill split follows. |
 | `ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review` | Simplest-thing-that-works discipline. Upstream ships as a plugin wiring up its own `PreToolUse` hooks; only `skills/ponytail*` is taken, so the opinion is available without a hook firing on every tool call. |
 | `japanese-tech-writing`, `cognitive-rhythm-writing` | Japanese prose norms. The aliases are load-bearing: `cognitive-rhythm-writing` reads `../japanese-tech-writing/SKILL.md`, so the two only work deployed as siblings under exactly these names. |
+| `orca-cli`, `orchestration`, `computer-use`, `linear-tickets`, `orca-linear`, `orca-emulator`, `orca-emulator-android`, `orca-per-workspace-env` | Orca's own skills, all of them. Each is a discovery stub that loads the version-matched guide out of the `orca` binary, so it cannot drift from the CLI that will run the command — which a summary maintained here would. |
+| `genshijin`, `genshijin-commit`, `genshijin-compress`, `genshijin-crew`, `genshijin-help`, `genshijin-review`, `genshijin-stats` | Compressed Japanese responses and the commit/review/compress skills built on the same style. Upstream ships as a plugin with `SessionStart` and `UserPromptSubmit` hooks and a statusline; only the skills are taken, same policy as ponytail. |
 
-Only the *name* `.agent/verify.sh` is shared. What it runs is always local — build
-and test look different in every language — so the package defines the calling
-convention and each repo supplies the contents.
+There is no shared verification convention. Each repo already has an entry
+point a human uses — `make ci` here — and an agent finds it by looking; the
+eval that tried to prove otherwise is written up in `makura-agents/tests/eval/README.md`.
 
 ## Growing it
 
@@ -63,9 +62,9 @@ workspace directory left their memories stranded at keys nothing reads anymore.
 Everything under `.apm/` has none of those problems, because it moves with the
 repo, is copied into every worktree, is pushed to every host, and shows up in a
 diff. So the division is: **capture is automatic, promotion is deliberate.**
-`session-retro` decides whether a lesson is real and which `.apm/` it belongs
-in, `/retro` is what invokes it, and the memory it came from gets deleted so
-that only one copy can go stale.
+`retro` decides whether a lesson is real and where it belongs — often as a
+check under `make ci` rather than as prose — `/retro` is what invokes it, and
+the memory it came from gets deleted so that only one copy can go stale.
 
 No hook drives this. A reminder that fires on every tool call gets tuned out —
 that has been observed directly here — while the thing that actually changes
@@ -80,12 +79,13 @@ behavior next session is the rule being in git.
 
 Both live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
 gets the hooks and rules without the tests, while the tests stay next to what
-they cover. dotfiles' own `.agent/verify.sh` runs both.
+they cover. dotfiles' `make ci` runs both.
 
 `tests/eval/` asks the other question — whether installing this changes what an
 agent does — by running one prompt in two fixture repos, with and without the
 package, and requiring the behavior to appear only in the first. It costs real
-money per case, so it is not part of `verify.sh`; see `makura-agents/tests/eval/README.md`.
+money per case, so it has its own `make eval` instead of belonging to
+`make ci`; see `makura-agents/tests/eval/README.md`.
 
 `harness-check.sh` is about drift rather than behavior — AGENTS.md matching what
 the instructions compile to, quoted paths existing, flags quoted for
@@ -141,8 +141,8 @@ asymmetric — a false positive costs something every single time it fires,
 while the thing it prevents may never have happened. So the bar is "frequent,
 irreversible, and hard to mistake for ordinary work". Writing outside the repo
 does not clear that bar despite there being a real incident behind it
-(`~/.claude/settings.json.graphify-bak`), so it is a rule in
-`workspace-scope.instructions.md` rather than a third hook.
+(`~/.claude/settings.json.graphify-bak`), so it is a paragraph in the
+`harness-factory` skill rather than a third hook.
 
 `guard-destructive-git` draws its line at *what cannot be recovered*, not at
 what sounds alarming. `git reset --soft`, `git checkout <branch>` and

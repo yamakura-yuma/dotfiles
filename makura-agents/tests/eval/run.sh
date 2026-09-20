@@ -9,7 +9,7 @@
 # that passes in both arms is not evidence the rule works; it is evidence the
 # model would have done it anyway, and the case needs rewriting.
 #
-# Deliberately NOT called from .agent/verify.sh: each arm is a real API call,
+# Deliberately NOT part of `make ci`: each arm is a real API call,
 # so a two-case run costs real money and does not give the same answer twice.
 # Run it when the rules change, not on every commit.
 #

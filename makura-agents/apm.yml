@@ -1,6 +1,6 @@
 name: makura-agents
 version: 1.0.0
-description: Shared Claude Code agent config — response language, git guardrails, testing discipline, verifier subagent, orchestration
+description: Shared Claude Code agent config — response language, git guardrails, code navigation, communication, and the skills each of those points at
 author: yyamakura
 targets:
 - claude
@@ -139,4 +139,122 @@ dependencies:
     alias: ponytail-review
     targets:
     - claude
+  # --- Orca ------------------------------------------------------------------
+  # Orca publishes skills for its own CLI, its orchestration model and its
+  # emulator/Linear integrations. All of them are taken: while this workspace
+  # runs on Orca, the vendor's own account of how to drive it is more accurate
+  # than a summary maintained here, and it follows upstream when Orca changes.
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/computer-use
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: computer-use
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/linear-tickets
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: linear-tickets
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-cli
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-cli
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-emulator-android
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-emulator-android
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-emulator
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-emulator
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-linear
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-linear
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-per-workspace-env
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-per-workspace-env
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orchestration
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orchestration
+    targets:
+    - claude
+
+  # --- genshijin --------------------------------------------------------------
+  # Compressed Japanese responses, plus the commit/review/compress skills built
+  # on the same style. Upstream ships as a plugin with SessionStart and
+  # UserPromptSubmit hooks and a statusline; only the skills are taken, on the
+  # same policy as ponytail. genshijin-stats is included for its documentation
+  # even though the counters it reads come from the hooks that are not.
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-commit
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-commit
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-compress
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-compress
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-crew
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-crew
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-help
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-help
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-review
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-review
+    targets:
+    - claude
+
+  - git: https://github.com/interfacex-co-jp/genshijin.git
+    path: skills/genshijin-stats
+    ref: 968d3c449499fdefc00aff9f1fe9c52c4dfdc7ae
+    alias: genshijin-stats
+    targets:
+    - claude
+
 scripts: {}
