@@ -1,5 +1,5 @@
 name: core-principal
-version: 1.0.0
+version: 1.1.0
 description: The core agent harness — one always-loaded rule, two git guardrail hooks, the core-* skills it points at, and the published skills worth having everywhere
 author: yyamakura
 targets:
@@ -47,6 +47,19 @@ dependencies:
   - git: https://gist.github.com/k16shikano/eb2929f13ed19c97188393d297be8432.git
     ref: a3b1e26beced71d582e13314fb6f5b179b023c76
     alias: cognitive-rhythm-writing
+    targets:
+    - claude
+
+  # Removes the tells that mark Japanese prose as machine-written: hedged
+  # endings, empty superlatives, the summary sentence that says nothing. Where
+  # japanese-tech-writing sets the norms for a document, this one is the pass
+  # over a draft that already exists, so it is read last.
+  #
+  # MIT, and a Japanese rework of blader/humanizer. SKILL.md sits at the
+  # repository root, so there is no path to give.
+  - git: https://github.com/gonta223/humanizer-ja.git
+    ref: a1e343696e43aa50e7218891f3319ab22cde3464
+    alias: humanizer-ja
     targets:
     - claude
 
