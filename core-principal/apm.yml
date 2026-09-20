@@ -1,6 +1,6 @@
-name: makura-agents
+name: core-principal
 version: 1.0.0
-description: Shared Claude Code agent config — response language, git guardrails, code navigation, communication, and the skills each of those points at
+description: The core agent harness — one always-loaded rule, two git guardrail hooks, the core-* skills it points at, and the published skills worth having everywhere
 author: yyamakura
 targets:
 - claude
@@ -37,11 +37,10 @@ dependencies:
   # it. cognitive-rhythm-writing reads ../japanese-tech-writing/SKILL.md, so the
   # two aliases have to stay exactly these names and deploy as siblings.
   #
-  # Pinned to the revisions that were handed over. Upstream has moved on for
-  # japanese-tech-writing; bump deliberately with `apm update` rather than by
-  # tracking HEAD.
+  # Pinned rather than tracking HEAD. Note that `apm update` does not move an
+  # explicit ref -- bumping one means editing the commit here by hand.
   - git: https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
-    ref: 209db7d6d19bc4727139844c0e8d786542e9ff68
+    ref: 8f2d57610a73efc97d743c9b0b0ecb1002e09fa4
     alias: japanese-tech-writing
     targets:
     - claude

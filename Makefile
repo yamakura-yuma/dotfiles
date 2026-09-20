@@ -4,7 +4,7 @@
 # knows about.
 #
 # Every target here is deterministic, offline and fast enough to run on each
-# change. The behavioural evals under makura-agents/tests/eval/ are not: they
+# change. The behavioural evals under core-principal/tests/eval/ are not: they
 # make real API calls, so they have their own `make eval` and are never part of
 # `ci`.
 #
@@ -47,8 +47,8 @@ lint-shell:
 # something untrue.
 lint-exec:
 	@echo "== executable bits"
-	@$(ls_src) 'makura-agents/.apm/hooks/scripts/*.sh' 'makura-agents/tests/*.sh' \
-	    'claude/tests/*.sh' ':(exclude)makura-agents/tests/eval/cases/*' | \
+	@$(ls_src) 'core-principal/.apm/hooks/scripts/*.sh' 'core-principal/tests/*.sh' \
+	    'claude/tests/*.sh' ':(exclude)core-principal/tests/eval/cases/*' | \
 	  while IFS= read -r f; do \
 	    [ -x "$$f" ] || { echo "not executable: $$f" >&2; exit 1; }; \
 	  done
@@ -68,7 +68,7 @@ lint-yaml:
 # missing either deploys as an empty rule, which is invisible until it matters.
 lint-frontmatter:
 	@echo "== instruction frontmatter"
-	@$(ls_src) 'makura-agents/.apm/instructions/*.instructions.md' | \
+	@$(ls_src) 'core-principal/.apm/instructions/*.instructions.md' | \
 	  while IFS= read -r f; do \
 	    head -n 5 "$$f" | grep -q '^applyTo:' || { echo "$$f has no applyTo" >&2; exit 1; }; \
 	    head -n 5 "$$f" | grep -q '^description:' || { echo "$$f has no description" >&2; exit 1; }; \
@@ -76,20 +76,20 @@ lint-frontmatter:
 
 test-guards:
 	@echo "== guard hooks"
-	@./makura-agents/tests/guards.sh
+	@./core-principal/tests/guards.sh
 
 # Drift between the .apm/ sources, the generated output, and the tools the
 # rules quote.
 test-harness:
 	@echo "== harness invariants"
-	@./makura-agents/tests/harness-check.sh
+	@./core-principal/tests/harness-check.sh
 
 test-statusline:
 	@echo "== statusline"
 	@./claude/tests/statusline.sh
 
 eval:
-	@./makura-agents/tests/eval/run.sh
+	@./core-principal/tests/eval/run.sh
 
 # Separate from ci on purpose: ci must not change the machine it runs on.
 install:

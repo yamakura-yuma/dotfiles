@@ -1,5 +1,5 @@
 ---
-name: code-navigation
+name: core-tools
 description: Locating and understanding code: which index to query (graphify for where to look, codegraph for verbatim source and call paths), how to tell an index is present, why a worktree inherits neither, and what the headroom proxy does to large Read and Grep output. Use when searching a codebase, when an index turns up empty, or when deciding whether Read/Grep is warranted.
 ---
 

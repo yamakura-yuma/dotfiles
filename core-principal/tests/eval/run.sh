@@ -4,7 +4,7 @@
 # harness-check.sh answers "is the harness internally consistent", which is a
 # different and much cheaper question. This answers "does installing it make a
 # difference", and the only honest way to ask that is to run the same prompt
-# twice -- once in a fixture that depends on makura-agents and once in one that
+# twice -- once in a fixture that depends on core-principal and once in one that
 # does not -- and require the behaviour to appear only in the first. A case
 # that passes in both arms is not evidence the rule works; it is evidence the
 # model would have done it anyway, and the case needs rewriting.
@@ -13,8 +13,8 @@
 # so a two-case run costs real money and does not give the same answer twice.
 # Run it when the rules change, not on every commit.
 #
-#   ./makura-agents/tests/eval/run.sh              # all cases
-#   ./makura-agents/tests/eval/run.sh language     # one case
+#   ./core-principal/tests/eval/run.sh              # all cases
+#   ./core-principal/tests/eval/run.sh language     # one case
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,7 +44,7 @@ targets:
 dependencies:
   apm:
   - path: $pkg
-    alias: makura-agents
+    alias: core-principal
 YAML
     (cd "$dir" && apm install --target claude) >/dev/null 2>&1 ||
       { echo "apm install failed in the $arm fixture" >&2; return 1; }

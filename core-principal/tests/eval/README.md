@@ -4,14 +4,14 @@
 This asks the harder question: **does installing it change what an agent does?**
 
 The only honest way to ask is to run the same prompt in two fixture repos —
-one that depends on `makura-agents`, one that does not — and require the
+one that depends on `core-principal`, one that does not — and require the
 behaviour to appear in the first and not the second. `run.sh` fails a case that
 passes in *both* arms, because that is not evidence the rule works. It is
 evidence the model would have done it anyway.
 
 ```bash
-./makura-agents/tests/eval/run.sh            # every case
-./makura-agents/tests/eval/run.sh language   # one case
+./core-principal/tests/eval/run.sh            # every case
+./core-principal/tests/eval/run.sh language   # one case
 ```
 
 Each arm is a real API call. A case costs roughly $0.3–0.7 and takes 15–90
@@ -43,7 +43,7 @@ behind dropping the `.agent/verify.sh` convention entirely in favour of
 `make ci`: an agent finds a repo's own entry point on its own, so inventing
 an agent-only one bought nothing.
 
-**`code-navigation`** — expecting `graphify`/`codegraph` to be reached for
+**`core-tools`** — expecting `graphify`/`codegraph` to be reached for
 before `Grep`. Not isolable here: `~/.claude/settings.json` has `graphify
 hook-guard` on `PreToolUse` for `Bash|Grep` and `Read|Glob`, so as soon as the
 fixture has an index, *both* arms are told to use graphify on every tool call.

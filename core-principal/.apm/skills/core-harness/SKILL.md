@@ -1,5 +1,5 @@
 ---
-name: harness-factory
+name: core-harness
 description: >-
   Use when building or changing this agent harness — adding or improving a
   rule, skill, subagent, slash command or hook, taking a published skill as a
@@ -39,7 +39,7 @@ References worth reaching for rather than rewriting:
 - `obra/superpowers`, `skills/writing-skills` — skill authoring treated as
   test-driven development, with Anthropic's own guidance alongside.
 - `mattpocock/skills`, `skills/in-progress/retro` — the upstream this repo's
-  `retro` skill is adapted from.
+  `core-retro` skill is adapted from.
 
 ## Where a piece of knowledge goes
 
@@ -80,11 +80,11 @@ By the time anything could be loaded, the response language is already wrong.
 
 ## Which package
 
-`makura-agents/` is depended on by other repos, so anything in it is asserted
+`core-principal/` is depended on by other repos, so anything in it is asserted
 about all of them. apm cannot deploy part of a package, which means keeping
 something out of that directory is the only way to hold it back.
 
-- True of every repository → `makura-agents/.apm/`
+- True of every repository → `core-principal/.apm/`
 - Specific to this repository → this repo's own `.apm/`
 
 Erring toward the shared package is the expensive mistake: it pushes a rule
@@ -122,7 +122,8 @@ dependencies and leave its hooks behind.
 
 1. Pick a lowercase-hyphenated name that says **what it is for**, not what
    activity it is. A name like `skill-authoring` fits any repo and therefore
-   describes nothing; `harness-factory` names the thing being built. If the
+   describes nothing; `core-harness` names the thing being built. Skills this
+   package owns are prefixed `core-`, so they read as one set. If the
    name would make sense in someone else's repo unchanged, either the name is
    wrong or the content should have been a dependency.
 
@@ -163,7 +164,7 @@ replacement by a published one, not exempt from the question.
 
 ## Taking a dependency
 
-Dependencies go in `makura-agents/apm.yml` under `dependencies.apm`, one entry
+Dependencies go in `core-principal/apm.yml` under `dependencies.apm`, one entry
 per skill with an explicit `ref` commit and an `alias`. A collection directory
 is not a package: take `skills/<one-skill>` at a time.
 

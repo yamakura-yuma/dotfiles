@@ -1,5 +1,5 @@
 ---
-name: retro
+name: core-retro
 description: >-
   Use at the end of a session, after a user correction, or after resolving a
   tricky bug, to improve the agent's environment for next time. Finds what
@@ -85,16 +85,16 @@ is ever read:
 | The finding is… | Goes to |
 | --- | --- |
 | Mechanical, decidable by a script | A target under `make ci` |
-| A judgement call, true of every repo | `makura-agents/.apm/` — a rule if violating it is always wrong, a skill if it is a procedure |
+| A judgement call, true of every repo | `core-principal/.apm/` — a rule if violating it is always wrong, a skill if it is a procedure |
 | A judgement call, true of this repo only | This repo's own `.apm/` |
 | About how a specific tool is driven | The skill for that tool, or the tool's own published skill |
 | Not yet articulable, or one-off | Leave it in memory; stop here |
 
-Use the `harness-factory` skill for anything that becomes a new rule or skill,
+Use the `core-harness` skill for anything that becomes a new rule or skill,
 including the question of which of the two it is.
 
 Getting the shared-versus-local call wrong in the shared direction is the
-expensive mistake: it pushes a rule onto repos it does not fit. `makura-agents`
+expensive mistake: it pushes a rule onto repos it does not fit. `core-principal`
 is depended on by other repos, and apm cannot deploy part of a package.
 
 ## Memory is the draft; git is the record

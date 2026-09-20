@@ -14,7 +14,7 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-pkg="$(cd "$here/.." && pwd)"           # makura-agents/
+pkg="$(cd "$here/.." && pwd)"           # core-principal/
 repo="$(cd "$pkg/.." && pwd)"           # the repo that maintains it
 
 failures=0
@@ -28,8 +28,8 @@ skip() {
 
 # --- 1. AGENTS.md is what the instructions currently compile to --------------
 # Compiles into a throwaway copy rather than in place: this script is reached
-# through `make ci`, which the verifier subagent runs, and verification must
-# not modify the repo it is verifying.
+# through `make ci`, and verification must not modify the repo it is
+# verifying.
 check_agents_md() {
   command -v apm >/dev/null 2>&1 || { skip "no apm, not checking AGENTS.md"; return; }
   [ -f "$repo/AGENTS.md" ] || { skip "no AGENTS.md to check"; return; }
@@ -75,7 +75,7 @@ check_owned_paths() {
       [ -e "$target" ] || fail "$(basename "$doc") points at $p, which does not exist"
     done < <(grep -o '`[^`]*`' "$doc" |
       tr -d '`' |
-      grep -E '^(makura-agents/|\.apm/|\.claude/|tests/)[^ ]*$')
+      grep -E '^(core-principal/|\.apm/|\.claude/|tests/)[^ ]*$')
   done < <(find "$pkg/.apm" -name '*.md' -type f; ls "$pkg/README.md" 2>/dev/null)
 }
 
@@ -159,7 +159,7 @@ check_deploy_parity() {
 
 # --- 5. No repo keeps its own fork of a skill it also receives ---------------
 # A sibling repo having its own retro skill is fine while it is independent.
-# It stops being fine the moment that repo also depends on makura-agents,
+# It stops being fine the moment that repo also depends on core-principal,
 # because then two copies of the same skill name are in play and only one of
 # them gets maintained.
 check_skill_forks() {
@@ -171,11 +171,11 @@ check_skill_forks() {
     other="${other%/}"
     [ "$other" = "$repo" ] && continue
     [ -f "$other/apm.yml" ] || continue
-    grep -q 'makura-agents' "$other/apm.yml" 2>/dev/null || continue
+    grep -q 'core-principal' "$other/apm.yml" 2>/dev/null || continue
     for mine in "$pkg"/.apm/skills/*/; do
       name="$(basename "${mine%/}")"
       [ -d "$other/.apm/skills/$name" ] &&
-        fail "$(basename "$other") depends on makura-agents but keeps its own .apm/skills/$name"
+        fail "$(basename "$other") depends on core-principal but keeps its own .apm/skills/$name"
     done
   done
 }

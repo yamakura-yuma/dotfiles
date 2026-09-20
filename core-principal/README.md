@@ -1,4 +1,4 @@
-# makura-agents
+# core-principal
 
 Shared Claude Code agent config, packaged so that any repo can opt into it.
 
@@ -10,26 +10,32 @@ specific. The rule for what may live here is simply that it has to be true of
 
 ## What you get
 
-Rules and skills are split by when they have to be in the agent's head. A rule
-is loaded on every prompt, so it carries the instruction itself and nothing
-more; the reasoning, the procedure and the caveats sit in a skill of the same
-name, which is read only when it is needed. `language` is the exception — it
-has to be in effect before there is any chance to open a skill.
+There is **one** rule. `core-principal.instructions.md` is loaded on every
+prompt, so it is allowed to hold only two kinds of thing: a norm short enough
+to state in a few lines, and a pointer saying which skill or tool to reach for
+in a given situation. Everything with bulk lives in a `core-*` skill and is
+read when it is needed.
+
+The response language is the one norm that carries its own content, and it
+marks where the line falls: by the time a skill could be opened, the answer is
+already in the wrong language.
+
+Two things are deliberately absent. There is no rule restating what the guard
+hooks already refuse — enforcement belongs to the hook, and a prose copy of it
+is read every prompt to no effect. And there is no summary of Orca, because
+Orca publishes its own skills.
 
 | | |
 | --- | --- |
-| `language` rule | Respond in Japanese, except where an existing file's language should win (commit messages, READMEs, code comments). The one rule that carries its whole content. |
+| `core-principal` rule | The only always-loaded file: response language, then which skill or tool applies to navigating, explaining, verifying, changing the harness, retrospecting, and Orca. |
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
 | `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
-| `git-workflow` rule + skill | Rule: work on a branch, and the safe substitute for each refused command. Skill: how the hooks decide, where the line falls, how a human lifts one. |
-| `code-navigation` rule + skill | Rule: query the index first — `graphify` for where to look, `codegraph` for verbatim source and call paths — with `Read`/`Grep` as the fallback. Skill: what each returns, the worktree gap, and what the headroom proxy does to large output. |
-| `communication` rule + skill | Rule: lead with a diagram or table and cut to the decision. Skill: why long prose goes unread, and what to remove. |
-| `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
-| `/verify` command | Runs the repo's verification through that subagent. |
+| `core-tools` skill | The indexes: what `graphify` and `codegraph` each return, how to tell one is present, why a worktree inherits neither, and what the headroom proxy does to large output. |
+| `core-communication` skill | Why long prose goes unread, and what to cut so that a reader can decide. |
+| `core-harness` skill | How this harness is built: search the published ecosystem first, then decide whether a piece of knowledge is a check, a rule, a skill or nothing, and deploy it through apm. |
+| `core-retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
+| `/retro` command | Runs `core-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
-| `/retro` command | Runs `retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
-| `retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
-| `harness-factory` skill | How this harness is built: search the published ecosystem first, then decide whether a piece of knowledge is a check, a rule, a skill or nothing, and deploy it through apm. |
 
 ### Skills pulled in from elsewhere
 
@@ -48,7 +54,7 @@ repo that depends on this package and move forward with `apm update`.
 
 There is no shared verification convention. Each repo already has an entry
 point a human uses — `make ci` here — and an agent finds it by looking; the
-eval that tried to prove otherwise is written up in `makura-agents/tests/eval/README.md`.
+eval that tried to prove otherwise is written up in `core-principal/tests/eval/README.md`.
 
 ## Growing it
 
@@ -62,8 +68,8 @@ workspace directory left their memories stranded at keys nothing reads anymore.
 Everything under `.apm/` has none of those problems, because it moves with the
 repo, is copied into every worktree, is pushed to every host, and shows up in a
 diff. So the division is: **capture is automatic, promotion is deliberate.**
-`retro` decides whether a lesson is real and where it belongs — often as a
-check under `make ci` rather than as prose — `/retro` is what invokes it, and
+`core-retro` decides whether a lesson is real and where it belongs — often as
+a check under `make ci` rather than as prose — `/retro` is what invokes it, and
 the memory it came from gets deleted so that only one copy can go stale.
 
 No hook drives this. A reminder that fires on every tool call gets tuned out —
@@ -73,8 +79,8 @@ behavior next session is the rule being in git.
 ## Tests
 
 ```bash
-./makura-agents/tests/guards.sh         # guard hooks, by feeding them payloads
-./makura-agents/tests/harness-check.sh  # invariants of the package itself
+./core-principal/tests/guards.sh         # guard hooks, by feeding them payloads
+./core-principal/tests/harness-check.sh  # invariants of the package itself
 ```
 
 Both live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
@@ -85,7 +91,7 @@ they cover. dotfiles' `make ci` runs both.
 agent does — by running one prompt in two fixture repos, with and without the
 package, and requiring the behavior to appear only in the first. It costs real
 money per case, so it has its own `make eval` instead of belonging to
-`make ci`; see `makura-agents/tests/eval/README.md`.
+`make ci`; see `core-principal/tests/eval/README.md`.
 
 `harness-check.sh` is about drift rather than behavior — AGENTS.md matching what
 the instructions compile to, quoted paths existing, flags quoted for
@@ -105,9 +111,9 @@ targets:
 dependencies:
   apm:
   - git: https://github.com/yamakura-yuma/dotfiles.git
-    path: makura-agents
+    path: core-principal
     ref: <commit>          # no tags upstream; bump with `apm update`
-    alias: makura-agents
+    alias: core-principal
 ```
 
 In a repo with no `apm.yml` yet, one command writes it for you:
@@ -119,7 +125,7 @@ apm install 'https://github.com/yamakura-yuma/dotfiles.git#<commit>' --target cl
 `--target claude` is not optional — without it apm scans for harness markers
 and aborts with "No harness detected" in a repo that has no `.claude/` yet.
 
-A local path (`- path: /home/you/k8s-workspace/dotfiles/makura-agents`) works
+A local path (`- path: /home/you/k8s-workspace/dotfiles/core-principal`) works
 too and picks up edits without a push, which is convenient while changing
 something here. It bakes this host's checkout path into that repo's `apm.yml`,
 though, so prefer the git form for anything you commit.
@@ -142,14 +148,14 @@ while the thing it prevents may never have happened. So the bar is "frequent,
 irreversible, and hard to mistake for ordinary work". Writing outside the repo
 does not clear that bar despite there being a real incident behind it
 (`~/.claude/settings.json.graphify-bak`), so it is a paragraph in the
-`harness-factory` skill rather than a third hook.
+`core-harness` skill rather than a third hook.
 
 `guard-destructive-git` draws its line at *what cannot be recovered*, not at
 what sounds alarming. `git reset --soft`, `git checkout <branch>` and
 `git push --force-with-lease` all pass, because each either keeps the work or
 refuses on its own when the remote has moved. Note that `--force` and
 `--force-with-lease` share a prefix, so the match requires a separator after
-`--force`; `makura-agents/tests/guards.sh` pins that case specifically,
+`--force`; `core-principal/tests/guards.sh` pins that case specifically,
 because it is the one a sloppier regex would break every day.
 
 Two details worth knowing before editing it:

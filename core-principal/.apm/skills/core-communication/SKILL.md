@@ -1,5 +1,5 @@
 ---
-name: communication
+name: core-communication
 description: Presenting a design, a structure, or investigation results: lead with a diagram or table, cut to what the reader needs in order to decide, leave out the research process and rejected options, and render an openable show-me artifact when asked to show something. Use when explaining a plan, an architecture, or findings.
 ---
 
