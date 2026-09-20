@@ -1,27 +1,22 @@
 name: agent-environment
 version: 1.0.0
-description: Declaratively-managed MCP servers for the Claude Code agent environment
+description: Claude Code environment for this repo, authored as APM primitives
 author: yyamakura
 # Which agent platforms to deploy to.
 # Resolution order: --target flag > this field > auto-detect from filesystem.
 targets:
 - claude
+# Installed at *project* scope: `apm install` (no -g) in this checkout deploys
+# the dependency below into ./.claude/, and nothing into ~/.claude/. Host-wide
+# pieces live in host-apm.yml instead.
+#
+# There is no ./.apm/ here: every rule, skill and hook turned out to be true of
+# any repo, so all of it lives in ./makura-agents and this repo is just its
+# first consumer — it depends on the package the same way another repo would,
+# so whatever breaks for them breaks here too. Add ./.apm/ back only for
+# something that would be wrong outside this repo.
 dependencies:
-  apm: []
-  mcp:
-  - name: codegraph
-    registry: false
-    transport: stdio
-    command: codegraph
-    args:
-    - serve
-    - --mcp
-  - name: headroom
-    registry: false
-    transport: stdio
-    command: headroom
-    args:
-    - mcp
-    - serve
-includes: auto
+  apm:
+  - path: ./makura-agents
+    alias: makura-agents
 scripts: {}
