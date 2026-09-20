@@ -76,6 +76,25 @@ No hook drives this. A reminder that fires on every tool call gets tuned out —
 that has been observed directly here — while the thing that actually changes
 behavior next session is the rule being in git.
 
+## Editing this package from inside dotfiles
+
+`apm` copies a path dependency into `apm_modules/_local/`, and `apm install`
+reads the transitive dependency list from that copy rather than from the source
+next to it. So adding a skill to `core-principal/apm.yml` here appears to do
+nothing: the install reports success, the new skill is absent from
+`.claude/skills/` and from `apm.lock.yaml`, and no error is printed. Bumping
+the package `version` does not dislodge it either.
+
+Delete the stale copy and install again:
+
+```sh
+rm -rf apm_modules/_local/core-principal
+apm install
+```
+
+A consuming repo is unaffected, because it depends on this package by git ref
+rather than by path.
+
 ## Tests
 
 ```bash
