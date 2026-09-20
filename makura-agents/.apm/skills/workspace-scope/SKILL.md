@@ -1,0 +1,26 @@
+---
+name: workspace-scope
+description: Keeping a change inside the repository: where temporary files belong, why ~/.claude/settings.json must never be hand-edited, editing .apm/ sources rather than the generated .claude/, and putting shared config in a package that consumers depend on instead of spraying it host-wide. Use before writing outside the repo or changing agent configuration.
+---
+
+# 作業範囲とエージェント設定の触り方
+
+作業の影響は、いま開いているリポジトリの中に閉じること。リポジトリの外のファイルは、
+人間から明示的に頼まれたときだけ触る。
+
+これは hook で止めていない。Write / Edit のたびに判定を挟むほど頻度の高い事故ではない
+からで、素通りするという意味ではない。
+
+- 一時ファイルはリポジトリではなく、セッションのスクラッチパッドに置く。
+- `~/.claude/settings.json` は特に触らないこと。このファイルは Orca・headroom・graphify・
+  codegraph・apm が同時に書き込んでいる。丸ごと書き直すとどれかの設定が黙って消える。
+  実際に `~/.claude/settings.json.graphify-bak` が残っていて、過去にツールの 1 つが
+  このファイルを上書きしている。
+- エージェント設定を変えたいときは、Claude Code のファイルを直接編集するのではなく
+  APM のソース（`.apm/` 配下）を編集して `apm install` で配備する。`.claude/` は生成物で、
+  次の `apm install` で上書きされる。
+- ホスト全体に効かせたい変更を思いついたら、実行する前に人間に確認すること。
+- 複数のリポジトリで使いたい設定は、**ホスト側に撒くのではなく、共有パッケージに置いて
+  使う側が依存として取り込む**。`~/.claude/` に入れると、関係ないリポジトリにも黙って効き、
+  その設定がどこから来たのかを追えなくなる。依存に書いてあれば `apm.yml` を見れば分かるし、
+  外したいリポジトリは依存しなければよい。

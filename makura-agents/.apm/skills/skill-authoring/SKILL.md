@@ -86,6 +86,17 @@ What apm deploys where, for all five primitives:
 
 Edit under `.apm/skills/<name>/`, then repeat steps 3–6.
 
+## Look for an existing skill first
+
+Before writing anything, search the published ecosystem with the `find-skills`
+skill. Where something fits, take it as a dependency or follow its structure;
+author only the part that genuinely does not exist yet. The point is to use
+knowledge other people have already refined, so "I looked and found nothing" is
+a result to state, not a formality to clear.
+
+`writing-for-agents` is the reference for how any of this gets written — a
+rule, a skill, a `CLAUDE.md` line. Read it before authoring one.
+
 ## Deciding where knowledge belongs
 
 - **CLAUDE.md** — things true of the whole project that rarely change: stack,
@@ -100,3 +111,22 @@ Edit under `.apm/skills/<name>/`, then repeat steps 3–6.
 
 The rule of thumb: if it answers "how do I do X when X comes up", it is a
 skill. If it answers "what must always be true", it is an instruction.
+
+### An instruction is a pointer, not an essay
+
+An instruction is loaded on every prompt whether or not it turns out to be
+relevant, so it pays its cost constantly and earns hard pruning. Write it as
+the imperative plus the branches that decide when to go further, and put the
+reasoning, the procedure, the examples and the caveats into a skill of the same
+name that the closing line points at. The six rules here went from 12.7 KB of
+always-loaded prose to 5.6 KB that way, with nothing dropped — the prose moved
+rather than shrank.
+
+Keep the instruction strong enough to act on by itself. A guardrail behind a
+vague pointer only fires when the agent happens to open the skill, which is not
+a guardrail. The test is whether the rule still forbids the wrong thing when
+the skill is never read.
+
+**`language` is the exception**, and it marks where the line falls: a rule has
+to carry its own content when obeying it cannot wait for a skill to be opened.
+By the time anything could be loaded, the response language is already wrong.

@@ -15,25 +15,40 @@ dependencies:
   - .claude/rules/language.md
   - .claude/rules/testing.md
   - .claude/rules/workspace-scope.md
+  - .claude/skills/code-navigation
+  - .claude/skills/code-navigation/SKILL.md
+  - .claude/skills/communication
+  - .claude/skills/communication/SKILL.md
+  - .claude/skills/git-workflow
+  - .claude/skills/git-workflow/SKILL.md
   - .claude/skills/orca-orchestration
   - .claude/skills/orca-orchestration/SKILL.md
   - .claude/skills/session-retro
   - .claude/skills/session-retro/SKILL.md
   - .claude/skills/skill-authoring
   - .claude/skills/skill-authoring/SKILL.md
+  - .claude/skills/testing
+  - .claude/skills/testing/SKILL.md
+  - .claude/skills/workspace-scope
+  - .claude/skills/workspace-scope/SKILL.md
   deployed_file_hashes:
     .claude/agents/verifier.md: sha256:6cc24ddd52cc38d95dda7d42e31d64331c9a2d5983c006ae6495846ea27d3e46
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-default-branch.sh: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
     .claude/hooks/makura-agents/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
-    .claude/rules/code-navigation.md: sha256:4b6be388dc5608631288ccc98777889858cf2533a32316ef551a4033b82697db
-    .claude/rules/communication.md: sha256:92654a1733f09a7777a6fbb2ff7a1e5bbc5abdc4e5be47ac1003ad4231acce32
-    .claude/rules/git-workflow.md: sha256:71881ee97e5687f5af43f87ba7c78c257e30e98c3e874f09f6193c7a4b0606e5
+    .claude/rules/code-navigation.md: sha256:65533cbebfb89c05bebd2d36ad35d677076a0457797d69807f36699311a43d91
+    .claude/rules/communication.md: sha256:ec4a560aa64987356fe6e9df8fc70e48274de30ff7b1d45b098ed709f4e10bed
+    .claude/rules/git-workflow.md: sha256:659efd80c8187526f8425a4dd80c5b809461fb0a68a53b87f7f2ffc35cfc44dc
     .claude/rules/language.md: sha256:98ca7d138b43317d4687c4642baff89652406dad71a5a7705584387b2ffb5fdf
-    .claude/rules/testing.md: sha256:6b0f0783fcb10404649bb9c886b70fefc127164786b81c201f9642c28ff068cc
-    .claude/rules/workspace-scope.md: sha256:d019a7427f666c9dbc04f540d951717abd4bfa1a1e72652be9c00f7abb06004c
+    .claude/rules/testing.md: sha256:46fc09ee9780652f16512e1e496bed1813bff1262345e30f78ed28113950147e
+    .claude/rules/workspace-scope.md: sha256:f6f63d09fddaab901b0297c399992db590a62e59a6c6ad8cc8472457c93e3b48
+    .claude/skills/code-navigation/SKILL.md: sha256:bae6c7c88ccbef7a892e6d402bbfd4fec0f3639518db283a1543d4e9df1b6fdf
+    .claude/skills/communication/SKILL.md: sha256:4e9add847b10d460ff4a40a76f63ba92052dc2245599ce0edaa3c958be4aa71a
+    .claude/skills/git-workflow/SKILL.md: sha256:3196344e8c2825aca3ef5f23a352a5ee25ae40916812fd2313e3bd690173dfe6
     .claude/skills/orca-orchestration/SKILL.md: sha256:7736eba4668c4af9212656b6a03e0513b365a4c3572cf2ec2585f930a8a28104
     .claude/skills/session-retro/SKILL.md: sha256:5201001036a9952f08d479d69e390f85903ccda8da22186605709eda974eaab6
-    .claude/skills/skill-authoring/SKILL.md: sha256:6af31530093357b21e611e39c4dd6db60973204e5f85c6dcfa35ac190b5430c1
+    .claude/skills/skill-authoring/SKILL.md: sha256:42f77d53864fb068f5fe69a04d0985fdb7567d5a74f33158607f7fe3a37f3841
+    .claude/skills/testing/SKILL.md: sha256:aea3c6328971741c1466a285a5f73d6c99efcb76286b0c33feb202722268e352
+    .claude/skills/workspace-scope/SKILL.md: sha256:85415ddc98a95901942a3f1821b38f240a55b4d5a9f50391f8352a702d761189
   source: local
   local_path: ./makura-agents
 - repo_url: dietrichgebert/ponytail
@@ -418,7 +433,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:4b6be388dc5608631288ccc98777889858cf2533a32316ef551a4033b82697db
+  content_hash: sha256:65533cbebfb89c05bebd2d36ad35d677076a0457797d69807f36699311a43d91
 - kind: project-relative
   target: claude
   value: .claude/rules/communication.md
@@ -427,7 +442,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:92654a1733f09a7777a6fbb2ff7a1e5bbc5abdc4e5be47ac1003ad4231acce32
+  content_hash: sha256:ec4a560aa64987356fe6e9df8fc70e48274de30ff7b1d45b098ed709f4e10bed
 - kind: project-relative
   target: claude
   value: .claude/rules/git-workflow.md
@@ -436,7 +451,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:71881ee97e5687f5af43f87ba7c78c257e30e98c3e874f09f6193c7a4b0606e5
+  content_hash: sha256:659efd80c8187526f8425a4dd80c5b809461fb0a68a53b87f7f2ffc35cfc44dc
 - kind: project-relative
   target: claude
   value: .claude/rules/language.md
@@ -454,7 +469,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:6b0f0783fcb10404649bb9c886b70fefc127164786b81c201f9642c28ff068cc
+  content_hash: sha256:46fc09ee9780652f16512e1e496bed1813bff1262345e30f78ed28113950147e
 - kind: project-relative
   target: claude
   value: .claude/rules/workspace-scope.md
@@ -463,7 +478,25 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:d019a7427f666c9dbc04f540d951717abd4bfa1a1e72652be9c00f7abb06004c
+  content_hash: sha256:f6f63d09fddaab901b0297c399992db590a62e59a6c6ad8cc8472457c93e3b48
+- kind: project-relative
+  target: claude
+  value: .claude/skills/code-navigation
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/code-navigation/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:bae6c7c88ccbef7a892e6d402bbfd4fec0f3639518db283a1543d4e9df1b6fdf
 - kind: project-relative
   target: claude
   value: .claude/skills/cognitive-rhythm-writing
@@ -484,6 +517,24 @@ deployments:
   content_hash: sha256:65486e64f33ce2ab03c5db198b1f92e2838e71abfb1a80085d1b405340c11437
 - kind: project-relative
   target: claude
+  value: .claude/skills/communication
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/communication/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:4e9add847b10d460ff4a40a76f63ba92052dc2245599ce0edaa3c958be4aa71a
+- kind: project-relative
+  target: claude
   value: .claude/skills/find-skills
   runtime: null
   scope: project
@@ -500,6 +551,24 @@ deployments:
   - vercel-labs/skills/skills/find-skills
   active_owner: vercel-labs/skills/skills/find-skills
   content_hash: sha256:c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/git-workflow
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/git-workflow/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:3196344e8c2825aca3ef5f23a352a5ee25ae40916812fd2313e3bd690173dfe6
 - kind: project-relative
   target: claude
   value: .claude/skills/grill-me
@@ -787,7 +856,7 @@ deployments:
   owners:
   - ./makura-agents
   active_owner: ./makura-agents
-  content_hash: sha256:6af31530093357b21e611e39c4dd6db60973204e5f85c6dcfa35ac190b5430c1
+  content_hash: sha256:42f77d53864fb068f5fe69a04d0985fdb7567d5a74f33158607f7fe3a37f3841
 - kind: project-relative
   target: claude
   value: .claude/skills/teach
@@ -853,6 +922,24 @@ deployments:
   content_hash: sha256:5856f3ae8aec742f1499c640aecdd5f1d6af5fa210a7c6ec794de8263a6f733f
 - kind: project-relative
   target: claude
+  value: .claude/skills/testing
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/testing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:aea3c6328971741c1466a285a5f73d6c99efcb76286b0c33feb202722268e352
+- kind: project-relative
+  target: claude
   value: .claude/skills/to-questionnaire
   runtime: null
   scope: project
@@ -905,6 +992,24 @@ deployments:
   - mattpocock/skills/skills/productivity/wait-what
   active_owner: mattpocock/skills/skills/productivity/wait-what
   content_hash: sha256:b41faadf741d51e4ea184148b2d1854d93f947aaf754c7844f70a00f04194999
+- kind: project-relative
+  target: claude
+  value: .claude/skills/workspace-scope
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/workspace-scope/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./makura-agents
+  active_owner: ./makura-agents
+  content_hash: sha256:85415ddc98a95901942a3f1821b38f240a55b4d5a9f50391f8352a702d761189
 - kind: project-relative
   target: claude
   value: .claude/skills/writing-for-agents

@@ -1,39 +1,23 @@
 ---
 applyTo: "**"
-description: "Branch discipline and destructive-command limits, enforced by hooks"
+description: "Work on a branch; leave the four irreversible git commands alone. Details in the git-workflow skill"
 ---
 
-- デフォルトブランチ（`origin/HEAD` が指すブランチ。取れない場合は `main` / `master`）の
-  上で `git commit` / `git push` を実行しないこと。`.claude/settings.json` に入っている
-  PreToolUse hook が exit 2 で拒否する。
-- 変更に着手する前に作業用のブランチを用意すること。Orca 環境では
-  `orca worktree create --name <名前> --agent claude --prompt "<指示>"`、そうでなければ
-  `git worktree add -b <branch> ../<dir>`。
-- hook が見るのは「いま HEAD が指しているブランチ」だけなので、worktree 上の
-  フィーチャーブランチでは commit も push もそのまま通る。
-- この hook はプロジェクトスコープで、makura-agents を導入したリポジトリにしか効かない。
-  導入していないリポジトリでは同じ保護は無いので、ブランチを切る判断は自分でやること。
-- 例外が要るときは、ターミナルの人間が `MAKURA_ALLOW_MAIN=1` を export してから
-  Claude Code を起動する。hook は Claude Code の環境を継承するため、コマンド文字列に
-  この変数を前置してもエージェント側からは解除できない。
+変更に着手する前に作業用のブランチか worktree を用意し、その上で commit / push する。
+デフォルトブランチ上での `git commit` / `git push` は PreToolUse hook が exit 2 で拒否する。
 
-## 取り返しのつかない git 操作
+作業がどこにも残らなくなる次の 4 つは、安全な代替に置き換える。もう 1 本の hook
+（`guard-destructive-git`）が拒否する。
 
-もう 1 本の PreToolUse hook（`guard-destructive-git`）が、**どこにも残っていない作業を
-消すコマンド**だけを exit 2 で拒否する。対象は次の 4 つ。
+| 拒否されるもの | 代わりに使う |
+| --- | --- |
+| `git reset --hard` | `git stash push -u` / `git reset --soft <commit>` |
+| `git clean -f`（`-fd` / `-fdx`） | まず `git clean -nd` で消えるものを見る |
+| `git checkout -- .` / `git restore .` | パスを 1 つ指定した `git restore <path>` |
+| `git push --force` | `git push --force-with-lease` |
 
-- `git reset --hard` — 未コミットの変更が全部消える。代わりに `git stash push -u` で
-  退避するか、ファイルには触らない `git reset --soft <commit>` を使う。
-- `git clean -f`（`-fd` / `-fdx` を含む）— 未追跡ファイルはどのコミットにも無いので、
-  消したら戻せない。まず `-f` 無しの `git clean -nd` で何が消えるか確認する。
-- `git checkout -- .` / `git restore .` — ツリー全体を戻すもの。ファイルを 1 つ指定した
-  `git restore <path>` は通常の操作なので通る。
-- `git push --force` — 他人が push したコミットごと上書きする。リモートが動いていたら
-  失敗してくれる `git push --force-with-lease` を使うこと。
+hook はプロジェクトスコープで、makura-agents を導入したリポジトリにしか効かない。
+導入していないリポジトリでも同じ規律で進めること。
 
-逆に `git reset --soft`、`git checkout <branch>`、`git push --force-with-lease` は
-いずれも作業が残るか自分で失敗するので、hook は素通しする。
-
-散らかった作業ツリーを「掃除」したくなったときが一番危ない。消すのではなく
-`git stash push -u -m "<理由>"` で退避してから進めること。例外が要るときは、
-ターミナルの人間が `MAKURA_ALLOW_DESTRUCTIVE=1` を export する。
+hook がどう判定するか、通る操作との境目、人間が例外を許可する方法は `git-workflow`
+スキルにある。拒否されたらそれを読む。

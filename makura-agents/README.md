@@ -10,16 +10,22 @@ specific. The rule for what may live here is simply that it has to be true of
 
 ## What you get
 
+Rules and skills are split by when they have to be in the agent's head. A rule
+is loaded on every prompt, so it carries the instruction itself and nothing
+more; the reasoning, the procedure and the caveats sit in a skill of the same
+name, which is read only when it is needed. `language` is the exception — it
+has to be in effect before there is any chance to open a skill.
+
 | | |
 | --- | --- |
-| `language` rule | Respond in Japanese, except where an existing file's language should win (commit messages, READMEs, code comments). |
+| `language` rule | Respond in Japanese, except where an existing file's language should win (commit messages, READMEs, code comments). The one rule that carries its whole content. |
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
 | `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
-| `git-workflow` rule | Why those hooks exist, so an agent reads it before being blocked rather than after. |
-| `testing` rule | Changes come with tests; don't report something as working that no test exercised; `.agent/verify.sh` is how a repo is verified. |
-| `workspace-scope` rule | Keep edits inside the repo, and never hand-edit `~/.claude/settings.json` — five tools write to it. |
-| `code-navigation` rule | Reach for `graphify` (where to look) and `codegraph` (verbatim source plus call paths) first; `Read`/`Grep` are the fallback when there is no index or those miss. Also why large dumps are a bad bet under the headroom proxy. |
-| `communication` rule | Show a design as a rendered diagram, not as a few hundred lines of prose; cut to what the reader needs in order to decide. |
+| `git-workflow` rule + skill | Rule: work on a branch, and the safe substitute for each refused command. Skill: how the hooks decide, where the line falls, how a human lifts one. |
+| `testing` rule + skill | Rule: ship the test with the change, run `.agent/verify.sh`, report only what was verified. Skill: how to place tests, how to cover what must *not* trip, why self-verification drifts green. |
+| `workspace-scope` rule + skill | Rule: stay inside the repo, edit `.apm/` sources rather than generated `.claude/`, leave `~/.claude/settings.json` alone. Skill: the overwrite incident behind it, and why this is a rule and not a third hook. |
+| `code-navigation` rule + skill | Rule: query the index first — `graphify` for where to look, `codegraph` for verbatim source and call paths — with `Read`/`Grep` as the fallback. Skill: what each returns, the worktree gap, and what the headroom proxy does to large output. |
+| `communication` rule + skill | Rule: lead with a diagram or table and cut to the decision. Skill: why long prose goes unread, and what to remove. |
 | `verifier` subagent | Runs the repo's verification and reports the raw result. It is given `Bash, Read, Grep, Glob` and **no `Edit` or `Write`**, so it has no way to turn a failure green. |
 | `/verify` command | Runs the repo's verification through that subagent. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
@@ -27,7 +33,19 @@ specific. The rule for what may live here is simply that it has to be true of
 | `orca-orchestration` skill | A pointer at `orca skills get orchestration`, plus the conventions of this workspace. |
 | `session-retro` skill | At the end of a session or after a correction, decide whether a durable lesson was learned and which `.apm/` it belongs in — then delete the memory it was promoted from. |
 | `skill-authoring` skill | How to add or improve a skill through apm, and whether a given piece of knowledge is a skill, an instruction, or a CLAUDE.md line. |
-| `show-me` skill | Vendored from `humanlayer/skills` at a pinned commit: diagrams and standalone HTML explanations. |
+
+### Skills pulled in from elsewhere
+
+Declared as dependencies in `apm.yml` at pinned commits, so they travel to every
+repo that depends on this package and move forward with `apm update`.
+
+| | |
+| --- | --- |
+| `find-skills` | vercel-labs. Consulted **before** a skill or procedure is written here: borrow what exists, author only what does not. |
+| `show-me` | humanlayer. Diagrams and standalone HTML explanations. |
+| `writing-for-agents`, `grill-me`, `grilling`, `handoff`, `teach`, `to-questionnaire`, `wait-what` | mattpocock's `skills/productivity`. `writing-for-agents` is the one this package's own rule/skill split follows. |
+| `ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review` | Simplest-thing-that-works discipline. Upstream ships as a plugin wiring up its own `PreToolUse` hooks; only `skills/ponytail*` is taken, so the opinion is available without a hook firing on every tool call. |
+| `japanese-tech-writing`, `cognitive-rhythm-writing` | Japanese prose norms. The aliases are load-bearing: `cognitive-rhythm-writing` reads `../japanese-tech-writing/SKILL.md`, so the two only work deployed as siblings under exactly these names. |
 
 Only the *name* `.agent/verify.sh` is shared. What it runs is always local — build
 and test look different in every language — so the package defines the calling
