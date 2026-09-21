@@ -69,6 +69,13 @@ create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は�
 **成立しない**。Claude Code のセッションが終わるとバックグラウンドプロセスごと
 消え、完了通知を取りこぼす（実測）。メッセージ自体は inbox に残る。
 
+**そもそも到着を前提にできない。** 公式は、所有権を失ったことを知る手段は `check`
+が返す `consumer_fenced` だけだと明記している（"`consumer_fenced` is the only way
+you learn that"）。つまり自分から引かなければ資格喪失にすら気づけない。さらに
+未文書の実測として、Orca 再起動で capability が失効し、送信自体が拒否される経路も
+ある。いずれも「来るはずのものが来ない」形なので、**完了は pull で突き合わせる**。
+詳しくは `references/orca.md`「資格を失うとき」。
+
 拾いに行く機会は 3 つ。**Orca 自身の通知**（「You have N orchestration message.
 Run `orca orchestration check --run <run_id>`」がセッションに注入される。これが実質の
 起こし役なので、来たら従う）、**セッションの最初**、**新しい依頼を受けた時**。

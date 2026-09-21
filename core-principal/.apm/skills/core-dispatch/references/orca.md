@@ -7,14 +7,21 @@ orca skills get orca-cli
 orca skills get orchestration
 ```
 
+全文（790 行、reference 込み）が要るときは `--full`、個別に読むなら
+`--reference <name>`。
+
 ここに書くのは、**その早見表と、上のスキルどおりにやって失敗した点**だけ。齟齬が
 あったら `orca skills get` のほうが正しい。
 
-## リポジトリを指す — `--repo id:<repoId>` を必ず書く
+各項目には出どころを付ける。**【公式】** は Orca のスキルや `--help` に明記されて
+いること、**【実測】** はここで観測しただけで、どこにも文書化されていないこと。
+実測は次の版で変わりうるので、公式と同じ重みで扱わない。
+
+## リポジトリを指す — `--repo id:<repoId>` を必ず書く 【実測】
 
 `orca worktree current` は cwd を Windows 側のホストで解決しようとして
-`C:\home\...` を返し、そのまま失敗する。coordinator は Orca が管理する
-worktree の外にあることも多く、`active` / `current` に依存した指定も当てにならない。
+`C:\home\...` を返し、そのまま失敗する。coordinator は Orca が管理する worktree の
+外にあることも多く、`active` / `current` に依存した指定も当てにならない。
 **リポジトリは毎回明示する。**
 
 ```
@@ -33,7 +40,7 @@ orca worktree list --json |
   jq -r '.result.worktrees[] | select(.isMainWorktree) | "\(.repoId)\t\(.path)"'
 ```
 
-## 投げっぱなしで出す
+## 投げっぱなしで出す 【公式】
 
 戻りを待たずに走らせてよい作業はこちら。作った worktree の第一ターミナルで
 エージェントが起き、`--prompt` がそのまま最初のメッセージになる。
@@ -45,10 +52,10 @@ orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --pro
 - `--name` は必須。作業内容から短い kebab-case を付ける。
 - `--agent` を渡したら `orca terminal create` を重ねない。ターミナルは既にある。
   ハンドルは `result.agentTerminalHandle`（古いランタイムは
-  `result.startupTerminal.handle` しか返さない）。
+  `result.startupTerminal.handle` しか返さない）。以上は `--help` の Notes にある。
 - リポジトリ側の setup フックを確実に走らせたいときだけ `--setup run`。
 
-## 監視付きで出す
+## 監視付きで出す 【公式】
 
 worker_done / escalation / question を受け取りたい、つまり統合まで面倒を見るなら
 orchestration 側から出す。Run が無ければ先に作る。
@@ -71,25 +78,29 @@ orca orchestration check --json
 orca orchestration check --terminal <handle> --json
 ```
 
-`check` は `--help` を解釈せず inbox を表示する（そのため
+**【公式】** `check` は `--terminal` で呼び出し元を名乗る（`--from` ではない）。
+`--wait` と `--timeout-ms` でメッセージが来るまでブロックできる。
+
+**【実測】** `check` は `--help` を解釈せず inbox を表示する（そのため
 `core-principal/tests/harness-check.sh` のフラグ検査はこのサブコマンドを飛ばす）。
 
-`--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**coordinator では使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
-Bash で待たせても **Claude Code のセッションが終われば道連れに消え、完了通知を
-取りこぼす**（実測）。
+**【実測】** coordinator では `--wait` を使わない。前景で待てばターンが塞がって次の
+依頼を受けられず、バックグラウンドの Bash で待たせても **Claude Code のセッションが
+終われば道連れに消え、完了通知を取りこぼす**。
 
-待たなくても起こしてもらえる。Orca はコーディネータ端末のセッションに
+**【実測】** 待たなくても起こしてもらえる。Orca は coordinator 端末のセッションに
 
 > You have N orchestration message. Run `orca orchestration check --run <run_id>`
 
-という通知を自分で注入してくる（実測。heartbeat もこれで届いた）。**これが統合の
-正しいトリガー**で、来たら `check` する。取りこぼしはセッション開始時と依頼を
-受けた時の拾い直しで回収する。メッセージは inbox に残っているので消えはしない。
+という通知を自分で注入してくる。これが統合の実際のトリガーだが、**通知に依存しない
+こと。** 通知が途絶える経路が 2 つあり、片方は公式に明記されている（下の「資格を失う
+とき」）。取りこぼしはセッション開始時と依頼を受けた時の拾い直しで回収する。
+メッセージは inbox に残っているので消えはしない。
 
-## Run を結び直す
+## Run を結び直す 【公式】
 
-コーディネータ側の端末ハンドルもセッション再起動で変わる。ハンドルが変われば Run と
-の束縛も切れるので、通知が来ない・`check` が空に見えるときはここを疑う。
+coordinator 側の端末ハンドルもセッション再起動で変わる。ハンドルが変われば Run との
+束縛も切れるので、通知が来ない・`check` が空に見えるときはここを疑う。
 
 ```
 orca orchestration run-current --json
@@ -106,7 +117,7 @@ orca orchestration reply --id <msg_id> --body "<返答>" --json
 orca orchestration worker-release --dispatch <dispatch_id> --json
 ```
 
-## 状況を見る — 公式の projection を読む
+## 状況を見る — 公式の projection を読む 【公式】
 
 ```
 orca worktree ps --json
@@ -124,15 +135,18 @@ orca orchestration inbox --limit 20 --json
 `task-list --ready --brief` の ready view を、公式は **external memory** と呼ぶ。
 次に動けるものを覚えておくのではなく、そのつどここから引く。
 
-`worktree ps` は実行ホストごとに行を返し、末尾の `scope:` 行がどのホストを見たかを
-書く。そこに出ていないホストの workspace は「無い」のではなく「見ていない」。
+**【実測】** `worktree ps` は実行ホストごとに行を返し、末尾の `scope:` 行がどのホスト
+を見たかを書く。そこに出ていないホストの workspace は「無い」のではなく「見ていない」。
 
 ## ハンドルが stale になったとき — 死亡と判定しない
 
-Orca 本体が再起動するとターミナルハンドルが変わる。dispatch に記録されたハンドルは
-そのまま古くなり、`orca orchestration worker-list --json` の liveness が
-`unverifiable` や `missing_status` になる。**これはワーカーが死んだということでは
-ない。** ここで停止や再試行をかけると、生きているワーカーの作業を捨てることになる。
+**【公式】** `live` / `unverifiable` / `exited` の判定はそのまま保つこと。**接触の
+喪失はプロセスの死ではない**（Authority and safety floor）。停止・放棄・再試行・解放を
+authorize するのは positive proof だけで、不在は何も authorize しない。
+
+**【実測】** Orca 本体が再起動するとターミナルハンドルが変わる。dispatch に記録された
+ハンドルはそのまま古くなり、`worker-list` の liveness が `unverifiable` や
+`missing_status` になる。これは上の「接触の喪失」にあたり、死亡ではない。
 
 引き直して、自分の目で確かめる:
 
@@ -146,14 +160,42 @@ orca terminal wait --terminal <new-handle> --for tui-idle --timeout-ms 60000 --j
 なら、それは落ちたのではなく止まっているので、続きの指示を送って起こす**
 （下の `terminal send`）。
 
-## 再起動をまたいだ Dispatch は、ワーカー自身では決着できない
+## 資格を失うとき — 公式の経路と、我々が踏んだ経路
 
-`terminal list` でハンドルを引き直しても `worker_done` は通らない。capability が
-旧プロセス世代に束縛されているためで、`dispatch_capability_invalid` で拒否される
-（旧ハンドルなら `caller is not the Dispatch pane`、新ハンドルなら
-`The Dispatch process incarnation changed`）。実測済み。
+**【公式】** lifecycle の権限は **active Dispatch** に紐づく。ターミナルのタイトル、
+コピーした ID、古い DB 行、provider の transcript、見えているペインのどれでもない。
+ワーカーは live preamble にある executable / handle / capability / Task ID /
+Dispatch ID を**そのまま**使い、再構成も翻訳も拡張もしてはならない。したがって
+worker_done は preamble の `--from <handle>` と `--dispatch-capability <capability>`
+を付けて送る。
 
-**ワーカー側**: だから報告はファイルに書き、**先に書いてコミットまで済ませてから**
+**【公式】** 所有権を失ったことは `check` が `consumer_fenced` を返したときに知る。
+Attempt が別のワーカーに付け替えられたか、自分抜きで決着したということなので、
+**停止し、worker_done を送らず、check を再試行しない**。空の `check` は「置き換え
+られた」を意味しない。公式は **`consumer_fenced` is the only way you learn that** と
+明記している。つまり想定経路は「check で気づいて静かに降りる」である。
+
+**【実測・未文書】** ここで踏んだのはその経路ではない。Orca 本体が再起動したあと、
+`worker_done` の送信そのものが拒否された。旧ハンドルでは
+`caller is not the Dispatch pane`、`terminal list` で引き直した新ハンドルでは
+`The Dispatch process incarnation changed`。**`dispatch_capability_invalid` という
+エラーコードも、プロセス世代（incarnation）が変わると弾かれるという挙動も、
+`--full` の 790 行に一語も出てこない。** 送信が拒否されて初めて資格喪失を知る、
+という経路は公式には書かれていない。
+
+**【実測】因果の訂正。** 「`worker-abandon` したから通知が来なくなった」のではない。
+順序は逆で、**Orca 再起動の時点で capability は既に失効しており**、`worker-abandon`
+はそのあとで fence を確定させただけである。
+
+**設計上の含意。** 通知は fence（公式経路）でも capability 失効（未文書の実測）でも
+途絶えうる。どちらも「来るはずのものが来ない」形で起きるので、**完了は待ち受けでは
+なく pull で突き合わせる**。根拠は上の公式引用そのもので、`consumer_fenced` を自分
+から `check` しない限り資格喪失に気づけないのなら、到着を前提にした設計は最初から
+成り立たない。
+
+## 拒否された完了をどう決着させるか
+
+**【実測】ワーカー側**: 報告はファイルに書き、**先に書いてコミットまで済ませてから**
 `worker_done` を試みる。順序が逆だと、拒否された時点で報告がどこにも残らない。
 ファイルの場所は公式のフラグで渡す規約である:
 
@@ -161,11 +203,11 @@ orca terminal wait --terminal <new-handle> --for tui-idle --timeout-ms 60000 --j
 orca orchestration send --type worker_done --outcome succeeded --report-path <path> --subject "<短く>" --body "<3 文>" --json
 ```
 
-`.agent/report.md` は、その `--report-path` に渡す値として我々が選んだ置き場所に
-すぎない。規約は `--report-path` のほうで、パスは要件しだいで動かしてよい。
+**【公式】** 規約は `--report-path` のほうで、`.agent/report.md` はその値として我々が
+選んだ置き場所にすぎない。パスは要件しだいで動かしてよい。
 
-**コーディネータ側**: 拒否された worker_done もこちらの受信箱には worker_done 型で
-届き、本文と payload（outcome、filesModified、reportPath）はそのまま読める。これを
+**【実測】coordinator 側**: 拒否された worker_done もこちらの受信箱には worker_done
+型で届き、本文と payload（outcome、filesModified、reportPath）はそのまま読める。これを
 完了の証拠として読んでよい。ただし **`worker-release` は打たない**（stale または
 拒否された完了で release しない）。決着はこの順で:
 
@@ -174,14 +216,15 @@ orca orchestration worker-abandon --dispatch <dispatch_id> --json
 orca orchestration task-update --id <task_id> --status completed --json
 ```
 
-`task-update` を先に打つと `task_not_startable`（supervised Dispatch is active）で
-弾かれる。なお **有効な worker_done は Task と Dispatch を自動で決着させる**ので、
-通常は `task-update` を続けて打たない。この 2 手が要るのは、いまのように worker_done
-が拒否されて成立しなかった場合だけである。`worker-abandon` は「プロセスが止まった」と主張せずに Dispatch を fence
-するだけなので、**決着後もワーカーの端末と worktree は生きたまま残る**。消すかどうかは
-人間の判断に委ね、自動で片付けない。
+**【実測】** `task-update` を先に打つと `task_not_startable`（supervised Dispatch is
+active）で弾かれる。**【公式】** なお有効な worker_done は Task と Dispatch を自動で
+決着させるので、通常は `task-update` を続けて打たない。この 2 手が要るのは、いまの
+ように worker_done が拒否されて成立しなかった場合だけである。`worker-abandon` は
+「プロセスが止まった」と主張せずに Dispatch を fence するだけなので、**決着後も
+ワーカーの端末と worktree は生きたまま残る**。消すかどうかは人間の判断に委ね、自動で
+片付けない。
 
-## 稼働中のワーカーに追加で言う
+## 稼働中のワーカーに追加で言う 【公式】
 
 ```
 orca orchestration send --to dispatch:<dispatch_id> --subject "<短く>" --body "<追加指示>" --json
@@ -189,9 +232,10 @@ orca terminal send --terminal <handle> --text "<追加指示>" --enter --json
 ```
 
 監視付きで出したワーカーには `orchestration send`、投げっぱなしのワーカーには
-`terminal send`。どちらも届くのは相手が次に受信を見たときで、割り込みではない。
+`terminal send`。どちらも enqueue は durable だが**割り込まない**ので、相手が
+`check` を見るまで届かない。
 
-## Orca に「primary workspace」という概念は無い
+## Orca に「primary workspace」という概念は無い 【実測】
 
 Orca が見ているのは、**その端末が Run に束縛された coordinator かどうか**である
 （Run の `coordinator_handle`、`orchestration run-current` が返す束縛、orchestration
