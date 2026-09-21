@@ -32,7 +32,7 @@ help:
 ci: lint test
 	@echo "all checks passed"
 
-lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter
+lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
 test: test-guards test-harness test-statusline
 
@@ -76,6 +76,12 @@ lint-frontmatter:
 	    head -n 5 "$$f" | grep -q '^applyTo:' || { echo "$$f has no applyTo" >&2; exit 1; }; \
 	    head -n 5 "$$f" | grep -q '^description:' || { echo "$$f has no description" >&2; exit 1; }; \
 	  done
+
+# Reads pins.tsv rather than the network: `refresh` and `latest` are the modes
+# that talk to GitHub, and neither belongs in ci. Age is reported, not enforced.
+lint-pins:
+	@echo "== pins"
+	@./bin/pins.sh check
 
 test-guards:
 	@echo "== guard hooks"

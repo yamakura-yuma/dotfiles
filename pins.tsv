@@ -1,0 +1,31 @@
+# Commit dates of the pins in core-principal/apm.yml, so that
+# `./bin/pins.sh check` can report staleness offline.
+# Regenerate with `./bin/pins.sh refresh` after bumping any ref.
+#
+# repo	ref	date	alias
+humanlayer/skills	ca7c8088db69e315a8b2deea43820270457f8f3c	2026-09-17	show-me
+vercel-labs/skills	7407f3893ad4dceab546ac002c3ef806e4000c73	2026-09-17	find-skills
+gist:k16shikano/fd287c3133457c4fd8f5601d34aa817d	8f2d57610a73efc97d743c9b0b0ecb1002e09fa4	2026-09-09	japanese-tech-writing
+gist:k16shikano/eb2929f13ed19c97188393d297be8432	a3b1e26beced71d582e13314fb6f5b179b023c76	2026-07-09	cognitive-rhythm-writing
+gonta223/humanizer-ja	a1e343696e43aa50e7218891f3319ab22cde3464	2026-03-23	humanizer-ja
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	grill-me
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	grilling
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	handoff
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	teach
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	to-questionnaire
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	wait-what
+mattpocock/skills	c55ee46073ed923f86ce59a5eb3b6d895095d1b7	2026-09-18	writing-for-agents
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail-audit
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail-debt
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail-gain
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail-help
+dietrichgebert/ponytail	e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156	2026-09-14	ponytail-review
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	computer-use
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	linear-tickets
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orca-cli
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orca-emulator-android
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orca-emulator
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orca-linear
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orca-per-workspace-env
+stablyai/orca	a445abadd4b2fd75d987872c0aa9d274f05ab33b	2026-09-20	orchestration

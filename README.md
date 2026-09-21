@@ -146,6 +146,8 @@ dependencies:
 | `Makefile` | `make ci` がこのリポジトリの検証 |
 | `AGENTS.md` | `apm compile --target agents` の生成物。元を直すこと |
 | `versions.env` | グローバルに入れる3ツール（`codegraph`・`graphifyy`・`headroom-ai`）の固定版。`reload` がこれを読む。上げるのは手で、1行の diff として残る |
+| `pins.tsv` | `core-principal/apm.yml` の各ピンのコミット日のスナップショット。`make ci` がオフラインで古さを見るためだけにある。`./bin/pins.sh refresh` の生成物 |
+| `bin/pins.sh` | ピンの検査。`check` はオフラインで `make ci` から、`refresh` と `latest` はネットワークを使うので手で走らせる |
 | `setup.sh` | 唯一の入口。素のシェルで、タスクランナーは使わない |
 
 ### 配置先
