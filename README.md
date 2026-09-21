@@ -79,7 +79,7 @@ cd ~/dotfiles
 | --- | --- |
 | `./setup.sh install-nix` | Nix 本体を入れる。ホストにつき1回 |
 | `./setup.sh nix-tools` | `flake.nix` のバンドル（`jq` / `uv` / `node`）を `nix profile` で入れる |
-| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm`・`codegraph`・`graphifyy`・`headroom-ai` の更新、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く |
+| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm` と `versions.env` で固定した `codegraph`・`graphifyy`・`headroom-ai` の導入、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く |
 | `./setup.sh agents-init` | headroom の常駐プロキシと Claude Code ルーティングフック、graphify の Claude Code 統合。長時間動くプロセスを起こすので `reload` には含めない。ホストにつき1回 |
 | `./setup.sh`（引数なし） | 上を順に全部。新規ホストのブートストラップ |
 
@@ -145,6 +145,9 @@ dependencies:
 | `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、git ガードフック2つ、`/worktree` と `/retro`、`core-*` スキル、そして固定コミットで取り込んだ公開スキル群 |
 | `Makefile` | `make ci` がこのリポジトリの検証 |
 | `AGENTS.md` | `apm compile --target agents` の生成物。元を直すこと |
+| `versions.env` | グローバルに入れる3ツール（`codegraph`・`graphifyy`・`headroom-ai`）の固定版。`reload` がこれを読む。上げるのは手で、1行の diff として残る |
+| `pins.tsv` | `core-principal/apm.yml` の各ピンのコミット日のスナップショット。`make ci` がオフラインで古さを見るためだけにある。`./bin/pins.sh refresh` の生成物 |
+| `bin/pins.sh` | ピンの検査。`check` はオフラインで `make ci` から、`refresh` と `latest` はネットワークを使うので手で走らせる |
 | `setup.sh` | 唯一の入口。素のシェルで、タスクランナーは使わない |
 
 ### 配置先
@@ -163,6 +166,25 @@ dependencies:
 ものが出てきたときに、ルートの `./.apm/` を使います。apm はパッケージの一部だけを配らない
 ので、何かを外に出さない唯一の方法がこれです。`includes:` でファイルを除外しようとした
 ことがあり、黙って配られました。
+
+### ホストスコープの設定は誰が書くか
+
+`~/.claude/settings.json` と `~/.claude.json` には、このリポジトリと外部ツールの両方が
+書き込みます。**どの行の持ち主が誰なのかはファイルを見ても分からない**ので、ここに書いて
+おきます。表の「書き手」以外がその場所を触ると、次の `reload` か `agents-init` で
+黙って上書きされます。
+
+| 対象 | 書き手 | いつ |
+| --- | --- | --- |
+| `~/.claude.json` の `mcpServers` | `apm install -g`（正は `host-apm.yml`。手で編集しない） | `reload` |
+| `~/.apm/apm.yml` | `host-apm.yml` のコピー。毎回消してから置き直す | `reload` |
+| `~/.claude/statusline.sh` | このリポジトリの `claude/statusline.sh` へのシンボリックリンク | `reload` |
+| `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
+| `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
+| `ANTHROPIC_BASE_URL` と常駐プロキシ | `headroom install apply` / `headroom init --global claude` | `agents-init` |
+
+`reload` の列は何度走らせても同じ状態に収束します。`agents-init` の列はホストにつき1回で、
+外部ツールが自分の流儀で書くところなので、このリポジトリは中身を管理しません。
 
 ### 環境変数
 

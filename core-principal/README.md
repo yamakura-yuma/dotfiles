@@ -54,7 +54,6 @@ repo that depends on this package and move forward with `apm update`.
 | `ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review` | Simplest-thing-that-works discipline. Upstream ships as a plugin wiring up its own `PreToolUse` hooks; only `skills/ponytail*` is taken, so the opinion is available without a hook firing on every tool call. |
 | `japanese-tech-writing`, `cognitive-rhythm-writing` | Japanese prose norms. The aliases are load-bearing: `cognitive-rhythm-writing` reads `../japanese-tech-writing/SKILL.md`, so the two only work deployed as siblings under exactly these names. |
 | `orca-cli`, `orchestration`, `computer-use`, `linear-tickets`, `orca-linear`, `orca-emulator`, `orca-emulator-android`, `orca-per-workspace-env` | Orca's own skills, all of them. Each is a discovery stub that loads the version-matched guide out of the `orca` binary, so it cannot drift from the CLI that will run the command — which a summary maintained here would. |
-| `genshijin`, `genshijin-commit`, `genshijin-compress`, `genshijin-crew`, `genshijin-help`, `genshijin-review`, `genshijin-stats` | Compressed Japanese responses and the commit/review/compress skills built on the same style. Upstream ships as a plugin with `SessionStart` and `UserPromptSubmit` hooks and a statusline; only the skills are taken, same policy as ponytail. |
 
 There is no shared verification convention. Each repo already has an entry
 point a human uses — `make ci` here — and an agent finds it by looking; the

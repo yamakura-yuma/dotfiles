@@ -44,6 +44,18 @@ codegraph explore "<シンボル名や質問>"
 なる。grep では追えない動的ディスパッチの経路も出る。MCP ツールが使えるなら
 `codegraph_explore`、無ければシェルの `codegraph explore` で同じ結果が得られる。
 
+## Serena は使わない
+
+同じ「コードの索引」役として Serena があり、`headroom wrap` を使うと `--code-memory` の
+既定値で自動的に登録される。**このリポジトリでは採用しない。** `headroom wrap` を使う場面が
+あれば `--code-memory none` を付けること。常駐構成（`headroom install apply`）では入らない。
+
+決め手は実測。temporal-saga（Go 3.5k 行）に同じ 5 問を投げ、codegraph だけ・serena だけの
+2 条件で比べたところ、**往復回数の中央値が 3 対 8、所要時間が 12.5 秒対 19.3 秒**だった。
+最悪ケースの差が大きく、1 問は serena 側が 38 往復・233 秒・文脈 114 万トークンまで膨らんだ
+（LSP のシンボル検索を反復するため）。回答の正確さはどちらも同等で、**差が出たのは経路の数**。
+序列を 2 本に保つほうが、索引をもう 1 つ増やすより速い。
+
 ## 索引が無いディレクトリでは、作ってよい
 
 索引はディレクトリ単位で存在する。**git worktree は元のチェックアウトの `graphify-out/`

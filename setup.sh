@@ -6,9 +6,10 @@
 # Usage: ./setup.sh [install-nix|nix-tools|reload|agents-init|all]
 #   install-nix   one-time: installs Nix itself (system/multi-user)
 #   nix-tools     installs/upgrades jq/uv/node via `nix profile`
-#   reload        symlinks, the ~/.bashrc starship prompt hook, apm/codegraph/
-#                 graphifyy/headroom-ai installs, host-apm.yml's MCP servers
-#                 and this repo's own .apm/ primitives. Safe to re-run any time.
+#   reload        symlinks, the ~/.bashrc starship prompt hook, apm and the
+#                 codegraph/graphifyy/headroom-ai versions pinned in
+#                 versions.env, host-apm.yml's MCP servers and this repo's own
+#                 .apm/ primitives. Safe to re-run any time.
 #   agents-init   one-time per host: durable headroom + graphify integrations
 #   all (default) install-nix + reload + agents-init
 set -euo pipefail
@@ -95,12 +96,16 @@ cmd_reload() {
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
   hook_bashrc
   "$DIR/bin/install-apm.sh"
+  # Versions come from versions.env so that `reload` is not a silent upgrade;
+  # see the comment there for how to bump one.
+  # shellcheck source=versions.env
+  . "$DIR/versions.env"
   # nixpkgs' npm defaults its global prefix to its own read-only /nix/store
   # path, so -g needs an explicit writable prefix. ~/.local/bin is on PATH
   # already and is where install-apm.sh puts its binary too.
-  npm install -g --prefix "$HOME/.local" @colbymchenry/codegraph@latest
-  uv tool upgrade graphifyy || uv tool install graphifyy
-  uv tool upgrade headroom-ai || uv tool install 'headroom-ai[mcp,proxy]'
+  npm install -g --prefix "$HOME/.local" "@colbymchenry/codegraph@$CODEGRAPH_VERSION"
+  uv tool install "graphifyy==$GRAPHIFYY_VERSION"
+  uv tool install "headroom-ai[mcp,proxy]==$HEADROOM_VERSION"
   # Host scope: MCP servers only (host-apm.yml).
   apm install -g
   # Project scope: deploy .apm/ and apm.yml's dependencies into $DIR/.claude/.
