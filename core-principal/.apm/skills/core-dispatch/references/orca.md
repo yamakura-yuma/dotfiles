@@ -137,6 +137,32 @@ orca terminal wait --terminal <new-handle> --for tui-idle --timeout-ms 60000 --j
 なら、それは落ちたのではなく止まっているので、続きの指示を送って起こす**
 （下の `terminal send`）。
 
+## 再起動をまたいだ Dispatch は、ワーカー自身では決着できない
+
+`terminal list` でハンドルを引き直しても `worker_done` は通らない。capability が
+旧プロセス世代に束縛されているためで、`dispatch_capability_invalid` で拒否される
+（旧ハンドルなら `caller is not the Dispatch pane`、新ハンドルなら
+`The Dispatch process incarnation changed`）。実測済み。
+
+**ワーカー側**: だから報告の正本は `.agent/report.md` で、**先に書いてコミットまで
+済ませてから** `worker_done` を試みる。順序が逆だと、拒否された時点で報告が
+どこにも残らない。
+
+**コーディネータ側**: 拒否された worker_done もこちらの受信箱には worker_done 型で
+届き、本文と payload（outcome、filesModified、reportPath）はそのまま読める。これを
+完了の証拠として読んでよい。ただし **`worker-release` は打たない**（stale または
+拒否された完了で release しない）。決着はこの順で:
+
+```
+orca orchestration worker-abandon --dispatch <dispatch_id> --json
+orca orchestration task-update --id <task_id> --status completed --json
+```
+
+`task-update` を先に打つと `task_not_startable`（supervised Dispatch is active）で
+弾かれる。`worker-abandon` は「プロセスが止まった」と主張せずに Dispatch を fence
+するだけなので、**決着後もワーカーの端末と worktree は生きたまま残る**。消すかどうかは
+人間の判断に委ね、自動で片付けない。
+
 ## 稼働中のワーカーに追加で言う
 
 ```

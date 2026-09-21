@@ -72,7 +72,9 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 3. worker_done なら、その worktree 直下の `.agent/report.md` を Read して報告する
    （チャット上の要約ではなく、これが正本）
 4. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
-5. 落ち着いたワーカーは `orca orchestration worker-release` で解放する
+5. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。ただし
+   **拒否された・stale な完了では release しない**。Orca 再起動をまたいだ Dispatch は
+   `worker-abandon` → `task-update` の順で決着させる（`references/orca.md`）
 
 セッションが再起動した直後は、自分の端末ハンドルも変わっている。`check` が空に
 見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
