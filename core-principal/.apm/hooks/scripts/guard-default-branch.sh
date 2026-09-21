@@ -64,7 +64,7 @@ not take commits or pushes directly on it.
 
 Hand the work to a worker in a worktree of its own -- see the \`core-dispatch\`
 skill:
-  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when, and: write .agent/report.md>"
+  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when, and: write ~/.claude/worker-reports/<name>.md>"
   git worktree add -b <branch> ../<dir>     # when not going through Orca
 
 The human at the terminal can export MAKURA_ALLOW_MAIN=1 before starting

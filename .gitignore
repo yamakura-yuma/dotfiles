@@ -7,7 +7,3 @@ graphify-out/
 .claude/
 apm_modules/
 .mcp.json
-
-# Worker output: an orchestrated agent writes its report here (see the
-# /worktree command).
-.agent/report.md

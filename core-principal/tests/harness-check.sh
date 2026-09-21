@@ -54,8 +54,10 @@ check_agents_md() {
 #   - Conditional paths belonging to another tool. code-navigation points at
 #     graphify-out/wiki/index.md guarded by "if it exists", and treating that
 #     as a promise would make this check cry wolf.
-#   - .agent/report.md, which a worker writes at runtime in a worktree that
-#     does not exist yet, so its normal state here is absent.
+#   - The worker's report, which by convention lives outside the repository at
+#     ~/.claude/worker-reports/<worktree-name>.md. It is written at runtime on
+#     the worker's machine, and a path under $HOME is nothing this package
+#     ships, so the selecting grep below never picks it up.
 check_owned_paths() {
   local doc p target seen
   while IFS= read -r doc; do
@@ -63,7 +65,6 @@ check_owned_paths() {
     while IFS= read -r p; do
       case "$p" in
         *'<'* | *'>'* | *'*'*) continue ;;          # placeholders and globs
-        .agent/*) continue ;;                       # names, not shipped files
         # These docs live inside the package, so an unprefixed path is relative
         # to it; only a path that names the package is relative to the repo.
         .apm/* | tests/*) target="$pkg/$p" ;;

@@ -38,7 +38,7 @@ Orca publishes its own skills.
 | `core-retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
 | `core-dispatch` skill | What the coordinator does instead of implementing: classify the message, write the spec, dispatch to a worktree, and pick the results back up. Reporting follows Orca's own contract -- per Task an outcome, the evidence behind it, and any unresolved blocker -- rather than a shape invented here. `references/orca.md` carries the `orca` cheat sheet and the pitfalls measured on this host. |
 | `/retro` command | Runs `core-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
-| `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
+| `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `~/.claude/worker-reports/<worktree-name>.md`" instruction. |
 | `/workers` command | Formats `worktree ps` and the `worker-list` projection -- attention categories and the literal `nextAction` -- into one table. Completion is polled here rather than waited on, so this is also the recovery entry point. |
 
 ### Skills pulled in from elsewhere

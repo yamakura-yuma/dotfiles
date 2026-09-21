@@ -195,16 +195,17 @@ Attempt が別のワーカーに付け替えられたか、自分抜きで決着
 
 ## 拒否された完了をどう決着させるか
 
-**【実測】ワーカー側**: 報告はファイルに書き、**先に書いてコミットまで済ませてから**
-`worker_done` を試みる。順序が逆だと、拒否された時点で報告がどこにも残らない。
+**【実測】ワーカー側**: 報告はファイルに書き、**先に書き終えてから** `worker_done` を
+試みる。順序が逆だと、拒否された時点で報告がどこにも残らない。
 ファイルの場所は公式のフラグで渡す規約である:
 
 ```
 orca orchestration send --type worker_done --outcome succeeded --report-path <path> --subject "<短く>" --body "<3 文>" --json
 ```
 
-**【公式】** 規約は `--report-path` のほうで、`.agent/report.md` はその値として我々が
-選んだ置き場所にすぎない。パスは要件しだいで動かしてよい。
+**【公式】** 規約は `--report-path` のほうで、`~/.claude/worker-reports/<worktree 名>.md`
+はその値として我々が選んだ置き場所にすぎない。パスは要件しだいで動かしてよい。作業
+ツリーの外に置いているのは、未追跡の報告ファイルが worktree の削除を妨げるため。
 
 **【実測】coordinator 側**: 拒否された worker_done もこちらの受信箱には worker_done
 型で届き、本文と payload（outcome、filesModified、reportPath）はそのまま読める。これを
@@ -309,6 +310,12 @@ orca terminal send --terminal <handle> --text "<追加指示>" --enter --json
 監視付きで出したワーカーには `orchestration send`、投げっぱなしのワーカーには
 `terminal send`。どちらも enqueue は durable だが**割り込まない**ので、相手が
 `check` を見るまで届かない。
+
+**【実測】`terminal send` に `--enter` を付け忘れると、テキストは入力欄に残るだけで
+submit されない。** これで追加指示を 2 本失った実例がある。加えて、ワーカー側で
+memory のリコールなどのパネルが開いていると入力が飲まれることがあり、`--wait-submit`
+の「no turn start」警告は誤検知もする。**届いたかどうかは戻り値ではなく
+`orca terminal read` の差分で確かめる。**
 
 ## Orca に「primary workspace」という概念は無い 【実測】
 
