@@ -75,10 +75,78 @@ b=guard-default-branch.sh
 check 0 $b 'ls -la'
 check 0 $b 'echo "git commit"'
 
+# --- fixture: a primary checkout, a child worktree, and neither --------------
+# The remaining hooks turn on *where the session is*, not on what it asked for,
+# so they need real directories. `git init` plus `git worktree add` produces
+# the two shapes the detection distinguishes: an original checkout whose .git
+# is a directory, and a linked worktree whose .git is a file. A third directory
+# belongs to no repository at all, which is the shape $HOME has.
+fixture="$(mktemp -d)"
+primary="$fixture/primary"
+child="$fixture/child"
+outside="$fixture/outside"
+mkdir -p "$primary" "$outside"
+git init -q "$primary" >/dev/null 2>&1
+git -C "$primary" symbolic-ref HEAD refs/heads/main
+git -C "$primary" -c user.email=t@example.invalid -c user.name=t \
+  commit -q --allow-empty -m init
+git -C "$primary" worktree add -q "$child" -b feature/x >/dev/null 2>&1
+
+# Runs one Edit case: expected exit code, the directory the session is in, and
+# the file it wants to write. Any remaining arguments are NAME=VALUE pairs put
+# into the hook's environment, which is how MAKURA_ALLOW_MAIN gets tested --
+# the hook reads its own environment, never the payload.
+check_edit() {
+  local want="$1" cwd="$2" file="$3"
+  shift 3
+  local payload got
+  payload="$(jq -nc --arg f "$file" --arg cwd "$cwd" \
+    '{tool_name:"Edit", tool_input:{file_path:$f}, cwd:$cwd}')"
+  printf '%s' "$payload" | env "$@" "$scripts/guard-primary-edit.sh" >/dev/null 2>&1
+  got=$?
+  if [ "$got" != "$want" ]; then
+    printf 'FAIL want=%s got=%s  edit %s (cwd %s)\n' "$want" "$got" "$file" "$cwd" >&2
+    failures=$((failures + 1))
+  fi
+}
+
+# --- guard-primary-edit ------------------------------------------------------
+check_edit 2 "$primary" "$primary/notes.md"          # default branch, original checkout
+check_edit 0 "$child" "$child/notes.md"              # where dispatched work belongs
+check_edit 2 "$outside" "$outside/notes.md"          # no repository at all, like $HOME
+check_edit 0 "$primary" "$primary/notes.md" MAKURA_ALLOW_MAIN=1
+check_edit 0 "$primary" "/tmp/claude-1000/session/scratchpad/plan.md"
+check_edit 0 "$primary" "$HOME/.claude/plans/some-plan.md"
+# A notebook names its target differently; the exemptions still have to apply.
+printf '%s' "$(jq -nc --arg cwd "$primary" \
+  '{tool_name:"NotebookEdit", tool_input:{notebook_path:"/x/y.ipynb"}, cwd:$cwd}')" |
+  "$scripts/guard-primary-edit.sh" >/dev/null 2>&1
+[ $? = 2 ] || { echo "FAIL guard-primary-edit should read notebook_path" >&2; failures=$((failures + 1)); }
+
+# --- dispatch-in-primary -----------------------------------------------------
+# UserPromptSubmit is read for its stdout, not its exit code -- exit 2 there
+# cancels the human's prompt -- so these cases check what it printed.
+emitted() {
+  jq -nc --arg cwd "$1" '{hook_event_name:"UserPromptSubmit", prompt:"do a thing", cwd:$cwd}' |
+    "$scripts/dispatch-in-primary.sh" 2>/dev/null
+}
+out="$(emitted "$primary")"
+printf '%s' "$out" | jq -e '.hookSpecificOutput.additionalContext | length > 0' >/dev/null 2>&1 ||
+  { echo "FAIL dispatch-in-primary emitted no additionalContext in the primary workspace" >&2; failures=$((failures + 1)); }
+printf '%s' "$out" | grep -q 'core-dispatch' ||
+  { echo "FAIL dispatch-in-primary should point at the core-dispatch skill" >&2; failures=$((failures + 1)); }
+[ -z "$(emitted "$child")" ] ||
+  { echo "FAIL dispatch-in-primary should stay silent in a child worktree" >&2; failures=$((failures + 1)); }
+
+git -C "$primary" worktree remove --force "$child" >/dev/null 2>&1
+rm -rf "$fixture"
+
 # --- fail-open ---------------------------------------------------------------
 # A payload with no command, and one that is not JSON at all. Both must fall
 # through rather than error: exit 1 would surface as a hook failure.
-for s in $g $b; do
+p=guard-primary-edit.sh
+d=dispatch-in-primary.sh
+for s in $g $b $p $d; do
   printf '%s' '{}' | "$scripts/$s" >/dev/null 2>&1
   [ $? = 0 ] || { echo "FAIL $s should ignore an empty payload" >&2; failures=$((failures + 1)); }
   printf '%s' 'not json' | "$scripts/$s" >/dev/null 2>&1
@@ -90,7 +158,7 @@ done
 # by prepending $HOME/.nix-profile/bin, which is exactly where jq lives here --
 # so pointing PATH at a jq-less directory alone would not simulate anything.
 nohome="$(mktemp -d)"
-for s in $g $b; do
+for s in $g $b $p $d; do
   printf '%s' '{"tool_input":{"command":"git reset --hard"}}' |
     env -i HOME="$nohome" PATH=/usr/bin:/bin bash "$scripts/$s" >/dev/null 2>&1
   [ $? = 0 ] || { echo "FAIL $s should ignore a missing jq" >&2; failures=$((failures + 1)); }

@@ -7,12 +7,19 @@ dependencies:
   package_type: apm_package
   deployed_files:
   - .claude/commands/retro.md
+  - .claude/commands/workers.md
   - .claude/commands/worktree.md
+  - .claude/hooks/core-principal/.apm/hooks/scripts/dispatch-in-primary.sh
   - .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh
   - .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh
+  - .claude/hooks/core-principal/.apm/hooks/scripts/guard-primary-edit.sh
+  - .claude/hooks/core-principal/.apm/hooks/scripts/lib/primary-workspace.sh
   - .claude/rules/core-principal.md
   - .claude/skills/core-communication
   - .claude/skills/core-communication/SKILL.md
+  - .claude/skills/core-dispatch
+  - .claude/skills/core-dispatch/SKILL.md
+  - .claude/skills/core-dispatch/references/orca.md
   - .claude/skills/core-harness
   - .claude/skills/core-harness/SKILL.md
   - .claude/skills/core-retro
@@ -21,11 +28,17 @@ dependencies:
   - .claude/skills/core-tools/SKILL.md
   deployed_file_hashes:
     .claude/commands/retro.md: sha256:cb7b04b93dfd16970f5cbc260dd590cb5ead870bf0bee6e488277bfc46452890
-    .claude/commands/worktree.md: sha256:d6b8193a78d292189a446fb0316f3c9213c087b229d072c288e7a441943424e3
-    .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
+    .claude/commands/workers.md: sha256:b5712e0a74eaeb0c276484d774fc087e5978a1322c253070d538386c7d2991b6
+    .claude/commands/worktree.md: sha256:88d98e45c6158a4195adab8933ae9021729859910ac7e9a5a5c587b45870a07b
+    .claude/hooks/core-principal/.apm/hooks/scripts/dispatch-in-primary.sh: sha256:fa3853541da8067fc9a85ec4f44c84e20feada8d97adeea988cf23b3062c821c
+    .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh: sha256:2fbf4210555000c466957afc007534cd60b1a86bad1d7c4820b7faeebe628e48
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
-    .claude/rules/core-principal.md: sha256:d056be0f0f4f3a15d2f96bb1903a5c457bd39819d704cee9f961255ad32c75c6
+    .claude/hooks/core-principal/.apm/hooks/scripts/guard-primary-edit.sh: sha256:bd6a9839a2ad3ca9979907003d5206923d61d2986bca1f3cd8751faf76613d5a
+    .claude/hooks/core-principal/.apm/hooks/scripts/lib/primary-workspace.sh: sha256:5079e0e2dfc19f59d9a4615bbb25f4dd7ed588467971633630c50f9096ed2956
+    .claude/rules/core-principal.md: sha256:2caa82be7479dad7fa7fce8123ec1dfc42dda0117b0a14cc7f318a2c56b0244b
     .claude/skills/core-communication/SKILL.md: sha256:290c4cfbd8095fd64035de93e5fae4c3ab5e80fbd110f0317d272231e5060750
+    .claude/skills/core-dispatch/SKILL.md: sha256:c4c42d24a579cb8b906f1a3d1178f81fa56c66274262df217837d38f85127e53
+    .claude/skills/core-dispatch/references/orca.md: sha256:7be3e6db90a93f49676d9e8d59e137518bbc8a98df7e97cf3c3a3e722aee23f6
     .claude/skills/core-harness/SKILL.md: sha256:99c045d95e8dc280ded6ea6b097a2be74250332c29ed88d4f234484f2cfc88f0
     .claude/skills/core-retro/SKILL.md: sha256:eb696797ce02014584b939277d35552c9f02844402d480fb97f152bf56969c09
     .claude/skills/core-tools/SKILL.md: sha256:14ae4206d3a5b10d5d68c8720f7357f5a218d3b509e59bcb2e00ad8a88fb8fe2
@@ -707,13 +720,31 @@ deployments:
   content_hash: sha256:cb7b04b93dfd16970f5cbc260dd590cb5ead870bf0bee6e488277bfc46452890
 - kind: project-relative
   target: claude
+  value: .claude/commands/workers.md
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:b5712e0a74eaeb0c276484d774fc087e5978a1322c253070d538386c7d2991b6
+- kind: project-relative
+  target: claude
   value: .claude/commands/worktree.md
   runtime: null
   scope: project
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:d6b8193a78d292189a446fb0316f3c9213c087b229d072c288e7a441943424e3
+  content_hash: sha256:88d98e45c6158a4195adab8933ae9021729859910ac7e9a5a5c587b45870a07b
+- kind: project-relative
+  target: claude
+  value: .claude/hooks/core-principal/.apm/hooks/scripts/dispatch-in-primary.sh
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:fa3853541da8067fc9a85ec4f44c84e20feada8d97adeea988cf23b3062c821c
 - kind: project-relative
   target: claude
   value: .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh
@@ -722,7 +753,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:1fd33c3200f85cb1dd3de402974423ed39b071cf256829a24bdbd51a734893c7
+  content_hash: sha256:2fbf4210555000c466957afc007534cd60b1a86bad1d7c4820b7faeebe628e48
 - kind: project-relative
   target: claude
   value: .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh
@@ -734,13 +765,31 @@ deployments:
   content_hash: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
 - kind: project-relative
   target: claude
+  value: .claude/hooks/core-principal/.apm/hooks/scripts/guard-primary-edit.sh
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:bd6a9839a2ad3ca9979907003d5206923d61d2986bca1f3cd8751faf76613d5a
+- kind: project-relative
+  target: claude
+  value: .claude/hooks/core-principal/.apm/hooks/scripts/lib/primary-workspace.sh
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:5079e0e2dfc19f59d9a4615bbb25f4dd7ed588467971633630c50f9096ed2956
+- kind: project-relative
+  target: claude
   value: .claude/rules/core-principal.md
   runtime: null
   scope: project
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:d056be0f0f4f3a15d2f96bb1903a5c457bd39819d704cee9f961255ad32c75c6
+  content_hash: sha256:2caa82be7479dad7fa7fce8123ec1dfc42dda0117b0a14cc7f318a2c56b0244b
 - kind: project-relative
   target: claude
   value: .claude/skills/cognitive-rhythm-writing
@@ -795,6 +844,33 @@ deployments:
   - ./core-principal
   active_owner: ./core-principal
   content_hash: sha256:290c4cfbd8095fd64035de93e5fae4c3ab5e80fbd110f0317d272231e5060750
+- kind: project-relative
+  target: claude
+  value: .claude/skills/core-dispatch
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/core-dispatch/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:c4c42d24a579cb8b906f1a3d1178f81fa56c66274262df217837d38f85127e53
+- kind: project-relative
+  target: claude
+  value: .claude/skills/core-dispatch/references/orca.md
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:7be3e6db90a93f49676d9e8d59e137518bbc8a98df7e97cf3c3a3e722aee23f6
 - kind: project-relative
   target: claude
   value: .claude/skills/core-harness
