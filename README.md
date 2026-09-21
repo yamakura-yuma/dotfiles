@@ -79,7 +79,7 @@ cd ~/dotfiles
 | --- | --- |
 | `./setup.sh install-nix` | Nix 本体を入れる。ホストにつき1回 |
 | `./setup.sh nix-tools` | `flake.nix` のバンドル（`jq` / `uv` / `node`）を `nix profile` で入れる |
-| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm`・`codegraph`・`graphifyy`・`headroom-ai` の更新、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く |
+| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm` と `versions.env` で固定した `codegraph`・`graphifyy`・`headroom-ai` の導入、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く |
 | `./setup.sh agents-init` | headroom の常駐プロキシと Claude Code ルーティングフック、graphify の Claude Code 統合。長時間動くプロセスを起こすので `reload` には含めない。ホストにつき1回 |
 | `./setup.sh`（引数なし） | 上を順に全部。新規ホストのブートストラップ |
 
@@ -145,6 +145,7 @@ dependencies:
 | `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、git ガードフック2つ、`/worktree` と `/retro`、`core-*` スキル、そして固定コミットで取り込んだ公開スキル群 |
 | `Makefile` | `make ci` がこのリポジトリの検証 |
 | `AGENTS.md` | `apm compile --target agents` の生成物。元を直すこと |
+| `versions.env` | グローバルに入れる3ツール（`codegraph`・`graphifyy`・`headroom-ai`）の固定版。`reload` がこれを読む。上げるのは手で、1行の diff として残る |
 | `setup.sh` | 唯一の入口。素のシェルで、タスクランナーは使わない |
 
 ### 配置先
