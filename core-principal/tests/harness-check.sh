@@ -223,6 +223,37 @@ check_rule_targets_skills() {
   done
 }
 
+# --- 8. The coordinator guard's exemptions let the agent keep its own notes ---
+# workspace_path_is_exempt decides what an agent may still write while it is the
+# coordinator. Both directions matter: the memory a session saves lives outside
+# every repository, so blocking it silently loses what the human just said --
+# that really happened -- while a path inside a repository has to stay blocked,
+# or the exemption list has quietly turned the guard off.
+check_exempt_paths() {
+  local lib="$pkg/.apm/hooks/scripts/lib/coordinator-workspace.sh"
+  [ -f "$lib" ] || { fail "no coordinator-workspace.sh to check"; return; }
+  # shellcheck source=../.apm/hooks/scripts/lib/coordinator-workspace.sh
+  . "$lib" || { fail "coordinator-workspace.sh does not source"; return; }
+
+  local home="${HOME:-/nonexistent}" p
+  for p in \
+    "$home/.claude/projects/-home-u-repo/memory/lesson.md" \
+    "$home/.claude/jobs/abc123/tmp/output.txt" \
+    "$home/.claude/plans/some-plan.md" \
+    /tmp/claude-1000/session/scratchpad/notes.md; do
+    workspace_path_is_exempt "$p" || fail "$p should be writable in the coordinator workspace"
+  done
+
+  for p in \
+    "$repo/README.md" \
+    "$pkg/.apm/skills/core-dispatch/SKILL.md" \
+    "$home/.claude/settings.json" \
+    "$home/.claude/worker-reports/some-worktree.md" \
+    "$home/.claude/projects/-home-u-repo/notes.md"; do
+    workspace_path_is_exempt "$p" && fail "$p should still be blocked in the coordinator workspace"
+  done
+}
+
 check_agents_md
 check_owned_paths
 check_documented_flags
@@ -230,6 +261,7 @@ check_deploy_parity
 check_skill_forks
 check_hooks_deployed
 check_rule_targets_skills
+check_exempt_paths
 
 if [ "$failures" != 0 ]; then
   printf '%s harness invariant(s) broken\n' "$failures" >&2
