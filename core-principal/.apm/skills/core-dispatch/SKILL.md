@@ -21,9 +21,9 @@ coordinator かどうかの判定は 1 か所にある
 元の checkout**（`git worktree` の子ではないほう）か、**どのリポジトリにも属さない
 cwd**（`~` など）がそれにあたる。子 worktree は違う。そこは仕事が落ちる先である。
 
-層は 3 つに分かれる。**受付**でメッセージを分類し、**振り分け**でワーカーに出し、
-**統合**で結果を拾う。返し方は「報告の型」で公式に揃える。コマンドの綴りと実測で
-踏んだ落とし穴は `references/orca.md` にある。
+層は 4 つに分かれる。**受付**でメッセージを分類し、**振り分け**でワーカーに出し、
+**統合**で結果を拾い、**片付け**で端末と worktree を畳む。返し方は「報告の型」で
+公式に揃える。コマンドの綴りと実測で踏んだ落とし穴は `references/orca.md` にある。
 
 ## 1. 受付 — まず 4 つに分類する
 
@@ -91,6 +91,7 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
    worker_done は Task と Dispatch を自動で決着させるので、続けて `task-update` を
    打たない。ただし **拒否された・stale な完了では release しない**。その場合の
    決着だけが `worker-abandon` → `task-update` の順になる（`references/orca.md`）
+6. 決着したら「4. 片付け」に進む。端末を閉じても worktree は残るので、消すのは別の手順
 
 セッションが再起動した直後は、自分の端末ハンドルも変わっている。`check` が空に
 見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
@@ -99,6 +100,77 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 **liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。** Orca
 再起動でハンドルが変わっただけのことが多い。引き直し方と起こし方は
 `references/orca.md` の「ハンドルが stale になったとき」。
+
+## 4. 片付け — 終わった worktree を残さない
+
+終わった worktree を放置しない。ユーザーは自分で管理したくないと言っているので、
+**下の条件を満たすものは断らずに消す**。消したことは報告に 1 行だけ残す。
+
+**orchestration 層は worktree を消さない。** `worker-release` は settled な Dispatch が
+所有する端末だけを閉じて出力をアーカイブし、`worker-stop` は「worktree、setup 端末、
+設定されたタブ、無関係なプロセスを決して削除しない」と明記している。削除の口は
+`orca worktree rm` だけである（`references/orca.md` の「片付ける」）。
+
+**(a) 先に報告を自分の手元に取り込む。** 報告の本体は worktree の中のファイルなので、
+消せば一緒に消える。outcome / evidence / unresolved blocker をユーザーへの報告に
+写し終えるまで、片付けに進まない。
+
+**(b) 片付けてよい条件を全部確かめる。** ひとつでも欠けたら消さない。
+
+- PR がマージ済み（`gh pr view --json state` が `MERGED`、または `git branch --merged`
+  で base に入っている）
+- 作業ツリーが clean で、push していないコミットが無い
+- 報告を (a) で取り込み済み
+
+**(c) 端末を閉じる。** Dispatch が正常に settle しているなら release で閉じる。
+
+```
+orca orchestration worker-release --dispatch <dispatch_id> --json
+```
+
+settle できなかったとき（`worker-abandon` した、capability が失効した）は資源が
+user_owned になっていて release の対象にならないので、orca-cli 側で閉じる。
+**release を代用してはならない。**
+
+```
+orca terminal close --worktree <selector> --all --json
+```
+
+**この bulk close は、失敗を返しても実際には閉じていることがある。** 実行ホストが
+すべての PTY の停止を確認できないと `terminal_stop_unverifiable` で失敗するが、これは
+「終了していない」ではなく「確認が取れていない」である。receipt が `closed 1`
+`stopped 1` と言いながら失敗した実例がある。**戻り値だけで削除の可否を決めない。**
+unverifiable が返ったら次の 2 つを別に確かめ、**両方取れたときだけ (d) へ進む**。
+
+1. `orca terminal list --worktree <selector> --json` が 0 件を返す
+2. OS 側に、その worktree のパスを含むプロセスが残っていない
+
+どちらかが取れなければ消さずに残す。プロセスが生きているかもしれない worktree を
+消すことは、この手順では許さない。
+
+**(d) 消す。**
+
+```
+orca worktree rm --worktree id:<repoId>::<path> --force --json
+```
+
+Orca と git の両方から外れる。`--force` が強制するのは worktree の削除だけで、
+ブランチ削除は強制しない。チェックアウト中のローカルブランチも削除しようとするが、
+**worktree より前からあったと分かっているブランチと、変更がマージ済みだと証明できない
+ブランチは残す**。つまり未マージの作業は Orca 自身が守るので、ブランチをどうするかの
+安全側の判断は Orca に任せ、先回りして消さない。
+
+archive hook を持つリポジトリでは、`--run-hooks` を付けるか既定のまま付けないかを
+そのリポジトリの運用に合わせる。付けると hook の失敗が削除をブロックし、`--force`
+でも waive されない（`references/orca.md`）。
+
+**(e) 消さない選択もある。** あとで再開するなら端末を閉じずに workspace Sleep を使う。
+レビュー待ちならカード状態を更新して残す。そもそも**完了の表現は削除ではなくカード
+状態**（`todo` / `in-progress` / `in-review` / `completed`）である。
+
+```
+orca worktree set --worktree <selector> --workspace-status in-review --json
+```
 
 ## 報告の型 — 公式に揃える
 
