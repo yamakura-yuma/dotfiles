@@ -167,6 +167,25 @@ dependencies:
 ので、何かを外に出さない唯一の方法がこれです。`includes:` でファイルを除外しようとした
 ことがあり、黙って配られました。
 
+### ホストスコープの設定は誰が書くか
+
+`~/.claude/settings.json` と `~/.claude.json` には、このリポジトリと外部ツールの両方が
+書き込みます。**どの行の持ち主が誰なのかはファイルを見ても分からない**ので、ここに書いて
+おきます。表の「書き手」以外がその場所を触ると、次の `reload` か `agents-init` で
+黙って上書きされます。
+
+| 対象 | 書き手 | いつ |
+| --- | --- | --- |
+| `~/.claude.json` の `mcpServers` | `apm install -g`（正は `host-apm.yml`。手で編集しない） | `reload` |
+| `~/.apm/apm.yml` | `host-apm.yml` のコピー。毎回消してから置き直す | `reload` |
+| `~/.claude/statusline.sh` | このリポジトリの `claude/statusline.sh` へのシンボリックリンク | `reload` |
+| `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
+| `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
+| `ANTHROPIC_BASE_URL` と常駐プロキシ | `headroom install apply` / `headroom init --global claude` | `agents-init` |
+
+`reload` の列は何度走らせても同じ状態に収束します。`agents-init` の列はホストにつき1回で、
+外部ツールが自分の流儀で書くところなので、このリポジトリは中身を管理しません。
+
 ### 環境変数
 
 ガードフックは、判断できないとき（`jq` が無い、リポジトリでない、detached HEAD、
