@@ -13,7 +13,7 @@ orca skills get orchestration
 ## リポジトリを指す — `--repo id:<repoId>` を必ず書く
 
 `orca worktree current` は cwd を Windows 側のホストで解決しようとして
-`C:\home\...` を返し、そのまま失敗する。プライマリ workspace は Orca が管理する
+`C:\home\...` を返し、そのまま失敗する。orchestrator は Orca が管理する
 worktree の外にあることも多く、`active` / `current` に依存した指定も当てにならない。
 **リポジトリは毎回明示する。**
 
@@ -74,8 +74,7 @@ orca orchestration check --terminal <handle> --json
 `check` は `--help` を解釈せず inbox を表示する（そのため
 `core-principal/tests/harness-check.sh` のフラグ検査はこのサブコマンドを飛ばす）。
 
-`--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**プライマリでは
-使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
+`--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**orchestrator では使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
 Bash で待たせても **Claude Code のセッションが終われば道連れに消え、完了通知を
 取りこぼす**（実測）。
 

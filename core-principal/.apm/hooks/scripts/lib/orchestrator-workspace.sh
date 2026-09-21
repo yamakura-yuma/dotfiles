@@ -65,7 +65,7 @@ workspace_is_original_checkout() {
   [ -d "$top/.git" ]
 }
 
-# Is this the primary workspace -- the place that dispatches work instead of
+# Is this the orchestrator workspace -- the place that dispatches work instead of
 # doing it?
 #
 # Two shapes count, and they are the two places a session starts when nobody
@@ -74,9 +74,9 @@ workspace_is_original_checkout() {
 #   (a) the original checkout of a repository, sitting on its default branch;
 #   (b) a directory in no repository at all, such as $HOME.
 #
-# A child worktree is never primary, even on the default branch: that is where
+# A child worktree is never the orchestrator, even on the default branch: that is where
 # dispatched work is supposed to land.
-workspace_is_primary() {
+is_orchestrator_workspace() {
   local dir="$1"
   [ -n "$dir" ] && [ -d "$dir" ] || return 1
   command -v git >/dev/null 2>&1 || return 1
@@ -88,7 +88,7 @@ workspace_is_primary() {
   workspace_on_default_branch "$dir" && workspace_is_original_checkout "$dir"
 }
 
-# Paths an agent may write to even in the primary workspace: its own scratchpad
+# Paths an agent may write to even in the orchestrator workspace: its own scratchpad
 # and the plans a human reads before approving work. Neither is repository
 # content, and blocking them would stop the dispatcher from doing its job.
 workspace_path_is_exempt() {

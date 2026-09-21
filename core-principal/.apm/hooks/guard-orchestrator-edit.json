@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/.apm/hooks/scripts/guard-primary-edit.sh",
+            "command": "${PLUGIN_ROOT}/.apm/hooks/scripts/guard-orchestrator-edit.sh",
             "timeout": 5
           }
         ]

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# UserPromptSubmit hook: in the primary workspace, put the dispatch norm in
-# front of every message. Registered by ../dispatch-in-primary.json, which
+# UserPromptSubmit hook: in the orchestrator workspace, put the dispatch norm in
+# front of every message. Registered by ../dispatch-in-orchestrator.json, which
 # `apm install` merges into the consuming repo's .claude/settings.json.
 #
 # Why a hook and not a rule: `/worktree` only fires when a human types it, and
@@ -36,14 +36,14 @@ if [ "${MAKURA_ALLOW_MAIN:-}" = "1" ]; then
 fi
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 0
-# shellcheck source=lib/primary-workspace.sh
-. "$here/lib/primary-workspace.sh" || exit 0
+# shellcheck source=lib/orchestrator-workspace.sh
+. "$here/lib/orchestrator-workspace.sh" || exit 0
 
 cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
-workspace_is_primary "$cwd" || exit 0
+is_orchestrator_workspace "$cwd" || exit 0
 
 context="$(cat <<'EOF'
-ここはプライマリ workspace、つまりオーケストレーション層です。**ここでは実装しません。**
+ここは **orchestrator**、仕事を配る側のセッションです。**ここでは実装しません。**
 Edit / Write / NotebookEdit は hook が拒否します。
 
 このメッセージをまず 4 つに分類してください。
@@ -55,6 +55,10 @@ Edit / Write / NotebookEdit は hook が拒否します。
 
 2〜4 と、対象リポジトリを特定するための 1 問だけが、ここで完結してよいことです。
 調査・計画・コマンド実行はここでしてかまいません。書き込みだけが、ここではできません。
+
+報告は `core-dispatch` スキルの「報告の型」に収めてください。ディスパッチ直後は
+2 行、途中経過と状況確認は表ひとつ、完了は 3 行と report.md のパス。生の JSON や
+端末出力の貼り付け、手順の逐次説明は書きません。
 EOF
 )"
 

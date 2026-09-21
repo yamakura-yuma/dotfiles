@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/.apm/hooks/scripts/dispatch-in-primary.sh",
+            "command": "${PLUGIN_ROOT}/.apm/hooks/scripts/dispatch-in-orchestrator.sh",
             "timeout": 5
           }
         ]

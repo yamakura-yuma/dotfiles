@@ -1,21 +1,23 @@
 ---
 name: core-dispatch
-description: Taking work in the primary workspace and handing it to a worker in a worktree of its own - classifying the request, writing the spec, dispatching, then picking the results back up. Use when a session in the primary workspace (the default branch of an original checkout, or a directory in no repository such as $HOME) is asked to change anything, when a dispatched worker needs a follow-up instruction, or when asking what workers are running.
+description: Taking work as the orchestrator and handing it to a worker in a worktree of its own - classifying the request, writing the spec, dispatching, picking the results back up, and reporting them in a fixed shape. Use when a session that is the orchestrator (the default branch of an original checkout, or a directory in no repository such as $HOME) is asked to change anything, when a dispatched worker needs a follow-up instruction, or when asking what workers are running.
 ---
 
 # 仕事を受ける、出す、戻す
 
-プライマリ workspace は**オーケストレーション層**で、ここでは実装しない。Edit /
-Write / NotebookEdit は `guard-primary-edit` hook が拒否し、`git commit` / `git push`
-は `guard-default-branch` hook が拒否する。調査・計画・コマンド実行はここでしてよい。
+このセッションは **orchestrator**、つまり仕事を配る側で、ここでは実装しない。Edit /
+Write / NotebookEdit は `guard-orchestrator-edit` hook が拒否し、`git commit` /
+`git push` は `guard-default-branch` hook が拒否する。調査・計画・コマンド実行は
+ここでしてよい。
 
-プライマリかどうかの判定は 1 か所にある
-（`.apm/hooks/scripts/lib/primary-workspace.sh`）。デフォルトブランチ上の元 checkout
-か、どのリポジトリにも属さない cwd（`~` など）がプライマリで、子 worktree は違う。
+orchestrator かどうかの判定は 1 か所にある
+（`.apm/hooks/scripts/lib/orchestrator-workspace.sh`）。**デフォルトブランチ上の
+元の checkout**（`git worktree` の子ではないほう）か、**どのリポジトリにも属さない
+cwd**（`~` など）がそれにあたる。子 worktree は違う。そこは仕事が落ちる先である。
 
 層は 3 つに分かれる。**受付**でメッセージを分類し、**振り分け**でワーカーに出し、
-**統合**で結果を拾う。コマンドの綴りと実測で踏んだ落とし穴は
-`references/orca.md` にある。
+**統合**で結果を拾う。返し方は「報告の型」に固定する。コマンドの綴りと実測で
+踏んだ落とし穴は `references/orca.md` にある。
 
 ## 1. 受付 — まず 4 つに分類する
 
@@ -42,24 +44,24 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 - やること、そして**完了条件**（何が観測できたら終わりか）
 - 検証の打ち方（そのリポジトリの `make ci` など既存の入口）
 - 「終わったら worktree 直下の `.agent/report.md` に、やったこと・検証結果・
-  残っている問題を書くこと。チャットの要約ではなくこのファイルが報告の本体になる」
+  残っている問題を書くこと。チャットの要約ではなくこのファイルが報告の本体になる。
+  **先に書いてコミットまで済ませてから**完了を送ること」
 
 報告をファイルに書かせるのは、長時間のオーケストレーションでは最適化プロキシが
 ツール出力を圧縮し、ハッシュからの復元が期限切れで失敗するのを実測しているため。
-チャットに出た要約は読めなくなることがあるが、ファイルは残る。
+チャットに出た要約は読めなくなることがあるが、ファイルは残る。Orca 再起動を
+またぐと完了自体を送れなくなるのも実測済みで、そのときもファイルだけが残る。
 
 **出す。** 完了を追跡するなら orchestration 経由、投げっぱなしでよいなら worktree
 create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は必須。
 
-出したら、**そのターンで待たない。** ディスパッチしたことと名前・repo を答えて
-ターンを終える。
+出したら、**そのターンで待たない。** 「報告の型」(a) の 2 行を返して終える。
 
 ## 3. 統合 — 張って待つのではなく、拾い直す
 
 `orca orchestration check --wait` をバックグラウンドで張って完了を待つ設計は
 **成立しない**。Claude Code のセッションが終わるとバックグラウンドプロセスごと
-消え、完了通知を取りこぼす（実測）。メッセージ自体は inbox に残るので、待つ代わりに
-**そのつど拾い直す**。
+消え、完了通知を取りこぼす（実測）。メッセージ自体は inbox に残る。
 
 拾いに行く機会は 3 つ。**Orca 自身の通知**（「You have N orchestration message.
 Run `orca orchestration check --run <run_id>`」がセッションに注入される。これが実質の
@@ -80,16 +82,53 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
 「Run を結び直す」）。ワーカーが消えたのではなく、自分が Run から外れている。
 
-明示的に状況を聞かれたときの入口が `/workers` で、これが取りこぼしの回復口も
-兼ねる。**liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。**
-Orca 再起動でハンドルが変わっただけのことが多い。引き直し方と起こし方は
+**liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。** Orca
+再起動でハンドルが変わっただけのことが多い。引き直し方と起こし方は
 `references/orca.md` の「ハンドルが stale になったとき」。
+
+## 報告の型
+
+orchestrator の画面は、複数のワーカーを一度に見渡すための場所である。そこに生の
+コマンド出力や手順の実況が混ざると、読む側が毎回それを漉し取ることになる。**返答は
+次の型に収める。型に無いものは書かない。**
+
+**(a) ディスパッチ直後 — 2 行。**
+
+```
+出した: <ワーカー名> / <リポジトリ>:<ブランチ> / <エージェント>
+次: <何を待つか>
+```
+
+**(b) 途中経過と状況確認 — 表ひとつだけ。** 前後に地の文を足さない。
+
+| ワーカー | 状態 | 証拠 | 次 |
+| --- | --- | --- | --- |
+| dispatch-layer | 作業中 | 2 コミット、ci 未実行 | ci の結果を待つ |
+| docs-ja | 完了 | make ci 緑、report.md あり | 読んで統合する |
+
+**証拠の列には一次情報を短く置く。**「順調です」は証拠ではない。「2 コミット、
+ci 未実行」「テスト 3 件失敗」のように、こちらが実際に見たものを書く。
+
+**(c) 完了報告 — 3 行以内、それに `.agent/report.md` のパス。** 何が入ったか、
+検証は何が緑か、残りは何か。詳細はファイルの側にある。
+
+**(d) 異常や例外のときだけ、理由を 1〜2 文足す。** 平常運転に理由は要らない。
+
+**(e) 書かないもの。**
+
+- コマンドの生 JSON、端末出力の tail、ログの貼り付け
+- 「まず〜して、次に〜しました」という実行手順の逐次説明
+- 同じ内容の再掲（表に書いたことを、下の地の文でもう一度言わない）
+
+**(f) 詳細は push ではなく pull。** 型に入らない細部は、聞かれたときに出す。その
+入口が `/workers` で、出力は (b) の表に揃える。読む側が深掘りを選べる形にしておき、
+こちらから先回りして流さない。
 
 ## 台帳は持たない
 
 稼働中ワーカーの状態は Orca 側（`orca worktree ps`、`orca orchestration task-list`、
-`orca orchestration inbox`）を正とする。自前の一覧ファイルを置かない。プライマリでは
-そもそも Write が拒否されるので置けず、二重管理にもならない。
+`orca orchestration inbox`）を正とする。自前の一覧ファイルを置かない。orchestrator
+ではそもそも Write が拒否されるので置けず、二重管理にもならない。
 
 ## 解除
 

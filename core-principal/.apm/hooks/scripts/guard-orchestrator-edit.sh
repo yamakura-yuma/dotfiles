@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # PreToolUse(Edit|Write|NotebookEdit) guardrail: refuse to edit files while the
-# session is sitting in the primary workspace. The primary workspace is the
+# session is sitting in the orchestrator workspace. The orchestrator workspace is the
 # orchestration layer -- it hands work to a worker in a worktree of its own and
 # reads the report back, so an edit made there is work that landed in the wrong
-# place. Registered by ../guard-primary-edit.json, which `apm install` merges
+# place. Registered by ../guard-orchestrator-edit.json, which `apm install` merges
 # into the consuming repo's .claude/settings.json.
 #
 # Contract is the same as the other guards: exit 2 blocks the tool call and
@@ -37,8 +37,8 @@ if [ "${MAKURA_ALLOW_MAIN:-}" = "1" ]; then
 fi
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 0
-# shellcheck source=lib/primary-workspace.sh
-. "$here/lib/primary-workspace.sh" || exit 0
+# shellcheck source=lib/orchestrator-workspace.sh
+. "$here/lib/orchestrator-workspace.sh" || exit 0
 
 # NotebookEdit names its target notebook_path; Edit and Write use file_path.
 path="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
@@ -50,15 +50,14 @@ workspace_path_is_exempt "$path" && exit 0
 # where the session started and does not follow Claude into a worktree.
 cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
 
-workspace_is_primary "$cwd" || exit 0
+is_orchestrator_workspace "$cwd" || exit 0
 
 where="${WORKSPACE_BRANCH:+the default branch '$WORKSPACE_BRANCH' of $cwd}"
 where="${where:-$cwd, which is not inside a repository}"
 
 cat >&2 <<EOF
-Blocked: this session sits in the primary workspace ($where), which
-orchestrates work rather than doing it. Files get edited by a worker in a
-worktree of its own.
+Blocked: this session is the orchestrator ($where), which hands work out
+rather than doing it. Files get edited by a worker in a worktree of its own.
 
 Follow the \`core-dispatch\` skill: decide the repository, then
 
