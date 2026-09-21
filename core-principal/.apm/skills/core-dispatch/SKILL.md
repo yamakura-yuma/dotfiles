@@ -49,14 +49,25 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 - 対象（リポジトリ、触ってよい範囲、触ってはいけない範囲）
 - やること、そして**完了条件**（何が観測できたら終わりか）
 - 検証の打ち方（そのリポジトリの `make ci` など既存の入口）
-- 「終わったら worktree 直下の `.agent/report.md` に、やったこと・検証結果・
-  残っている問題を書くこと。チャットの要約ではなくこのファイルが報告の本体になる。
-  **先に書いてコミットまで済ませてから**完了を送ること」
+- 「終わったら `mkdir -p ~/.claude/worker-reports` して
+  `~/.claude/worker-reports/<worktree 名>.md` に、やったこと・検証結果・残っている
+  問題を書くこと。チャットの要約ではなくこのファイルが報告の本体になる。**先に
+  書いてから**完了を送ること。リポジトリの中に報告ファイルを作らないこと」
 
 報告をファイルに書かせるのは、長時間のオーケストレーションでは最適化プロキシが
 ツール出力を圧縮し、ハッシュからの復元が期限切れで失敗するのを実測しているため。
 チャットに出た要約は読めなくなることがあるが、ファイルは残る。Orca 再起動を
 またぐと完了自体を送れなくなるのも実測済みで、そのときもファイルだけが残る。
+
+**置き場は作業ツリーの外に取る。** 報告のうち git に残すべきもの（決めたこと、積み
+残し）はコミットメッセージと PR 本文に書けば足り、残りはオーケストレーションの作業
+控えでしかない。`.gitignore` で隠すのではなく最初から置かないのは、未追跡の `.agent/`
+が残ったせいで `git worktree remove` が Directory not empty で落ちた実例があるため。
+ファイル名に worktree 名を入れるのは、報告どうしの衝突を避けるためである。
+
+ワーカーが coordinator と別ホストで走る場合（Orca の ssh 実行ホストなど）、この
+パスはワーカー側のホストを指すので coordinator からは読めない。worktree 直下に
+置いても同じなので、悪化はしない。
 
 **出す。** 完了を追跡するなら orchestration 経由、投げっぱなしでよいなら worktree
 create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は必須。
@@ -84,7 +95,8 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 1. `orca worktree ps --json` で稼働中の workspace を見る
 2. `orca orchestration check --json` で溜まっている worker_done / escalation /
    question を読む
-3. worker_done なら、その worktree 直下の `.agent/report.md` を Read して報告する
+3. worker_done なら、`--report-path` が指すファイル（我々の規約では
+   `~/.claude/worker-reports/<worktree 名>.md`）を Read して報告する
    （チャット上の要約ではなく、これが正本）
 4. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
 5. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
@@ -213,9 +225,9 @@ and any unresolved blocker」を名指しすることを求めている。表に
 ```
 
 **(d) 報告ファイルのパスは公式のフラグで渡す。** worker_done に
-`--report-path <path>` を添えるのが規約で、`.agent/report.md` はその値として我々が
-選んだ置き場所にすぎない。公式が定めた名前ではないので、値のほうを動かしてよく、
-規約のほうは動かさない。
+`--report-path <path>` を添えるのが規約で、`~/.claude/worker-reports/<worktree 名>.md`
+はその値として我々が選んだ置き場所にすぎない。公式が定めた名前ではないので、値のほうを
+動かしてよく、規約のほうは動かさない。作業ツリーの外に移したのもこの自由による。
 
 **(e) 書かないもの。**
 

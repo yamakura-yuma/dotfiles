@@ -26,7 +26,7 @@ evidence には一次情報を短く（「make ci 緑」「2 コミット、ci �
 は evidence ではありません。
 
 終わっているワーカーは、worker_done の `--report-path` が指すファイル（我々の規約
-では worktree 直下の `.agent/report.md`）を Read して outcome / evidence /
+では `~/.claude/worker-reports/<worktree 名>.md`）を Read して outcome / evidence /
 unresolved blocker を埋めます。escalation / question があれば人に取り次ぎ、
 落ち着いたワーカーは `orca orchestration worker-release` で解放します。ただし拒否
 された・stale な完了では release しません。
