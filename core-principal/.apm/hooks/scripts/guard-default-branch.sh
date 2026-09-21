@@ -32,6 +32,12 @@ if [ "${MAKURA_ALLOW_MAIN:-}" = "1" ]; then
   exit 0
 fi
 
+# "Which branch is the default one" is also what decides whether a workspace is
+# the coordinator, so the answer lives in one place and both guards read it from there.
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 0
+# shellcheck source=lib/coordinator-workspace.sh
+. "$here/lib/coordinator-workspace.sh" || exit 0
+
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -n "$cmd" ] || exit 0
 
@@ -47,35 +53,18 @@ printf '%s' "$cmd" |
 # Take the directory from the payload: ${CLAUDE_PROJECT_DIR} stays pinned to
 # where the session started and does not follow Claude into a worktree.
 cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
-[ -n "$cwd" ] && [ -d "$cwd" ] || exit 0
 
-# Fails outside a repository and stays empty on a detached HEAD -- neither is a
-# case this guardrail has an opinion about.
-branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
-[ -n "$branch" ] || exit 0
-
-# refs/remotes/origin/HEAD is a local ref, so reading it costs no network round
-# trip. `git remote show origin` reports the same branch but contacts the
-# remote, which is far too slow to sit in front of every Bash call.
-default="$(git -C "$cwd" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"
-default="${default#origin/}"
-
-if [ -n "$default" ]; then
-  [ "$branch" = "$default" ] || exit 0
-else
-  # No origin/HEAD to consult (no remote, or a clone that never set it up).
-  case "$branch" in
-    main | master) ;;
-    *) exit 0 ;;
-  esac
-fi
+# Non-zero covers "not on the default branch" and "cannot tell" alike -- no
+# repository, a detached HEAD, an unreadable cwd. Both fall through to exit 0.
+workspace_on_default_branch "$cwd" || exit 0
 
 cat >&2 <<EOF
-Blocked: '$branch' is the default branch of $cwd, and this repo does not take
-commits or pushes directly on it.
+Blocked: '$WORKSPACE_BRANCH' is the default branch of $cwd, and this repo does
+not take commits or pushes directly on it.
 
-Give the work a branch of its own first:
-  orca worktree create --name <name> --agent claude --prompt "<what to do>"
+Hand the work to a worker in a worktree of its own -- see the \`core-dispatch\`
+skill:
+  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when, and: write .agent/report.md>"
   git worktree add -b <branch> ../<dir>     # when not going through Orca
 
 The human at the terminal can export MAKURA_ALLOW_MAIN=1 before starting

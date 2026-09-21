@@ -110,6 +110,10 @@ check_documented_flags() {
       [ ${#flags[@]} -gt 0 ] || continue
 
       help="$(timeout 20 "$bin" "${subs[@]}" --help 2>&1)" || continue
+      # Not every subcommand honours --help: `orca orchestration check` reads
+      # its inbox instead and prints that. There is nothing to verify a flag
+      # against in such output, so skip it rather than cry wolf.
+      grep -q 'Usage:' <<<"$help" || continue
       for tok in "${flags[@]}"; do
         grep -q -- "$tok" <<<"$help" ||
           fail "$(basename "$doc"): '$bin ${subs[*]}' has no $tok"
@@ -180,11 +184,51 @@ check_skill_forks() {
   done
 }
 
+# --- 6. Every hook the package registers actually reaches the settings -------
+# apm merges hooks/*.json into the consuming repo's .claude/settings.json, and
+# a hook that never made it there is indistinguishable from one that had no
+# opinion: nothing is logged, nothing fails, the guardrail is just absent.
+check_hooks_deployed() {
+  local src name script
+  for src in "$pkg"/.apm/hooks/*.json; do
+    [ -e "$src" ] || continue
+    name="$(basename "$src" .json)"
+    script="$pkg/.apm/hooks/scripts/$name.sh"
+    [ -f "$script" ] || fail "$name.json has no scripts/$name.sh"
+    [ -x "$script" ] || fail "scripts/$name.sh is not executable, so it fails open silently"
+  done
+
+  [ -d "$repo/.claude" ] || { skip "nothing deployed yet, not checking settings.json"; return; }
+  [ -f "$repo/.claude/settings.json" ] || { fail ".claude exists but has no settings.json"; return; }
+  for src in "$pkg"/.apm/hooks/*.json; do
+    [ -e "$src" ] || continue
+    name="$(basename "$src" .json)"
+    grep -q "scripts/$name.sh" "$repo/.claude/settings.json" ||
+      fail "hook $name is not registered in .claude/settings.json"
+  done
+}
+
+# --- 7. The always-loaded rule points only at skills that exist --------------
+# The rule is mostly pointers, so a renamed or deleted skill turns it into an
+# instruction to go read nothing -- read on every single prompt.
+check_rule_targets_skills() {
+  local doc name
+  for doc in "$pkg"/.apm/instructions/*.instructions.md; do
+    [ -e "$doc" ] || continue
+    while IFS= read -r name; do
+      [ -d "$pkg/.apm/skills/$name" ] ||
+        fail "$(basename "$doc") points at '$name', which is not a skill in this package"
+    done < <(grep -oE '`core-[a-z0-9-]+`' "$doc" | tr -d '`' | sort -u)
+  done
+}
+
 check_agents_md
 check_owned_paths
 check_documented_flags
 check_deploy_parity
 check_skill_forks
+check_hooks_deployed
+check_rule_targets_skills
 
 if [ "$failures" != 0 ]; then
   printf '%s harness invariant(s) broken\n' "$failures" >&2

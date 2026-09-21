@@ -44,11 +44,14 @@ lint-shell:
 # so the guardrail is simply absent. Worth catching here rather than in
 # production. Eval cases are excluded because run.sh sources them for
 # PROMPT/setup/holds rather than executing them, so a +x bit there would claim
-# something untrue.
+# something untrue. hooks/scripts/lib/ is excluded for the same reason -- git
+# pathspec wildcards cross directory boundaries, so scripts/*.sh would
+# otherwise demand +x on files that exist only to be sourced.
 lint-exec:
 	@echo "== executable bits"
 	@$(ls_src) 'core-principal/.apm/hooks/scripts/*.sh' 'core-principal/tests/*.sh' \
-	    'claude/tests/*.sh' ':(exclude)core-principal/tests/eval/cases/*' | \
+	    'claude/tests/*.sh' ':(exclude)core-principal/tests/eval/cases/*' \
+	    ':(exclude)core-principal/.apm/hooks/scripts/lib/*' | \
 	  while IFS= read -r f; do \
 	    [ -x "$$f" ] || { echo "not executable: $$f" >&2; exit 1; }; \
 	  done
