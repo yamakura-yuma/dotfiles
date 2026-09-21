@@ -14,7 +14,7 @@ description: "Core principles: response language, then which skill or tool to re
 
 ## 仕事を受ける
 
-orchestrator（デフォルトブランチ上の元 checkout、または `~` のようにどの
+coordinator（デフォルトブランチ上の元 checkout、または `~` のようにどの
 リポジトリにも属さない場所）では実装しない。作業は worktree のワーカーに出す。
 手順は `core-dispatch` スキル、状況確認と取りこぼしの回収は `/workers`。
 

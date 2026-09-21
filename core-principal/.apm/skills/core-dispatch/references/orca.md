@@ -13,7 +13,7 @@ orca skills get orchestration
 ## リポジトリを指す — `--repo id:<repoId>` を必ず書く
 
 `orca worktree current` は cwd を Windows 側のホストで解決しようとして
-`C:\home\...` を返し、そのまま失敗する。orchestrator は Orca が管理する
+`C:\home\...` を返し、そのまま失敗する。coordinator は Orca が管理する
 worktree の外にあることも多く、`active` / `current` に依存した指定も当てにならない。
 **リポジトリは毎回明示する。**
 
@@ -74,7 +74,7 @@ orca orchestration check --terminal <handle> --json
 `check` は `--help` を解釈せず inbox を表示する（そのため
 `core-principal/tests/harness-check.sh` のフラグ検査はこのサブコマンドを飛ばす）。
 
-`--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**orchestrator では使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
+`--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**coordinator では使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
 Bash で待たせても **Claude Code のセッションが終われば道連れに消え、完了通知を
 取りこぼす**（実測）。
 
@@ -106,13 +106,23 @@ orca orchestration reply --id <msg_id> --body "<返答>" --json
 orca orchestration worker-release --dispatch <dispatch_id> --json
 ```
 
-## 状況を見る
+## 状況を見る — 公式の projection を読む
 
 ```
 orca worktree ps --json
-orca orchestration task-list --brief --json
+orca orchestration worker-list --run <run_id> --include-remote --json
+orca orchestration task-list --ready --brief --json
 orca orchestration inbox --limit 20 --json
 ```
+
+`worker-list` の各行には `projection.attention.categories`、
+`projection.attention.requiresAction`、そして argv がそのまま入った
+`projection.nextAction` がある。判断はここから組み立てる。`nextAction` が `none` の
+行に打つべき argv は無いので、`liveness.reason` を読んで待つ。行は新しい順で 100 件
+ごとに切れるので、`page.hasMore` の間は `page.nextCursor` を `--cursor` に渡す。
+
+`task-list --ready --brief` の ready view を、公式は **external memory** と呼ぶ。
+次に動けるものを覚えておくのではなく、そのつどここから引く。
 
 `worktree ps` は実行ホストごとに行を返し、末尾の `scope:` 行がどのホストを見たかを
 書く。そこに出ていないホストの workspace は「無い」のではなく「見ていない」。
@@ -143,9 +153,16 @@ orca terminal wait --terminal <new-handle> --for tui-idle --timeout-ms 60000 --j
 （旧ハンドルなら `caller is not the Dispatch pane`、新ハンドルなら
 `The Dispatch process incarnation changed`）。実測済み。
 
-**ワーカー側**: だから報告の正本は `.agent/report.md` で、**先に書いてコミットまで
-済ませてから** `worker_done` を試みる。順序が逆だと、拒否された時点で報告が
-どこにも残らない。
+**ワーカー側**: だから報告はファイルに書き、**先に書いてコミットまで済ませてから**
+`worker_done` を試みる。順序が逆だと、拒否された時点で報告がどこにも残らない。
+ファイルの場所は公式のフラグで渡す規約である:
+
+```
+orca orchestration send --type worker_done --outcome succeeded --report-path <path> --subject "<短く>" --body "<3 文>" --json
+```
+
+`.agent/report.md` は、その `--report-path` に渡す値として我々が選んだ置き場所に
+すぎない。規約は `--report-path` のほうで、パスは要件しだいで動かしてよい。
 
 **コーディネータ側**: 拒否された worker_done もこちらの受信箱には worker_done 型で
 届き、本文と payload（outcome、filesModified、reportPath）はそのまま読める。これを
@@ -158,7 +175,9 @@ orca orchestration task-update --id <task_id> --status completed --json
 ```
 
 `task-update` を先に打つと `task_not_startable`（supervised Dispatch is active）で
-弾かれる。`worker-abandon` は「プロセスが止まった」と主張せずに Dispatch を fence
+弾かれる。なお **有効な worker_done は Task と Dispatch を自動で決着させる**ので、
+通常は `task-update` を続けて打たない。この 2 手が要るのは、いまのように worker_done
+が拒否されて成立しなかった場合だけである。`worker-abandon` は「プロセスが止まった」と主張せずに Dispatch を fence
 するだけなので、**決着後もワーカーの端末と worktree は生きたまま残る**。消すかどうかは
 人間の判断に委ね、自動で片付けない。
 
@@ -171,3 +190,15 @@ orca terminal send --terminal <handle> --text "<追加指示>" --enter --json
 
 監視付きで出したワーカーには `orchestration send`、投げっぱなしのワーカーには
 `terminal send`。どちらも届くのは相手が次に受信を見たときで、割り込みではない。
+
+## Orca に「primary workspace」という概念は無い
+
+Orca が見ているのは、**その端末が Run に束縛された coordinator かどうか**である
+（Run の `coordinator_handle`、`orchestration run-current` が返す束縛、orchestration
+スキルの役割分類表の Coordinator）。ワークスペースが「元の checkout か」「デフォルト
+ブランチか」を Orca が判定することはない。
+
+つまり `.apm/hooks/scripts/lib/coordinator-workspace.sh` の checkout ベースの判定は、
+**この要件に固有のもの**である。Orca の外で起動したセッション（`~` で始めた Claude
+Code など）にも同じ規範を効かせたい、という我々の事情から来ている。Orca の語彙に
+合わせるのは呼称だけで、判定そのものは合わせようがない。

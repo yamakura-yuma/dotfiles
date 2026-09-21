@@ -33,10 +33,10 @@ if [ "${MAKURA_ALLOW_MAIN:-}" = "1" ]; then
 fi
 
 # "Which branch is the default one" is also what decides whether a workspace is
-# the orchestrator, so the answer lives in one place and both guards read it from there.
+# the coordinator, so the answer lives in one place and both guards read it from there.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 0
-# shellcheck source=lib/orchestrator-workspace.sh
-. "$here/lib/orchestrator-workspace.sh" || exit 0
+# shellcheck source=lib/coordinator-workspace.sh
+. "$here/lib/coordinator-workspace.sh" || exit 0
 
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -n "$cmd" ] || exit 0

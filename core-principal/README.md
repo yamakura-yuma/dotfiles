@@ -30,16 +30,16 @@ Orca publishes its own skills.
 | `core-principal` rule | The only always-loaded file: response language, then which skill or tool applies to navigating, explaining, verifying, changing the harness, retrospecting, and Orca. |
 | `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
 | `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
-| `guard-orchestrator-edit` hook | Refuses `Edit` / `Write` / `NotebookEdit` while the session is the orchestrator -- the original checkout on its default branch, or a directory in no repository at all, naming `core-dispatch` as the way out. Same `MAKURA_ALLOW_MAIN=1` switch as `guard-default-branch`. |
-| `dispatch-in-orchestrator` hook | Not a guard: on every prompt in the orchestrator it appends the dispatch norm to the message, so the layer holds without a human typing a command. Silent everywhere else. |
+| `guard-coordinator-edit` hook | Refuses `Edit` / `Write` / `NotebookEdit` while the session is the coordinator -- the original checkout on its default branch, or a directory in no repository at all, naming `core-dispatch` as the way out. Same `MAKURA_ALLOW_MAIN=1` switch as `guard-default-branch`. |
+| `dispatch-in-coordinator` hook | Not a guard: on every prompt in the coordinator it appends the dispatch norm to the message, so the layer holds without a human typing a command. Silent everywhere else. |
 | `core-tools` skill | The indexes: what `graphify` and `codegraph` each return, how to tell one is present, why a worktree inherits neither, and what the headroom proxy does to large output. |
 | `core-communication` skill | Why long prose goes unread, and what to cut so that a reader can decide. |
 | `core-harness` skill | How this harness is built: search the published ecosystem first, then decide whether a piece of knowledge is a check, a rule, a skill or nothing, and deploy it through apm. |
 | `core-retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
-| `core-dispatch` skill | What the orchestrator does instead of implementing: classify the message, write the spec, dispatch to a worktree, and pick the results back up. `references/orca.md` carries the `orca` cheat sheet and the pitfalls measured on this host. |
+| `core-dispatch` skill | What the coordinator does instead of implementing: classify the message, write the spec, dispatch to a worktree, and pick the results back up. Reporting follows Orca's own contract -- per Task an outcome, the evidence behind it, and any unresolved blocker -- rather than a shape invented here. `references/orca.md` carries the `orca` cheat sheet and the pitfalls measured on this host. |
 | `/retro` command | Runs `core-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `.agent/report.md`" instruction. |
-| `/workers` command | Reports what dispatched workers are doing and picks up whatever finished. Completion is polled here rather than waited on, so this is also the recovery entry point. |
+| `/workers` command | Formats `worktree ps` and the `worker-list` projection -- attention categories and the literal `nextAction` -- into one table. Completion is polled here rather than waited on, so this is also the recovery entry point. |
 
 ### Skills pulled in from elsewhere
 
@@ -173,9 +173,9 @@ does not clear that bar despite there being a real incident behind it
 (`~/.claude/settings.json.graphify-bak`), so it is a paragraph in the
 `core-harness` skill rather than a fourth hook.
 
-`guard-orchestrator-edit` is the one that was added deliberately rather than
+`guard-coordinator-edit` is the one that was added deliberately rather than
 reluctantly, because the layer it protects does not exist without it. An
-orchestrator that merely *advises* against implementing gets talked out
+coordinator that merely *advises* against implementing gets talked out
 of it by the next small-looking request, and the damage shows up in the first
 tool call rather than eventually. Its false positives are cheap in a way the
 others' are not: the work is not refused, only relocated to a worktree, which
