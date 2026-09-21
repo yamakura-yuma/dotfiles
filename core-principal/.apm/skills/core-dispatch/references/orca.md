@@ -221,8 +221,83 @@ active）で弾かれる。**【公式】** なお有効な worker_done は Task
 決着させるので、通常は `task-update` を続けて打たない。この 2 手が要るのは、いまの
 ように worker_done が拒否されて成立しなかった場合だけである。`worker-abandon` は
 「プロセスが止まった」と主張せずに Dispatch を fence するだけなので、**決着後も
-ワーカーの端末と worktree は生きたまま残る**。消すかどうかは人間の判断に委ね、自動で
-片付けない。
+ワーカーの端末と worktree は生きたまま残る**。この経路で決着させた Dispatch の資源は
+release の対象ではないので、片付けは下の「片付ける」に従って orca-cli 側から行う。
+
+## 片付ける — 端末を閉じて worktree を消す
+
+**【公式】orchestration 層は worktree を消さない。** `worker-release` は settled
+（succeeded / failed）なワーカーの後片付けで、**そのワーカーの、coordinator が所有する
+エージェント端末だけ**を閉じる。setup 端末、設定されたタブ、再利用・既存の端末、
+ユーザーが引き取った端末、証明できない identity は決して閉じない。閉じる前に
+inspectable な出力アーカイブが残るので、閉じたあとでも `worker-read` は出力を返す。
+冪等で、繰り返すと `already_released` を返す。`worker-stop` のほうは「**worktree、
+setup 端末、設定されたタブ、無関係なプロセスを決して削除しない**」と明記されている。
+つまり orchestration 側のどのサブコマンドも worktree を消さない。
+
+**【公式】削除の口は `orca worktree rm` だけで、Orca と git の両方から外す。**
+
+```
+orca worktree rm --worktree id:<repoId>::<path> --force --json
+```
+
+`--force` の説明は「サポートされる場合に worktree の削除を強制する。**ブランチ削除は
+強制しない**」である。git worktree の場合、削除はチェックアウト中のローカルブランチの
+削除も試みる（`--force` の有無にかかわらず）が、**Orca は「worktree より前から存在した
+と分かっているブランチ」と「変更が既にマージ済みだと証明できないブランチ」を残す**。
+未マージの作業はここで守られるので、ブランチ削除の安全側の判断は Orca に任せる。
+
+**【実測】** この保護が効いていることを観測した。`dotfiles-orca-dispatch-layer` を
+片付けたとき、`worktree rm --force` は `{"removed": true}` を返し、**`main` に
+マージ済みだったローカルブランチ `orca-dispatch-layer` は Orca が削除した**。マージ済み
+だと証明できたので残さなかった、という向きの実例である。
+
+**【公式】archive hook は `--run-hooks` を付けたときだけ走り、失敗すると削除を止める。**
+
+```
+orca worktree rm --worktree <selector> --force --run-hooks --allow-failed-archive-hook --json
+```
+
+repo の `orca.yaml` で定義された archive hook は、`--run-hooks` を渡さない限り
+スキップされる。`--run-hooks` 付きで hook が失敗すると**削除全体がブロックされる**。
+何も停止・削除・登録解除されず、`worktree_archive_hook_failed` で非ゼロ終了する。
+**`--force` はこれを waive しない。** 失敗を承知で消すには
+`--allow-failed-archive-hook` が要る。これは `--run-hooks` なしでは拒否される
+（hook が走らないなら waive すべき失敗が存在しないため）。waive したことは
+`result.archiveHookOverride` に返る。
+
+**【公式】bulk close は、ホストが停止を確認できないと失敗する。**
+
+```
+orca terminal close --worktree <selector> --all --json
+orca terminal list --worktree <selector> --json
+```
+
+`--worktree <selector> --all` は、そのワークスペースが所有するすべての端末プロセスを
+停止し、端末タブ・レイアウト・resume 記録を durable に削除する。orca-cli の端末規則は
+「**bulk close は実行ホストがすべての PTY の停止を確認できないと失敗する。
+`unverifiable` として扱い、プロセスが終了したと報告してはならない**。別のホストに対して
+retry してもならない」と明記している。あとで再開したい端末は close ではなく workspace
+Sleep を使う、とも書かれている。
+
+**【実測】`closed 1` / `stopped 1` と言いながら失敗し、実際には閉じていた。**
+`dotfiles-orca-dispatch-layer` の片付けで `terminal close --worktree <id> --all` が
+`terminal_stop_unverifiable` で失敗した。receipt には `closed 1`、`stopped 1` と出て
+いるのに「the owning host did not confirm the PTY exit」が理由だった。そして実際には
+閉じていた。**つまり close の戻り値が失敗でも、削除してよい状態になっていることがある。
+戻り値だけでは判断できない。** unverifiable を受けたら、`terminal list --worktree
+<selector>` が 0 件であることと、OS 側にその worktree のパスを含むプロセスが残っていない
+ことを別々に確かめ、両方取れたときだけ `worktree rm` に進む。取れなければ消さない。
+
+**【公式】完了は削除ではなくカード状態で表す。**
+
+```
+orca worktree set --worktree <selector> --workspace-status in-review --json
+```
+
+`--workspace-status` が取るのはボードの列 id で、既定は `todo` / `in-progress` /
+`in-review` / `completed`。カスタム状態は設定された id を使う。「終わった」を表すのに
+worktree を消す必要はないので、レビュー待ちや記録として残したいものはここを動かす。
 
 ## 稼働中のワーカーに追加で言う 【公式】
 

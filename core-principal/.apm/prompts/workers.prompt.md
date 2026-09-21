@@ -19,7 +19,7 @@ argument-hint: "[絞り込みたい対象（省略可）]"
 4. `orca orchestration check --json` で未処理のメッセージを読む
 
 出力は表ひとつ。列は **worktree / attention.categories / nextAction / outcome /
-evidence / unresolved blocker**。`projection.attention.categories` と
+evidence / unresolved blocker / 片付け**。`projection.attention.categories` と
 `projection.nextAction` は公式の値をそのまま置き、言い換えない。`nextAction` が
 `none` の行には打つべき argv が無いので、`liveness.reason` を書いて待ちます。
 evidence には一次情報を短く（「make ci 緑」「2 コミット、ci 未実行」）。「順調です」
@@ -30,6 +30,16 @@ evidence には一次情報を短く（「make ci 緑」「2 コミット、ci �
 unresolved blocker を埋めます。escalation / question があれば人に取り次ぎ、
 落ち着いたワーカーは `orca orchestration worker-release` で解放します。ただし拒否
 された・stale な完了では release しません。
+
+**取りこぼしの回収はここで済ませます。** `worktree ps` に残っているもののうち、PR が
+マージ済みなのに worktree がまだある行は「片付け可能」です。`片付け` 列にそう書き、
+`core-dispatch` スキルの「4. 片付け」の条件（報告を取り込み済み、PR マージ済み、
+作業ツリーが clean で未 push のコミットが無い）を満たすものは、**その場で片付けまで
+行います**。ユーザーは worktree を自分で管理したくないと言っているので、条件を満たす
+ものは確認を取らずに消してよい。ただし**消したことは報告に 1 行残す**（`片付け` 列に
+「削除済み」と書く）。条件を欠くものは消さず、何が欠けていたかを同じ列に書きます。
+`terminal close --worktree <selector> --all` が `terminal_stop_unverifiable` を返した
+ときは、端末 0 件と残プロセス無しの 2 点を確かめるまで `worktree rm` に進みません。
 
 生の JSON や端末出力は貼らず、実行手順の逐次説明もしません。異常があったときだけ、
 表の下に理由を 1〜2 文足します。
