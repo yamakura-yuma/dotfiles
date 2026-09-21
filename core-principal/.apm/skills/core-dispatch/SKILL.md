@@ -61,7 +61,10 @@ create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は�
 消え、完了通知を取りこぼす（実測）。メッセージ自体は inbox に残るので、待つ代わりに
 **そのつど拾い直す**。
 
-拾い直す機会は 2 つ。**セッションの最初**と、**新しい依頼を受けた時**。どちらでも:
+拾いに行く機会は 3 つ。**Orca 自身の通知**（「You have N orchestration message.
+Run `orca orchestration check --run <run_id>`」がセッションに注入される。これが実質の
+起こし役なので、来たら従う）、**セッションの最初**、**新しい依頼を受けた時**。
+いずれでも:
 
 1. `orca worktree ps --json` で稼働中の workspace を見る
 2. `orca orchestration check --json` で溜まっている worker_done / escalation /
@@ -70,6 +73,10 @@ create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は�
    （チャット上の要約ではなく、これが正本）
 4. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
 5. 落ち着いたワーカーは `orca orchestration worker-release` で解放する
+
+セッションが再起動した直後は、自分の端末ハンドルも変わっている。`check` が空に
+見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
+「Run を結び直す」）。ワーカーが消えたのではなく、自分が Run から外れている。
 
 明示的に状況を聞かれたときの入口が `/workers` で、これが取りこぼしの回復口も
 兼ねる。**liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。**

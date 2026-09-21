@@ -6,8 +6,11 @@ argument-hint: "[絞り込みたい対象（省略可）]"
 いま走っているワーカーの状況を報告してください。絞り込み: $ARGUMENTS
 （空なら全部。）
 
-`core-dispatch` スキルの「3. 統合」の手順です。完了通知は待ち受けではなく**この
-コマンドで拾い直す**ので、取りこぼしの回復口でもあります。
+`core-dispatch` スキルの「3. 統合」の手順です。完了は待ち受けではなく、Orca が
+セッションに注入してくる「You have N orchestration message」の通知をきっかけに
+拾いに行きます。このコマンドはそれを人間から明示的に起こす入口で、取りこぼしの
+回復口でもあります。`check` が空なら、ワーカーが消えたのではなく自分が Run から
+外れている可能性があるので、`orca orchestration run-current` で束縛を確かめること。
 
 1. `orca worktree ps --json` と `orca orchestration check --json`
 2. 終わっているワーカーは、その worktree 直下の `.agent/report.md` を Read して

@@ -77,8 +77,28 @@ orca orchestration check --terminal <handle> --json
 `--wait` と `--timeout-ms` でメッセージが来るまでブロックできるが、**プライマリでは
 使わない。** 前景で待てばターンが塞がって次の依頼を受けられず、バックグラウンドの
 Bash で待たせても **Claude Code のセッションが終われば道連れに消え、完了通知を
-取りこぼす**（実測）。溜まったメッセージは `check` に残っているので、待つのをやめて
-セッション開始時と依頼を受けた時に拾い直すほうが確実である。
+取りこぼす**（実測）。
+
+待たなくても起こしてもらえる。Orca はコーディネータ端末のセッションに
+
+> You have N orchestration message. Run `orca orchestration check --run <run_id>`
+
+という通知を自分で注入してくる（実測。heartbeat もこれで届いた）。**これが統合の
+正しいトリガー**で、来たら `check` する。取りこぼしはセッション開始時と依頼を
+受けた時の拾い直しで回収する。メッセージは inbox に残っているので消えはしない。
+
+## Run を結び直す
+
+コーディネータ側の端末ハンドルもセッション再起動で変わる。ハンドルが変われば Run と
+の束縛も切れるので、通知が来ない・`check` が空に見えるときはここを疑う。
+
+```
+orca orchestration run-current --json
+orca orchestration run-use --id <run_id> --json
+```
+
+`run-use` が取るのは **`--id`** で、`--run` ではない（`--run` を渡すとフラグエラーに
+なる。他の多くのサブコマンドが `--run` なので間違えやすい）。
 
 返事をする・解放する:
 
