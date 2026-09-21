@@ -88,15 +88,32 @@ is_coordinator_workspace() {
   workspace_on_default_branch "$dir" && workspace_is_original_checkout "$dir"
 }
 
-# Paths an agent may write to even in the coordinator workspace: its own scratchpad
-# and the plans a human reads before approving work. Neither is repository
-# content, and blocking them would stop the dispatcher from doing its job.
+# Paths an agent may write to even in the coordinator workspace.
+#
+# The test is one principle, not a list to append to by habit: a path belongs
+# here when it is *not repository content* and the dispatcher *needs it to do
+# its job*. Both halves have to hold. Scratchpads, plans, memories and job
+# working directories are all things the coordinator itself produces while
+# handing work out; an implementation file is not, and that is what the guard
+# exists to keep out of this workspace.
+#
+# Kept narrow on purpose. $HOME/.claude as a whole is not exempt -- settings.json
+# and the skills themselves live there, and those are content the coordinator
+# has no business rewriting in place. Nor is $HOME/.claude/worker-reports:
+# reports are written by the worker in its own worktree, never from here.
 workspace_path_is_exempt() {
   local path="$1"
   [ -n "$path" ] || return 1
   case "$path" in
+    # This session's scratchpad.
     /tmp/claude-*) return 0 ;;
+    # A plan a human reads before approving the work it describes.
     "${HOME:-/nonexistent}"/.claude/plans/*) return 0 ;;
+    # What the agent learned, kept across sessions and belonging to no repo.
+    "${HOME:-/nonexistent}"/.claude/projects/*/memory/*) return 0 ;;
+    # A background job's working directory -- the same reason as the scratchpad:
+    # agents are told to use it so concurrent jobs stop colliding in /tmp.
+    "${HOME:-/nonexistent}"/.claude/jobs/*/tmp/*) return 0 ;;
   esac
   return 1
 }

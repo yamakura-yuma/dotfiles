@@ -117,6 +117,10 @@ check_edit 2 "$outside" "$outside/notes.md"          # no repository at all, lik
 check_edit 0 "$coordinator" "$coordinator/notes.md" MAKURA_ALLOW_MAIN=1
 check_edit 0 "$coordinator" "/tmp/claude-1000/session/scratchpad/plan.md"
 check_edit 0 "$coordinator" "$HOME/.claude/plans/some-plan.md"
+# The memory a coordinator session saves about what the human just told it.
+# Which paths are exempt is harness-check.sh's business; this one case is here
+# because it is the one the hook was actually losing.
+check_edit 0 "$coordinator" "$HOME/.claude/projects/-home-u-repo/memory/lesson.md"
 # A notebook names its target differently; the exemptions still have to apply.
 printf '%s' "$(jq -nc --arg cwd "$coordinator" \
   '{tool_name:"NotebookEdit", tool_input:{notebook_path:"/x/y.ipynb"}, cwd:$cwd}')" |
