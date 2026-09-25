@@ -3,6 +3,7 @@
 ```bash
 make ci          # 決定的なもの全部（lint + test）
 make -k ci       # 最初の失敗で止めず、全部報告する
+make metrics     # ~/.claude/projects のセッションログを数える（ARGS=--json で JSON）
 make eval        # 振る舞いの eval。実 API を叩くので課金される
 make install     # このマシンに配る（= ./setup.sh）
 make help        # ターゲット一覧
@@ -28,6 +29,7 @@ make help        # ターゲット一覧
 | `test-guards` | `core-principal/tests/guards.sh` — ガードフックに payload を食わせる |
 | `test-harness` | `core-principal/tests/harness-check.sh` — ハーネスのドリフト |
 | `test-statusline` | `claude/tests/statusline.sh` |
+| `test-metrics` | `claude/tests/metrics.sh` fixture のログを `claude/metrics.py` に数えさせる |
 
 対象ファイルは `git ls-files --cached --others --exclude-standard` で選びます。コミット前の
 新しいファイルも拾い、生成物の `.claude/` や `apm_modules/` には入らないためです。
@@ -37,6 +39,17 @@ make help        # ターゲット一覧
 
 `harness-check.sh` は `AGENTS.md` が現在の instructions の再生成と一致するかを見ます。
 ずれていたら `apm compile --target agents` を走らせてください。
+
+## `make metrics`
+
+エージェント評価の第 1 段です。`~/.claude/projects/` のセッションログ（JSONL）を読んで、
+プロジェクト別のセッション数とターン数、ツール別の呼び出し数、hook に拒否された回数
+（hook スクリプト名ごと）、ツールエラーの数（hook 拒否・権限拒否・その他）を数えます。
+LLM も API も使わず、ログは読むだけです。各数値の定義は `claude/metrics.py` の冒頭に
+あります。
+
+出力はこのマシンの履歴なので `make ci` には入れていません。`make metrics ARGS=--json`
+で機械向けの JSON になります。
 
 ## `make eval`
 

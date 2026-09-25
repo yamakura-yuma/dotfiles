@@ -1,0 +1,5 @@
+{"type":"user","sessionId":"s2","message":{"role":"user","content":"hello"}}
+{"type":"assistant","sessionId":"s2","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}
+{"type":"assistant","sessionId":"s2","message":{"role":"assistant","content":[{"type":"tool_use","id":"u1","name":"Write","input":{}}]}}
+{"type":"assistant","sessionId":"s2","message":{"role":"assistant","content":[{"type":"tool_use","id":"u1","name":"Write","input":{}}]}}
+{"type":"user","sessionId":"s2","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse:Write hook error: [/abs/path/guard-coordinator-edit.sh]: Blocked: coordinator"}]}}

@@ -20,12 +20,14 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline eval install
+        test test-guards test-harness test-statusline test-metrics \
+        metrics eval install
 
 help:
 	@echo "make ci       lint + test (deterministic, offline; what CI runs)"
 	@echo "make lint     shell syntax, executable bits, JSON, YAML, frontmatter"
 	@echo "make test     guard hooks, harness invariants, statusline"
+	@echo "make metrics  count sessions, turns, tool calls, hook blocks from local logs"
 	@echo "make eval     behavioural evals -- real API calls, costs money"
 	@echo "make install  deploy the agent config and dotfiles onto this machine"
 
@@ -34,7 +36,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-statusline
+test: test-guards test-harness test-statusline test-metrics
 
 lint-shell:
 	@echo "== shell syntax"
@@ -96,6 +98,15 @@ test-harness:
 test-statusline:
 	@echo "== statusline"
 	@./claude/tests/statusline.sh
+
+test-metrics:
+	@echo "== metrics"
+	@./claude/tests/metrics.sh
+
+# Reads ~/.claude/projects, so its output is this machine's history rather than
+# a check -- not part of ci. `make metrics ARGS=--json` for the machine form.
+metrics:
+	@./claude/metrics.py $(ARGS)
 
 eval:
 	@./core-principal/tests/eval/run.sh
