@@ -9,5 +9,7 @@ argument-hint: "<ワーカーにやらせる作業>"
 作業: $ARGUMENTS
 
 手順は `core-dispatch` スキルの「2. 振り分け」にあります。そちらに従ってください。
+出し方は監督ありの `orca orchestration worker-start` だけで、投げっぱなしの
+`orca worktree create --prompt` は使いません。
 
 coordinator では hook が同じことを毎プロンプト言うので、このコマンドが要るのは、**coordinator ではない場所から明示的に出したいとき**です。

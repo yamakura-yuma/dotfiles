@@ -40,36 +40,61 @@ orca worktree list --json |
   jq -r '.result.worktrees[] | select(.isMainWorktree) | "\(.repoId)\t\(.path)"'
 ```
 
-## 投げっぱなしで出す 【公式】
+## 出す — 監督ありの 1 通り 【公式】
 
-戻りを待たずに走らせてよい作業はこちら。作った worktree の第一ターミナルで
-エージェントが起き、`--prompt` がそのまま最初のメッセージになる。
-
-```
-orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<spec>" --setup run --json
-```
-
-- `--name` は必須。作業内容から短い kebab-case を付ける。
-- `--agent` を渡したら `orca terminal create` を重ねない。ターミナルは既にある。
-  ハンドルは `result.agentTerminalHandle`（古いランタイムは
-  `result.startupTerminal.handle` しか返さない）。以上は `--help` の Notes にある。
-- リポジトリ側の setup フックを確実に走らせたいときだけ `--setup run`。
-
-## 監視付きで出す 【公式】
-
-worker_done / escalation / question を受け取りたい、つまり統合まで面倒を見るなら
-orchestration 側から出す。Run が無ければ先に作る。
+Run が無ければ先に作り、`worker-start` で出す。ワーカーは worker_done /
+escalation / question を返し、こちらは拾って `worker-release` する。
 
 ```
 orca orchestration run-current --json
 orca orchestration run-create --objective "<この一連の作業の目的>" --json
-orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude --setup run --json
+orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude --comment "<一行の題>" --setup run --json
 ```
 
-- `--worktree new-top-level` が「独立した新しい worktree を切ってそこで走らせる」。
-  今いる worktree の子として切るなら `new-child`、既存を使うなら selector を渡す。
+- `--name` がワーカー名になる。報告の識別子にも追加指示の宛先にもこれを使う。
 - `--spec` を渡すとタスクも同時に作られる。既に `task-create` したタスクに出すなら
   `--task <task_id>`。
+- `--comment` はカードの初期コメント。以後はワーカーが上書きする。
+- 投げっぱなし（`orca worktree create --prompt`）は使わない。完了が inbox に
+  届かず、統合の手順に乗らない。ユーザーが所有権ごと渡すと明示したときだけ
+  handoff にする（`orca skills get orca-cli`）。
+
+## 親子を張る — 同じリポジトリの中だけ
+
+**【公式】** `worker-start --worktree` は `current` / selector / `new-child` /
+`new-top-level` を取る。`new-child` は「stacked child worktree」で、`current` は
+coordinator の worktree を指す。`worker-start` 自身には `--parent-worktree` は無く
+（`--parent` はタスクの親）、worktree の親を明示するフラグは `orca worktree create`
+と `orca worktree set` の `--parent-worktree` にある。公式は lineage・Git の base・
+協調上の親子・UI のまとまりを「別々の決定」と書いている。
+
+**【実測】親は同じリポジトリ・実行ホスト・プロジェクトの間でしか張れない。**
+`~/coordinator` は独立したリポジトリなので、dotfiles の worktree を子にしようと
+すると次のようになった。
+
+- `worktree set --parent-worktree id:<coordinator>` は
+  `LINEAGE_PARENT_CONTEXT_CONFLICT`（Parent worktree must belong to the same
+  repository, execution host, and project）で拒否される
+- `worktree create --parent-worktree` は `ok` を返し、応答の `parentWorktreeId`
+  まで埋まるが、`worktree list` / `ps` では `null` のままで**黙って保存されない**
+
+したがって `~/coordinator` 自身の作業だけを `new-child` で子にし、他のリポジトリの
+作業は `new-top-level` で出す。後者の親子は Orca の上には張れないので、どの
+coordinator が出したかは Run（`worker-list --run`）で引く。
+
+## 進捗をカードに書かせる 【公式】
+
+```
+orca worktree set --worktree active --comment "<いまの状態を 1 行>" --json
+```
+
+コメントはカードの短い状態行で、公式は再現・修正・検証・引き継ぎ・ブロックの
+節目で更新するよう書いている。`orca worktree ps --json` にそのまま出るので、
+coordinator は端末を読まずに進捗を追える。ワーカーの spec にこの 1 行を入れる。
+
+**【公式・未修正】** 状態の列（`--workspace-status`）は、コマンドが成功しても
+ボードに反映されないバグがある（[Orca #13620](https://github.com/stablyai/orca/issues/13620)、
+2026-09 時点で open）。進捗と完了はコメントで表し、列は補助に留める。
 
 ## 受け取る — 待ち続けずに、そのつど拾い直す
 
@@ -290,15 +315,10 @@ Sleep を使う、とも書かれている。
 <selector>` が 0 件であることと、OS 側にその worktree のパスを含むプロセスが残っていない
 ことを別々に確かめ、両方取れたときだけ `worktree rm` に進む。取れなければ消さない。
 
-**【公式】完了は削除ではなくカード状態で表す。**
-
-```
-orca worktree set --worktree <selector> --workspace-status in-review --json
-```
-
-`--workspace-status` が取るのはボードの列 id で、既定は `todo` / `in-progress` /
-`in-review` / `completed`。カスタム状態は設定された id を使う。「終わった」を表すのに
-worktree を消す必要はないので、レビュー待ちや記録として残したいものはここを動かす。
+**【公式】完了は削除ではなくカードで表す。** 「終わった」を表すのに worktree を
+消す必要はない。レビュー待ちや記録として残したいものは、コメントに「PR #N レビュー
+待ち」と書いて残す。`--workspace-status`（既定の列は `todo` / `in-progress` /
+`in-review` / `completed`）を動かしてもよいが、上の #13620 があるので補助扱い。
 
 ## 稼働中のワーカーに追加で言う 【公式】
 
@@ -307,8 +327,10 @@ orca orchestration send --to dispatch:<dispatch_id> --subject "<短く>" --body 
 orca terminal send --terminal <handle> --text "<追加指示>" --enter --json
 ```
 
-監視付きで出したワーカーには `orchestration send`、投げっぱなしのワーカーには
-`terminal send`。どちらも enqueue は durable だが**割り込まない**ので、相手が
+宛先はワーカー名から引く。`worktree list` の `displayName` で worktree を、
+`worker-list --run` でその Dispatch を特定し、`orchestration send` で送る。Dispatch が
+決着済み・資格失効で送れないときだけ、`terminal list --worktree` で引いた端末に
+`terminal send` する。どちらも enqueue は durable だが**割り込まない**ので、相手が
 `check` を見るまで届かない。
 
 **【実測】`terminal send` に `--enter` を付け忘れると、テキストは入力欄に残るだけで

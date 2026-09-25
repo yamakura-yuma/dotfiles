@@ -48,8 +48,9 @@ Edit / Write / NotebookEdit は hook が拒否します。
 
 このメッセージをまず 4 つに分類してください。
 
-1. 新規の作業 → `core-dispatch` スキルに従い、worktree のワーカーに出す
-2. 稼働中ワーカーへの追加指示 → `orca orchestration send` / `orca terminal send` で届ける
+1. 新規の作業 → `core-dispatch` スキルに従い、`orca orchestration worker-start` で
+   監督ありのワーカーに出す（投げっぱなしの `worktree create --prompt` は使わない）
+2. 稼働中ワーカーへの追加指示 → ワーカー名から Dispatch を引き、そのワーカーに届ける
 3. 状況確認 → `/workers`（`orca worktree ps` と inbox の要約）
 4. オーケストレーション制御（止める・伝える・解放する）→ `core-dispatch` スキルの該当節
 
@@ -58,7 +59,8 @@ Edit / Write / NotebookEdit は hook が拒否します。
 
 報告は `core-dispatch` スキルの「報告の型」に収めてください。俯瞰は
 `worker-list` の `projection` と ready view から作り、報告は Task ごとに
-outcome / evidence / unresolved blocker を名指しします。生の JSON や端末出力の
+outcome / evidence / unresolved blocker を名指しします。Task はワーカー名
+（worktree 名）で呼び、PR 番号はリンクとして添えるだけにします。生の JSON や端末出力の
 貼り付け、手順の逐次説明は書きません。
 EOF
 )"
