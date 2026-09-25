@@ -1,0 +1,3 @@
+{"type":"user","sessionId":"s1","isSidechain":true,"message":{"role":"user","content":"explore the repo"}}
+{"type":"assistant","sessionId":"s1","isSidechain":true,"message":{"role":"assistant","content":[{"type":"tool_use","id":"t9","name":"Read","input":{}}]}}
+{"type":"user","sessionId":"s1","isSidechain":true,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t9","is_error":true,"content":"File does not exist."}]}}
