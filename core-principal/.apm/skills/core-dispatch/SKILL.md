@@ -30,7 +30,7 @@ cwd**（`~` など）がそれにあたる。子 worktree は違う。そこは�
 | 種類 | 見分け方 | すること |
 | --- | --- | --- |
 | 新規の作業 | ファイルが変わる依頼 | 下の「2. 振り分け」 |
-| 稼働中ワーカーへの追加指示 | 既に出した作業の修正・補足 | `orca orchestration send`、または `orca terminal send` |
+| 稼働中ワーカーへの追加指示 | 既に出した作業の修正・補足。ワーカー名だけで指されることが多い | 下の「追加指示を届ける」 |
 | 状況確認 | 「どうなってる」「終わった？」 | 下の「3. 統合」、`/workers` |
 | オーケストレーション制御 | 止める・伝える・解放する | `reply` / `worker-release`、`references/orca.md` |
 
@@ -49,6 +49,8 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 - 対象（リポジトリ、触ってよい範囲、触ってはいけない範囲）
 - やること、そして**完了条件**（何が観測できたら終わりか）
 - 検証の打ち方（そのリポジトリの `make ci` など既存の入口）
+- 「節目ごとに進捗を、終わったら完了を、自分のカードのコメントに 1 行で書くこと
+  （`orca worktree set --worktree active --comment "<いまの状態>" --json`）」
 - 「終わったら `mkdir -p ~/.claude/worker-reports` して
   `~/.claude/worker-reports/<worktree 名>.md` に、やったこと・検証結果・残っている
   問題を書くこと。チャットの要約ではなくこのファイルが報告の本体になる。**先に
@@ -69,8 +71,22 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 パスはワーカー側のホストを指すので coordinator からは読めない。worktree 直下に
 置いても同じなので、悪化はしない。
 
-**出す。** 完了を追跡するなら orchestration 経由、投げっぱなしでよいなら worktree
-create（`references/orca.md` の 2 節）。短い kebab-case の `--name` は必須。
+**出す。** 出し方は監督ありの 1 通りに統一する。Run を確かめ（無ければ
+`run-create`）、`worker-start` で出す。ワーカーは `worker_done` で完了を返し、
+こちらは「3. 統合」で拾って `worker-release` する。コマンドは `references/orca.md`
+の「出す」。短い kebab-case の `--name` は必須で、これがそのままワーカー名になる。
+
+例外は 1 つだけ。ユーザーが**所有権ごと渡す**と明示したときは handoff
+（`orca skills get orca-cli` の手順）にし、監督しない。
+
+**親は coordinator の worktree にする。** ただし Orca の親子は同じリポジトリ・同じ
+実行ホスト・同じプロジェクトの間でしか張れない（実測）。`~/coordinator` 自身の作業は
+`--worktree new-child` で子にし、他のリポジトリの作業は `new-top-level` で出す。詳細は
+`references/orca.md`「親子を張る」。
+
+**進捗はカードのコメントで見る。** ワーカーに書かせたコメントは `orca worktree ps`
+にそのまま出るので、覗きに行かずに状況が分かる。状態の列（`--workspace-status`）は
+ボードに反映されない既知のバグ（Orca #13620）があるので、補助としてだけ使う。
 
 出したら、**そのターンで待たない。** 「報告の型」(a) の 2 行を返して終える。
 
@@ -92,7 +108,8 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 起こし役なので、来たら従う）、**セッションの最初**、**新しい依頼を受けた時**。
 いずれでも:
 
-1. `orca worktree ps --json` で稼働中の workspace を見る
+1. `orca worktree ps --json` で稼働中の workspace と、ワーカーが書いたカードの
+   コメントを見る
 2. `orca orchestration check --json` で溜まっている worker_done / escalation /
    question を読む
 3. worker_done なら、`--report-path` が指すファイル（我々の規約では
@@ -112,6 +129,21 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 **liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。** Orca
 再起動でハンドルが変わっただけのことが多い。引き直し方と起こし方は
 `references/orca.md` の「ハンドルが stale になったとき」。
+
+### 追加指示を届ける
+
+ユーザーは**ワーカー名だけ**で追加指示を出してよい（「dispatch-supervised に〜も
+足して」）。coordinator はその名前から worktree と Dispatch を引き、該当ワーカーの
+端末へ届ける。
+
+1. `orca worktree list --json` で名前（`displayName`）から worktree を特定する
+2. `orca orchestration worker-list --run <run_id> --json` でその worktree の
+   Dispatch を引き、`orca orchestration send --to dispatch:<dispatch_id>` で送る
+3. Dispatch が決着済み・資格失効などで送れないときは、`orca terminal list
+   --worktree <selector>` で端末を引き、`orca terminal send --enter` で送る
+
+どちらも割り込まないので、届いたかは `orca terminal read` の差分で確かめる
+（`references/orca.md`「稼働中のワーカーに追加で言う」）。
 
 ## 4. 片付け — 終わった worktree を残さない
 
@@ -177,12 +209,9 @@ archive hook を持つリポジトリでは、`--run-hooks` を付けるか既�
 でも waive されない（`references/orca.md`）。
 
 **(e) 消さない選択もある。** あとで再開するなら端末を閉じずに workspace Sleep を使う。
-レビュー待ちならカード状態を更新して残す。そもそも**完了の表現は削除ではなくカード
-状態**（`todo` / `in-progress` / `in-review` / `completed`）である。
-
-```
-orca worktree set --worktree <selector> --workspace-status in-review --json
-```
+レビュー待ちならカードのコメントに「PR #N レビュー待ち」と書いて残す。
+`--workspace-status` を動かしてもよいが、ボードに反映されないことがある（Orca
+#13620）ので、それだけを完了の表現にしない。
 
 ## 報告の型 — 公式に揃える
 
@@ -208,10 +237,15 @@ orca orchestration task-list --ready --brief --json
 and any unresolved blocker」を名指しすることを求めている。表にするならこの 3 つを
 列にする。
 
+**作業の識別子はワーカー名（worktree 名）にする。** Task 列は
+「`<ワーカー名>`（<リポジトリ>）＋ 一行の題」。PR 番号は単独の識別子にせず、
+evidence にリンクとして添える。ユーザーがワーカー名だけで追加指示を出せるように
+するためで、届け方は「追加指示を届ける」にある。
+
 | Task | outcome | evidence | unresolved blocker |
 | --- | --- | --- | --- |
-| dispatch-layer | succeeded | make ci 緑、4 コミット | なし |
-| docs-ja | 作業中 | 2 コミット、ci 未実行 | なし |
+| `dispatch-layer`（dotfiles）監督ありに統一 | succeeded | make ci 緑、[PR #12](https://github.com/o/r/pull/12) | なし |
+| `docs-ja`（temporal-saga）README を日本語化 | 作業中 | 2 コミット、ci 未実行 | なし |
 
 **evidence には一次情報を短く置く。**「順調です」は evidence ではない。「make ci
 緑」「テスト 3 件失敗」のように、こちらが実際に見たものを書く。

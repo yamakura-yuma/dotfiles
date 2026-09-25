@@ -18,8 +18,13 @@ argument-hint: "[絞り込みたい対象（省略可）]"
 3. `orca orchestration task-list --ready --brief --json`
 4. `orca orchestration check --json` で未処理のメッセージを読む
 
-出力は表ひとつ。列は **worktree / attention.categories / nextAction / outcome /
-evidence / unresolved blocker / 片付け**。`projection.attention.categories` と
+出力は表ひとつ。列は **Task / コメント / attention.categories / nextAction /
+outcome / evidence / unresolved blocker / 片付け**。Task は「`<ワーカー名>`
+（<リポジトリ>）＋ 一行の題」で、ワーカー名は worktree 名。PR 番号は単独の識別子に
+せず、evidence にリンクとして添えます。ユーザーはこのワーカー名だけで追加指示を
+出せます。コメントは `worktree ps` に出るカードのコメント（ワーカーが書いた進捗）を
+そのまま置きます。状態の列（`workspaceStatus`）はボードと食い違うことがある
+（Orca #13620）ので使いません。`projection.attention.categories` と
 `projection.nextAction` は公式の値をそのまま置き、言い換えない。`nextAction` が
 `none` の行には打つべき argv が無いので、`liveness.reason` を書いて待ちます。
 evidence には一次情報を短く（「make ci 緑」「2 コミット、ci 未実行」）。「順調です」
