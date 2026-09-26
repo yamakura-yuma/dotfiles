@@ -14,7 +14,8 @@ dependencies:
     ref: <commit>
 ```
 
-Then `/poteto-mode <task>` in Claude Code.
+Then `/poteto-mode <task>` in Claude Code, or `/p-mode <task>` for the same
+with this harness's own skills and Orca workers slotted in ([`p-mode`](.apm/skills/p-mode/SKILL.md)).
 
 ## What each agent gets
 

@@ -50,6 +50,9 @@ for f in sorted(cases.glob("*/case.yaml")):
         g = {"type": "regex", "target": "trace",
              "pattern": rf'skill\\?"\s*:\s*\\?"(?:[\w-]+:)?{n}\\?"|/{n}/SKILL\.md'}
         (out / "graders" / f"opens-{s}.md").write_text("---\n" + yaml.safe_dump(g, sort_keys=False) + "---\n")
+    if c.get("reply_matches"):
+        g = {"type": "regex", "pattern": c["reply_matches"]}
+        (out / "graders" / "reply.md").write_text("---\n" + yaml.safe_dump(g, sort_keys=False) + "---\n")
 PY
 cd "$p"
 claude plugin eval . --trust-plugin --no-publish --ablation none --concurrency 1 \

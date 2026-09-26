@@ -1,0 +1,5 @@
+invoke: p-mode
+prompt: このリポジトリで設定ファイルを読み込んでいる関数はどこ？
+opens: [poteto-mode, core-tools]
+max_turns: 12
+timeout_seconds: 400

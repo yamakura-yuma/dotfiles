@@ -8,6 +8,7 @@ description: Translation table for running pstack (poteto-mode and the skills it
 pstack is written for Cursor. Its text is used unchanged; read it through this
 table. When pstack names something on the left, do what the right says. Nothing
 here overrides pstack's judgment, only its plumbing.
+The user's own preferences on top of poteto-mode are the `p-mode` skill.
 
 ## Tools
 
