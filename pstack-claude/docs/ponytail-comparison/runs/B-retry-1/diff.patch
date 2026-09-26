@@ -1,0 +1,129 @@
+diff --git a/client.py b/client.py
+index 6fbc814..529773f 100644
+--- a/client.py
++++ b/client.py
+@@ -1,9 +1,29 @@
+ import json
++import logging
++import time
++import urllib.error
+ import urllib.request
+ 
+ BASE_URL = "https://inventory.internal/api"
+ 
++RETRY_DELAYS = (0.5, 2.0)
++
++log = logging.getLogger(__name__)
++
+ 
+ def get_stock(sku):
++    for delay in RETRY_DELAYS:
++        try:
++            return _fetch_stock(sku)
++        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
++            if isinstance(e, urllib.error.HTTPError) and e.code < 500:
++                raise
++            log.warning("get_stock(%r) failed, retrying in %s: %r", sku, delay, e)
++            time.sleep(delay)
++    return _fetch_stock(sku)
++
++
++def _fetch_stock(sku):
++    # read timeouts inside json.load happen here too, so retrying this call covers them
+     with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
+         return json.load(resp)["quantity"]
+diff --git a/test_client.py b/test_client.py
+index a7a6dbd..d3871d2 100644
+--- a/test_client.py
++++ b/test_client.py
+@@ -1,17 +1,90 @@
+ import io
+ import json
+ import unittest
++import urllib.error
+ from unittest import mock
+ 
+ import client
+ 
+ 
++def _http_error(code):
++    return urllib.error.HTTPError("https://x", code, "x", {}, io.BytesIO())
++
++
++def _ok_body(quantity=7):
++    return io.BytesIO(json.dumps({"quantity": quantity}).encode())
++
++
+ class GetStockTest(unittest.TestCase):
+     def test_returns_quantity(self):
+         resp = io.BytesIO(json.dumps({"quantity": 3}).encode())
+         with mock.patch("urllib.request.urlopen", return_value=resp):
+             self.assertEqual(client.get_stock("A1"), 3)
+ 
++    def test_retries_after_5xx_then_succeeds(self):
++        err = _http_error(503)
++        self.addCleanup(err.close)
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[err, _ok_body()],
++        ), mock.patch("time.sleep"):
++            self.assertEqual(client.get_stock("A1"), 7)
++
++    def test_retries_connection_error_and_timeout_then_succeeds(self):
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[
++                urllib.error.URLError(ConnectionRefusedError()),
++                TimeoutError(),
++                _ok_body(),
++            ],
++        ), mock.patch("time.sleep"):
++            self.assertEqual(client.get_stock("A1"), 7)
++
++    def test_retries_timeout_while_reading_body(self):
++        bad_resp = mock.MagicMock()
++        bad_resp.__enter__.return_value.read.side_effect = TimeoutError()
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[bad_resp, _ok_body()],
++        ), mock.patch("time.sleep"):
++            self.assertEqual(client.get_stock("A1"), 7)
++
++    def test_4xx_is_not_retried(self):
++        err = _http_error(404)
++        self.addCleanup(err.close)
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[err, _ok_body()],
++        ) as urlopen, mock.patch("time.sleep"):
++            with self.assertRaises(urllib.error.HTTPError) as ctx:
++                client.get_stock("A1")
++            self.assertEqual(ctx.exception.code, 404)
++            self.assertEqual(urlopen.call_count, 1)
++
++    def test_missing_quantity_is_not_retried(self):
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[io.BytesIO(b"{}"), _ok_body()],
++        ) as urlopen, mock.patch("time.sleep"):
++            with self.assertRaises(KeyError):
++                client.get_stock("A1")
++            self.assertEqual(urlopen.call_count, 1)
++
++    def test_gives_up_after_final_attempt_with_last_exception(self):
++        errors = [_http_error(503), TimeoutError(), _http_error(502)]
++        self.addCleanup(errors[0].close)
++        self.addCleanup(errors[2].close)
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=errors + [_ok_body()],
++        ) as urlopen, mock.patch("time.sleep") as sleep:
++            with self.assertRaises(Exception) as ctx:
++                client.get_stock("A1")
++            self.assertIs(ctx.exception, errors[2])
++            self.assertEqual(urlopen.call_count, 3)
++            self.assertEqual(sleep.call_count, 2)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

@@ -1,0 +1,106 @@
+diff --git a/shop.py b/shop.py
+index 98fd5ee..1420fcb 100644
+--- a/shop.py
++++ b/shop.py
+@@ -1,17 +1,34 @@
+ import json
++import logging
+ import os
+ import urllib.request
+ 
++log = logging.getLogger(__name__)
+ 
+-def send_email(to, subject, body):
++
++def _post_json(url, payload):
+     req = urllib.request.Request(
+-        os.environ["MAIL_API_URL"],
+-        data=json.dumps({"to": to, "subject": subject, "body": body}).encode(),
++        url,
++        data=json.dumps(payload).encode(),
+         headers={"Content-Type": "application/json"},
+     )
+     urllib.request.urlopen(req, timeout=10)
+ 
+ 
++def send_email(to, subject, body):
++    _post_json(os.environ["MAIL_API_URL"], {"to": to, "subject": subject, "body": body})
++
++
++def notify_slack(text):
++    url = os.environ.get("SLACK_WEBHOOK_URL")
++    if not url:
++        return
++    try:
++        _post_json(url, {"text": text})
++    except Exception:  # a Slack outage must not fail shipping
++        log.warning("slack notification failed", exc_info=True)
++
++
+ def ship_order(order):
+     order["status"] = "shipped"
+     send_email(
+@@ -19,4 +36,5 @@ def ship_order(order):
+         f"Order {order['id']} shipped",
+         f"Your order {order['id']} is on its way.",
+     )
++    notify_slack(f"Order {order['id']} shipped")
+     return order
+diff --git a/test_shop.py b/test_shop.py
+index 904f01e..facb297 100644
+--- a/test_shop.py
++++ b/test_shop.py
+@@ -1,17 +1,49 @@
++import json
+ import os
+ import unittest
++import urllib.error
+ from unittest import mock
+ 
+ import shop
+ 
++ENV = {"MAIL_API_URL": "http://mail.test/send"}
++SLACK = "http://slack.test/hook"
++
++
++def urls(urlopen):
++    return [c.args[0].full_url for c in urlopen.call_args_list]
++
+ 
+ class ShipOrderTest(unittest.TestCase):
+-    def test_marks_shipped_and_emails(self):
+-        with mock.patch.dict(os.environ, {"MAIL_API_URL": "http://mail.test/send"}), \
+-                mock.patch("urllib.request.urlopen") as urlopen:
++    def ship(self, env, **urlopen_kw):
++        with mock.patch.dict(os.environ, env, clear=True), \
++                mock.patch("urllib.request.urlopen", **urlopen_kw) as urlopen:
+             order = shop.ship_order({"id": 7, "email": "a@example.com", "status": "paid"})
++        return order, urlopen
++
++    def test_marks_shipped_and_emails(self):
++        order, urlopen = self.ship(ENV)
+         self.assertEqual(order["status"], "shipped")
+-        self.assertEqual(urlopen.call_args.args[0].full_url, "http://mail.test/send")
++        self.assertEqual(urls(urlopen), ["http://mail.test/send"])
++
++    def test_posts_order_id_to_slack_when_configured(self):
++        order, urlopen = self.ship({**ENV, "SLACK_WEBHOOK_URL": SLACK})
++        self.assertEqual(urls(urlopen), ["http://mail.test/send", SLACK])
++        body = json.loads(urlopen.call_args_list[1].args[0].data)
++        self.assertEqual(body, {"text": "Order 7 shipped"})
++
++    def test_slack_failure_does_not_fail_shipping(self):
++        side = [None, urllib.error.URLError("down")]
++        with self.assertLogs("shop", "WARNING"):
++            order, _ = self.ship({**ENV, "SLACK_WEBHOOK_URL": SLACK}, side_effect=side)
++        self.assertEqual(order["status"], "shipped")
++
++    def test_email_failure_propagates_and_skips_slack(self):
++        with mock.patch.dict(os.environ, {**ENV, "SLACK_WEBHOOK_URL": SLACK}, clear=True), \
++                mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("x")) as urlopen:
++            with self.assertRaises(urllib.error.URLError):
++                shop.ship_order({"id": 7, "email": "a@example.com", "status": "paid"})
++        self.assertEqual(urls(urlopen), ["http://mail.test/send"])
+ 
+ 
+ if __name__ == "__main__":

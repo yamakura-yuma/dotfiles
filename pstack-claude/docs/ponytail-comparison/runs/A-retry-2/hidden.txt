@@ -1,0 +1,21 @@
+....F
+======================================================================
+FAIL: test_urlerror_then_ok (__main__.Accept.test_urlerror_then_ok)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-yyamakura-dotfiles-poteto-harness/4852ff66-c1b8-41da-aeab-5f6beed23afe/scratchpad/exp/hidden/retry.py", line 17, in test_urlerror_then_ok
+    r, n, e = self.call([urllib.error.URLError("refused"), ok()]); self.assertEqual((r, n), (7, 2))
+                                                                   ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: (None, 1) != (7, 2)
+
+First differing element 0:
+None
+7
+
+- (None, 1)
++ (7, 2)
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.003s
+
+FAILED (failures=1)

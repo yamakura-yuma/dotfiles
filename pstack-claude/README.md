@@ -55,8 +55,9 @@ files are copied. `tests/check.sh` fails if either drifts.
 
 Left out on purpose: `teach` (pstack ships one of the same name), the core-*
 skills whose job pstack already does (`core-dispatch`, `core-retro`,
-`core-harness`, `core-communication`), and ponytail, which is compared
-separately.
+`core-harness`, `core-communication`), and ponytail. Installed as an always-on
+norm it was never opened under poteto-mode; used only as `ponytail-review` on
+architect's sketch it cut the most. See [`docs/ponytail.md`](docs/ponytail.md).
 
 ## Why not depend on core-principal
 

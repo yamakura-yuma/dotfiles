@@ -1,0 +1,86 @@
+diff --git a/report.py b/report.py
+index 4e07c7b..140b051 100644
+--- a/report.py
++++ b/report.py
+@@ -3,39 +3,31 @@ import io
+ import json
+ from datetime import date
+ 
++_COLUMNS = {
++    "id": lambda u: u["id"],
++    "name": lambda u: u["name"].strip().title(),
++    "joined": lambda u: date.fromisoformat(u["joined"]).strftime("%Y/%m/%d"),
++    "plan": lambda u: u.get("plan") or "free",
++}
+ 
+-def export_csv(users):
+-    rows = []
+-    for u in users:
+-        if not u.get("active"):
+-            continue
+-        joined = date.fromisoformat(u["joined"])
+-        rows.append({
+-            "id": u["id"],
+-            "name": u["name"].strip().title(),
+-            "joined": joined.strftime("%Y/%m/%d"),
+-            "plan": u.get("plan") or "free",
+-        })
++
++def _rows(users):
++    rows = [
++        {col: get(u) for col, get in _COLUMNS.items()}
++        for u in users
++        if u.get("active")
++    ]
+     rows.sort(key=lambda r: r["id"])
++    return rows
++
++
++def export_csv(users):
+     out = io.StringIO()
+-    writer = csv.DictWriter(out, fieldnames=["id", "name", "joined", "plan"])
++    writer = csv.DictWriter(out, fieldnames=list(_COLUMNS))
+     writer.writeheader()
+-    for r in rows:
+-        writer.writerow(r)
++    writer.writerows(_rows(users))
+     return out.getvalue()
+ 
+ 
+ def export_json(users):
+-    rows = []
+-    for u in users:
+-        if not u.get("active"):
+-            continue
+-        joined = date.fromisoformat(u["joined"])
+-        rows.append({
+-            "id": u["id"],
+-            "name": u["name"].strip().title(),
+-            "joined": joined.strftime("%Y/%m/%d"),
+-            "plan": u.get("plan") or "free",
+-        })
+-    rows.sort(key=lambda r: r["id"])
+-    return json.dumps(rows, ensure_ascii=False, indent=2)
++    return json.dumps(_rows(users), ensure_ascii=False, indent=2)
+diff --git a/test_report.py b/test_report.py
+index 0710bf8..3b07cf9 100644
+--- a/test_report.py
++++ b/test_report.py
+@@ -1,4 +1,3 @@
+-import json
+ import unittest
+ 
+ import report
+@@ -18,7 +17,11 @@ class ReportTest(unittest.TestCase):
+         )
+ 
+     def test_json(self):
+-        self.assertEqual([r["id"] for r in json.loads(report.export_json(USERS))], [1, 2])
++        self.assertEqual(
++            report.export_json(USERS),
++            '[\n  {\n    "id": 1,\n    "name": "Alice",\n    "joined": "2023/12/31",\n    "plan": "pro"\n  },\n'
++            '  {\n    "id": 2,\n    "name": "Bob Smith",\n    "joined": "2024/03/05",\n    "plan": "free"\n  }\n]',
++        )
+ 
+ 
+ if __name__ == "__main__":
