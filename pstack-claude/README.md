@@ -69,14 +69,15 @@ files are copied. `tests/check.sh` fails if either drifts.
 | `to-questionnaire` | Turns an open decision into a questionnaire for someone else | None |
 | `wait-what` | Re-pitches a reply that did not land | None |
 | `writing-for-agents` | How to write skills, AGENTS.md and CLAUDE.md | `playbooks/authoring-a-skill.md` is the procedure; this is the prose norm it lacks |
+| `ponytail-review` | Lists what a diff can delete: speculative abstractions, unused config, hand-rolled stdlib. Run on architect's sketch only | `interrogate`'s code-quality lens and architect's red flags judge structure; neither names a requirement nobody has yet as the thing to cut |
 | `handoff` | Compacts the conversation into a document for another agent | `pause-safely` stops and checkpoints the same agent's work; `session-pickup` is the receiving side |
 | `orca-emulator`, `orca-emulator-android`, `computer-use`, `linear-tickets`, `orca-linear`, `orca-per-workspace-env` | Orca's own skills for simulators, desktop GUI, Linear and per-workspace environments | None. pstack's `control-ui` / `control-cli` drive browsers and terminals only |
 
 Left out on purpose: `teach` (pstack ships one of the same name), the core-*
 skills whose job pstack already does (`core-dispatch`, `core-retro`,
-`core-harness`, `core-communication`), and ponytail. Installed as an always-on
-norm it was never opened under poteto-mode; used only as `ponytail-review` on
-architect's sketch it cut the most. See [`docs/ponytail.md`](docs/ponytail.md).
+`core-harness`, `core-communication`), and the rest of ponytail. Installed as an
+always-on norm it was never opened under poteto-mode, and its reply and comment
+rules contradict pstack's; see [`docs/ponytail.md`](docs/ponytail.md).
 
 Whether each skill actually gets used is measured with `make skill-eval`
 (`claude plugin eval` over agent-neutral cases); findings are in

@@ -136,6 +136,17 @@ dependencies:
     - codex
     - copilot
 
+  # Only the review, and only on architect's sketch (the overlay says when).
+  # The ponytail norm itself was never opened under poteto-mode in the
+  # comparison, and its reply and comment rules contradict pstack's; see
+  # docs/ponytail.md.
+  - git: https://github.com/dietrichgebert/ponytail.git
+    path: skills/ponytail-review
+    ref: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
+    alias: ponytail-review
+    targets:
+    - claude
+
   # mattpocock/skills, productivity. `teach` is left out: pstack ships its own.
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/grill-me
