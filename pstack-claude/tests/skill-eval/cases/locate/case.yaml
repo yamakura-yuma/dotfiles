@@ -1,0 +1,6 @@
+# Agent-neutral: what a user types and which skills a good run opens.
+# Adapters under ../adapters/ turn this into one agent's runner and graders.
+prompt: このリポジトリで設定ファイルを読み込んでいる関数はどこ？索引ツールがあれば使って探して。
+opens: [core-tools]
+max_turns: 8
+timeout_seconds: 400

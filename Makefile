@@ -120,7 +120,7 @@ eval:
 # Whether pstack-claude's skills get used, through `claude plugin eval`. Real
 # API calls like eval, so also never part of ci. `ARGS=--runs 1` for a quick one.
 skill-eval:
-	@./pstack-claude/tests/skill-eval/run.sh $(ARGS)
+	@./pstack-claude/tests/skill-eval/adapters/claude.sh $(ARGS)
 
 # Separate from ci on purpose: ci must not change the machine it runs on.
 install:

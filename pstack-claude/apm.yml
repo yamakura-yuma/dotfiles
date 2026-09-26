@@ -4,6 +4,8 @@ description: pstack (poteto-mode) from cursor/plugins, run on Claude Code — up
 author: yyamakura
 targets:
 - claude
+- codex
+- copilot
 # An alternative to ../core-principal, not an addition to it. A consumer
 # depends on one or the other; depending on both mixes two harnesses and
 # defeats comparing them.
@@ -25,6 +27,8 @@ dependencies:
     alias: pstack
     targets:
     - claude
+    - codex
+    - copilot
 
   # poteto-mode calls these three by name from Cursor's cursor-team-kit plugin.
   # Their text is plain local tooling with no Cursor dependency, so they are
@@ -35,6 +39,8 @@ dependencies:
     alias: deslop
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/cursor/plugins.git
     path: cursor-team-kit/skills/control-ui
@@ -42,6 +48,8 @@ dependencies:
     alias: control-ui
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/cursor/plugins.git
     path: cursor-team-kit/skills/control-cli
@@ -49,6 +57,8 @@ dependencies:
     alias: control-cli
     targets:
     - claude
+    - codex
+    - copilot
 
   # --- Japanese prose ---------------------------------------------------------
   # pstack's unslop is written against English tells. Replies here are in
@@ -58,6 +68,8 @@ dependencies:
     alias: humanizer-ja
     targets:
     - claude
+    - codex
+    - copilot
 
   # --- Orca -------------------------------------------------------------------
   # Orca runs parallel work and supervision in this environment, so the vendor's
@@ -69,6 +81,8 @@ dependencies:
     alias: orca-cli
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/orchestration
@@ -76,6 +90,8 @@ dependencies:
     alias: orchestration
     targets:
     - claude
+    - codex
+    - copilot
 
   # --- Taken from core-principal ---------------------------------------------
   # Published skills core-principal also depends on, none of which pstack has a
@@ -92,6 +108,8 @@ dependencies:
     alias: find-skills
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/humanlayer/skills.git
     path: plugins/show-me
@@ -99,18 +117,24 @@ dependencies:
     alias: show-me
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
     ref: 8f2d57610a73efc97d743c9b0b0ecb1002e09fa4
     alias: japanese-tech-writing
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://gist.github.com/k16shikano/eb2929f13ed19c97188393d297be8432.git
     ref: a3b1e26beced71d582e13314fb6f5b179b023c76
     alias: cognitive-rhythm-writing
     targets:
     - claude
+    - codex
+    - copilot
 
   # mattpocock/skills, productivity. `teach` is left out: pstack ships its own.
   - git: https://github.com/mattpocock/skills.git
@@ -119,6 +143,8 @@ dependencies:
     alias: grill-me
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/grilling
@@ -126,6 +152,8 @@ dependencies:
     alias: grilling
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/to-questionnaire
@@ -133,6 +161,8 @@ dependencies:
     alias: to-questionnaire
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/wait-what
@@ -140,6 +170,8 @@ dependencies:
     alias: wait-what
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/writing-for-agents
@@ -147,6 +179,8 @@ dependencies:
     alias: writing-for-agents
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/mattpocock/skills.git
     path: skills/productivity/handoff
@@ -154,6 +188,8 @@ dependencies:
     alias: handoff
     targets:
     - claude
+    - codex
+    - copilot
 
   # The rest of Orca's own skills.
   - git: https://github.com/stablyai/orca.git
@@ -162,6 +198,8 @@ dependencies:
     alias: orca-emulator
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/orca-emulator-android
@@ -169,6 +207,8 @@ dependencies:
     alias: orca-emulator-android
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/computer-use
@@ -176,6 +216,8 @@ dependencies:
     alias: computer-use
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/linear-tickets
@@ -183,6 +225,8 @@ dependencies:
     alias: linear-tickets
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/orca-linear
@@ -190,6 +234,8 @@ dependencies:
     alias: orca-linear
     targets:
     - claude
+    - codex
+    - copilot
 
   - git: https://github.com/stablyai/orca.git
     path: skills/orca-per-workspace-env
@@ -197,5 +243,7 @@ dependencies:
     alias: orca-per-workspace-env
     targets:
     - claude
+    - codex
+    - copilot
 
 scripts: {}

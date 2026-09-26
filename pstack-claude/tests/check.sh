@@ -40,6 +40,17 @@ for a in bad:
 sys.exit(1 if bad else 0)
 PY
 
+# A dependency whose `targets` is narrower than the package's is silently left
+# out of the other agents' directories.
+python3 - "$pkg/apm.yml" <<'PY' || fail "a dependency's targets differ from the package's"
+import sys, yaml
+y = yaml.safe_load(open(sys.argv[1]))
+bad = [d["alias"] for d in y["dependencies"]["apm"] if d.get("targets", y["targets"]) != y["targets"]]
+for a in bad:
+    print(f"  {a}", file=sys.stderr)
+sys.exit(1 if bad else 0)
+PY
+
 scripts="$pkg/.apm/hooks/scripts"
 tmp="$(mktemp -d)" || exit 1
 trap 'rm -rf "$tmp"' EXIT

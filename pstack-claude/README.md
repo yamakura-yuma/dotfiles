@@ -16,6 +16,25 @@ dependencies:
 
 Then `/poteto-mode <task>` in Claude Code.
 
+## What each agent gets
+
+`apm install` deploys to Claude Code, Codex and GitHub Copilot CLI. Only Claude
+Code has been run; the other two columns are what lands on disk, checked with
+`apm install --target claude,codex,copilot` in a scratch consumer.
+
+| | Claude Code | Codex | Copilot CLI |
+|---|---|---|---|
+| Skills (all 71) | `.claude/skills/` | `.agents/skills/` | `.agents/skills/` (Copilot reads it) |
+| Rule | `.claude/rules/` | Only after `apm compile --target codex`, which writes `AGENTS.md` | `.github/instructions/` |
+| Subagents (`poteto-agent`, `Comment Sicko`) | `.claude/agents/` | `.codex/agents/*.toml` | `.github/agents/` |
+| `guard-destructive-git`, `guard-default-branch` hooks | Yes | Yes (`.codex/hooks.json`). Codex asks to trust project hooks before they run | Deployed, but **Claude only**: Copilot's `preToolUse` sends `toolArgs`, not `tool_input`, so the scripts see no command and allow it |
+| `guard-coordinator-edit` hook | Yes | Deployed, but **Claude only**: Codex edits with `apply_patch`, which has no `file_path` | Deployed, but **Claude only**, same reason as above |
+| `pstack-on-claude-code` overlay | Yes | Deployed, but it maps Cursor's names onto **Claude Code only** | Same |
+
+Every upstream package is deployed to all three without being edited: what had
+kept them Claude-only was the `targets: [claude]` on each dependency in
+`apm.yml`, not anything upstream.
+
 ## What is upstream and what is ours
 
 Upstream, pinned to one commit and never edited: every pstack skill and agent,
@@ -60,7 +79,7 @@ norm it was never opened under poteto-mode; used only as `ponytail-review` on
 architect's sketch it cut the most. See [`docs/ponytail.md`](docs/ponytail.md).
 
 Whether each skill actually gets used is measured with `make skill-eval`
-(`claude plugin eval` over the apm-deployed skills); findings are in
+(`claude plugin eval` over agent-neutral cases); findings are in
 [`docs/skill-audit.md`](docs/skill-audit.md).
 
 ## Why not depend on core-principal
