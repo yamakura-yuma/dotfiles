@@ -1,6 +1,6 @@
 ---
 applyTo: "**"
-description: "pstack-claude: response language, where pstack's Cursor names are translated, coordinator norm, index tools"
+description: "pstack-claude: response language, where pstack's Cursor names are translated, coordinator norm, index tools via core-tools"
 ---
 
 ## 応答の言語
@@ -21,5 +21,5 @@ description: "pstack-claude: response language, where pstack's Cursor names are 
 
 ## コードを探す
 
-`graphify-out/` があれば `graphify query`、`.codegraph/` があれば `codegraph explore` を
-`Read` / `Grep` より先に使う。索引が無ければ作ってよい。
+`Read` / `Grep` より先に索引（graphify、codegraph）を引く。使い分けと索引の作り方は
+`core-tools` スキル。
