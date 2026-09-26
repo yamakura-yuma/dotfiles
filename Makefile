@@ -21,7 +21,7 @@ ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
         test test-guards test-harness test-statusline test-metrics \
-        metrics eval install
+        metrics eval skill-eval install
 
 help:
 	@echo "make ci       lint + test (deterministic, offline; what CI runs)"
@@ -29,6 +29,7 @@ help:
 	@echo "make test     guard hooks, harness invariants, statusline"
 	@echo "make metrics  count sessions, turns, tool calls, hook blocks from local logs"
 	@echo "make eval     behavioural evals -- real API calls, costs money"
+	@echo "make skill-eval  whether pstack-claude skills fire -- real API calls"
 	@echo "make install  deploy the agent config and dotfiles onto this machine"
 
 ci: lint test
@@ -115,6 +116,11 @@ metrics:
 
 eval:
 	@./core-principal/tests/eval/run.sh
+
+# Whether pstack-claude's skills get used, through `claude plugin eval`. Real
+# API calls like eval, so also never part of ci. `ARGS=--runs 1` for a quick one.
+skill-eval:
+	@./pstack-claude/tests/skill-eval/run.sh $(ARGS)
 
 # Separate from ci on purpose: ci must not change the machine it runs on.
 install:

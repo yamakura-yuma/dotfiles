@@ -59,6 +59,10 @@ skills whose job pstack already does (`core-dispatch`, `core-retro`,
 norm it was never opened under poteto-mode; used only as `ponytail-review` on
 architect's sketch it cut the most. See [`docs/ponytail.md`](docs/ponytail.md).
 
+Whether each skill actually gets used is measured with `make skill-eval`
+(`claude plugin eval` over the apm-deployed skills); findings are in
+[`docs/skill-audit.md`](docs/skill-audit.md).
+
 ## Why not depend on core-principal
 
 apm cannot deploy part of a package. Depending on core-principal for its
