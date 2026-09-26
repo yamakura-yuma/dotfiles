@@ -1,0 +1,80 @@
+name: pstack-claude
+version: 0.1.0
+description: pstack (poteto-mode) from cursor/plugins, run on Claude Code — upstream skills as-is, one overlay skill that maps Cursor's tools onto Claude Code and Orca, and the coordinator edit guard
+author: yyamakura
+targets:
+- claude
+# An alternative to ../core-principal, not an addition to it. A consumer
+# depends on one or the other; depending on both mixes two harnesses and
+# defeats comparing them.
+#
+# The point of this package is that upstream does the work. Nothing from
+# pstack is copied or edited here: every Cursor-specific name is translated at
+# read time by the pstack-on-claude-code skill, so bumping `ref` is the whole
+# upgrade. Keep that overlay thin -- a line that grows into a rewrite of a
+# playbook is a sign the playbook should be dropped, not patched.
+dependencies:
+  apm:
+  # --- pstack -----------------------------------------------------------------
+  # MIT, Lauren Tan. apm reads pstack/.cursor-plugin/plugin.json and deploys
+  # its skills/ and agents/ (poteto-agent, comment-sicko). Upstream publishes
+  # no tags, so pin the commit.
+  - git: https://github.com/cursor/plugins.git
+    path: pstack
+    ref: ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+    alias: pstack
+    targets:
+    - claude
+
+  # poteto-mode calls these three by name from Cursor's cursor-team-kit plugin.
+  # Their text is plain local tooling with no Cursor dependency, so they are
+  # taken from the same commit rather than substituted.
+  - git: https://github.com/cursor/plugins.git
+    path: cursor-team-kit/skills/deslop
+    ref: ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+    alias: deslop
+    targets:
+    - claude
+
+  - git: https://github.com/cursor/plugins.git
+    path: cursor-team-kit/skills/control-ui
+    ref: ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+    alias: control-ui
+    targets:
+    - claude
+
+  - git: https://github.com/cursor/plugins.git
+    path: cursor-team-kit/skills/control-cli
+    ref: ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+    alias: control-cli
+    targets:
+    - claude
+
+  # --- Japanese prose ---------------------------------------------------------
+  # pstack's unslop is written against English tells. Replies here are in
+  # Japanese, so this is the pass for them. Same pin as core-principal.
+  - git: https://github.com/gonta223/humanizer-ja.git
+    ref: a1e343696e43aa50e7218891f3319ab22cde3464
+    alias: humanizer-ja
+    targets:
+    - claude
+
+  # --- Orca -------------------------------------------------------------------
+  # Orca runs parallel work and supervision in this environment, so the vendor's
+  # own skills replace pstack's Cursor cloud agents. Only the two that the
+  # overlay routes to; same pin as core-principal.
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orca-cli
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orca-cli
+    targets:
+    - claude
+
+  - git: https://github.com/stablyai/orca.git
+    path: skills/orchestration
+    ref: a445abadd4b2fd75d987872c0aa9d274f05ab33b
+    alias: orchestration
+    targets:
+    - claude
+
+scripts: {}

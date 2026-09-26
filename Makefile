@@ -36,7 +36,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-statusline test-metrics
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics
 
 lint-shell:
 	@echo "== shell syntax"
@@ -52,8 +52,9 @@ lint-shell:
 lint-exec:
 	@echo "== executable bits"
 	@$(ls_src) 'core-principal/.apm/hooks/scripts/*.sh' 'core-principal/tests/*.sh' \
-	    'claude/tests/*.sh' ':(exclude)core-principal/tests/eval/cases/*' \
-	    ':(exclude)core-principal/.apm/hooks/scripts/lib/*' | \
+	    'claude/tests/*.sh' 'pstack-claude/.apm/hooks/scripts/*.sh' 'pstack-claude/tests/*.sh' \
+	    ':(exclude)core-principal/tests/eval/cases/*' \
+	    ':(exclude)core-principal/.apm/hooks/scripts/lib/*' ':(exclude)pstack-claude/.apm/hooks/scripts/lib/*' | \
 	  while IFS= read -r f; do \
 	    [ -x "$$f" ] || { echo "not executable: $$f" >&2; exit 1; }; \
 	  done
@@ -73,7 +74,7 @@ lint-yaml:
 # missing either deploys as an empty rule, which is invisible until it matters.
 lint-frontmatter:
 	@echo "== instruction frontmatter"
-	@$(ls_src) 'core-principal/.apm/instructions/*.instructions.md' | \
+	@$(ls_src) '*/.apm/instructions/*.instructions.md' | \
 	  while IFS= read -r f; do \
 	    head -n 5 "$$f" | grep -q '^applyTo:' || { echo "$$f has no applyTo" >&2; exit 1; }; \
 	    head -n 5 "$$f" | grep -q '^description:' || { echo "$$f has no description" >&2; exit 1; }; \
@@ -94,6 +95,10 @@ test-guards:
 test-harness:
 	@echo "== harness invariants"
 	@./core-principal/tests/harness-check.sh
+
+test-pstack-claude:
+	@echo "== pstack-claude"
+	@./pstack-claude/tests/check.sh
 
 test-statusline:
 	@echo "== statusline"
