@@ -146,6 +146,8 @@ dependencies:
     alias: ponytail-review
     targets:
     - claude
+    - codex
+    - copilot
 
   # mattpocock/skills, productivity. `teach` is left out: pstack ships its own.
   - git: https://github.com/mattpocock/skills.git
