@@ -1,0 +1,19 @@
+run	cfg	task	hidden	visible	src_added	src_removed	test_added	files	new_classes	new_defs	wall_s	cost_usd	turns	out_tokens	in_tokens	subagents	ponytail_calls	skills	claude_exit
+A-export-1	A	export	PASS	PASS	27	29	9	2	1	2	248	1.53	7	34495	1887364	4	0	architect	0
+A-export-2	A	export	PASS	PASS	27	29	31	2	1	4	293	1.69	25	41368	1737767	5	0	architect,arena,deslop	0
+A-notify-1	A	notify	PASS	PASS	22	3	54	2	0	10	664	1.87	6	53327	1833527	5	0	architect	0
+A-notify-2	A	notify	PASS	PASS	22	3	53	2	0	8	409	1.78	6	56414	1579659	4	0	architect	0
+A-retry-1	A	retry	PASS	PASS	16	2	88	2	0	10	767	2.67	11	71844	2847173	6	0	arena,architect,poteto-mode,technical-writing	0
+A-retry-2	A	retry	FAIL	PASS	34	0	85	2	2	12	541	2.89	3	77280	3311696	6	0	architect	0
+B-export-1	B	export	PASS	PASS	7	16	9	2	0	3	253	1.37	5	30625	1598262	3	1		0
+B-export-2	B	export	PASS	PASS	17	26	26	2	0	5	284	1.68	5	37333	2076659	3	1	arena,poteto-mode	0
+B-notify-1	B	notify	PASS	PASS	21	3	61	2	0	7	527	1.81	5	55236	1764124	4	1	architect,poteto-mode	0
+B-notify-2	B	notify	PASS	PASS	21	3	35	2	0	6	455	1.85	6	57314	1861550	4	2	architect,ponytail-review	0
+B-retry-1	B	retry	PASS	PASS	20	0	73	2	0	9	703	2.32	7	71286	2568995	5	2		0
+B-retry-2	B	retry	PASS	PASS	20	2	91	2	0	9	512	2.41	4	66430	2654929	6	3	architect,ponytail-review	0
+C-export-1	C	export	PASS	PASS	20	28	5	2	0	2	199	1.35	5	28798	1545902	3	0	poteto-mode,architect	0
+C-export-2	C	export	PASS	PASS	30	29	17	2	1	2	238	1.53	4	33374	1612055	4	0	architect	0
+C-notify-1	C	notify	PASS	PASS	21	3	36	2	0	9	375	1.75	7	44810	1641377	4	0		0
+C-notify-2	C	notify	PASS	PASS	22	3	32	2	0	6	301	1.58	6	34160	1837027	4	0	poteto-mode	0
+C-retry-1	C	retry	PASS	PASS	22	2	114	2	2	14	367	1.97	11	45409	2423283	4	0		0
+C-retry-2	C	retry	PASS	PASS	23	0	97	2	1	15	543	2.53	8	70852	2633400	5	0	architect,deslop	0

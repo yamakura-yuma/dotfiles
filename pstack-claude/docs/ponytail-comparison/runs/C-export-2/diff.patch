@@ -1,0 +1,120 @@
+diff --git a/report.py b/report.py
+index 4e07c7b..2c2ea69 100644
+--- a/report.py
++++ b/report.py
+@@ -2,40 +2,41 @@ import csv
+ import io
+ import json
+ from datetime import date
++from typing import NamedTuple
++
++
++class _Row(NamedTuple):
++    """Field order is the column order of every export format."""
++
++    id: int
++    name: str
++    joined: str
++    plan: str
++
++
++def _rows(users):
++    return sorted(
++        (
++            _Row(
++                id=u["id"],
++                name=u["name"].strip().title(),
++                joined=date.fromisoformat(u["joined"]).strftime("%Y/%m/%d"),
++                plan=u.get("plan") or "free",
++            )
++            for u in users
++            if u.get("active")
++        ),
++        key=lambda r: r.id,
++    )
+ 
+ 
+ def export_csv(users):
+-    rows = []
+-    for u in users:
+-        if not u.get("active"):
+-            continue
+-        joined = date.fromisoformat(u["joined"])
+-        rows.append({
+-            "id": u["id"],
+-            "name": u["name"].strip().title(),
+-            "joined": joined.strftime("%Y/%m/%d"),
+-            "plan": u.get("plan") or "free",
+-        })
+-    rows.sort(key=lambda r: r["id"])
+     out = io.StringIO()
+-    writer = csv.DictWriter(out, fieldnames=["id", "name", "joined", "plan"])
+-    writer.writeheader()
+-    for r in rows:
+-        writer.writerow(r)
++    writer = csv.writer(out)
++    writer.writerow(_Row._fields)
++    writer.writerows(_rows(users))
+     return out.getvalue()
+ 
+ 
+ def export_json(users):
+-    rows = []
+-    for u in users:
+-        if not u.get("active"):
+-            continue
+-        joined = date.fromisoformat(u["joined"])
+-        rows.append({
+-            "id": u["id"],
+-            "name": u["name"].strip().title(),
+-            "joined": joined.strftime("%Y/%m/%d"),
+-            "plan": u.get("plan") or "free",
+-        })
+-    rows.sort(key=lambda r: r["id"])
+-    return json.dumps(rows, ensure_ascii=False, indent=2)
++    return json.dumps([r._asdict() for r in _rows(users)], ensure_ascii=False, indent=2)
+diff --git a/test_report.py b/test_report.py
+index 0710bf8..6a820cb 100644
+--- a/test_report.py
++++ b/test_report.py
+@@ -1,4 +1,3 @@
+-import json
+ import unittest
+ 
+ import report
+@@ -7,6 +6,7 @@ USERS = [
+     {"id": 2, "name": " bob smith ", "joined": "2024-03-05", "active": True},
+     {"id": 1, "name": "alice", "joined": "2023-12-31", "active": True, "plan": "pro"},
+     {"id": 3, "name": "carol", "joined": "2024-01-01", "active": False},
++    {"id": 4, "name": "josé", "joined": "2024-02-29", "active": True, "plan": ""},
+ ]
+ 
+ 
+@@ -14,11 +14,25 @@ class ReportTest(unittest.TestCase):
+     def test_csv(self):
+         self.assertEqual(
+             report.export_csv(USERS),
+-            "id,name,joined,plan\r\n1,Alice,2023/12/31,pro\r\n2,Bob Smith,2024/03/05,free\r\n",
++            "id,name,joined,plan\r\n"
++            "1,Alice,2023/12/31,pro\r\n"
++            "2,Bob Smith,2024/03/05,free\r\n"
++            "4,José,2024/02/29,free\r\n",
+         )
+ 
+     def test_json(self):
+-        self.assertEqual([r["id"] for r in json.loads(report.export_json(USERS))], [1, 2])
++        self.assertEqual(
++            report.export_json(USERS),
++            '[\n'
++            '  {\n    "id": 1,\n    "name": "Alice",\n    "joined": "2023/12/31",\n    "plan": "pro"\n  },\n'
++            '  {\n    "id": 2,\n    "name": "Bob Smith",\n    "joined": "2024/03/05",\n    "plan": "free"\n  },\n'
++            '  {\n    "id": 4,\n    "name": "José",\n    "joined": "2024/02/29",\n    "plan": "free"\n  }\n'
++            ']',
++        )
++
++    def test_no_users(self):
++        self.assertEqual(report.export_csv([]), "id,name,joined,plan\r\n")
++        self.assertEqual(report.export_json([]), "[]")
+ 
+ 
+ if __name__ == "__main__":

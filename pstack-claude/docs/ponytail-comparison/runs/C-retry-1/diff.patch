@@ -1,0 +1,172 @@
+diff --git a/client.py b/client.py
+index 6fbc814..c601f93 100644
+--- a/client.py
++++ b/client.py
+@@ -1,9 +1,29 @@
+ import json
++import time
++import urllib.error
+ import urllib.request
+ 
+ BASE_URL = "https://inventory.internal/api"
++MAX_ATTEMPTS = 3
++RETRY_WAIT_SECONDS = 0.5
+ 
+ 
+ def get_stock(sku):
+-    with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
+-        return json.load(resp)["quantity"]
++    attempt = 1
++    while True:
++        try:
++            with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
++                return json.load(resp)["quantity"]
++        except Exception as exc:
++            if attempt >= MAX_ATTEMPTS or not _is_transient(exc):
++                raise
++            if isinstance(exc, urllib.error.HTTPError):
++                exc.close()
++        time.sleep(RETRY_WAIT_SECONDS)
++        attempt += 1
++
++
++def _is_transient(exc):
++    if isinstance(exc, urllib.error.HTTPError):  # HTTPError is a URLError; check first
++        return exc.code >= 500
++    return isinstance(exc, (urllib.error.URLError, TimeoutError, ConnectionError))
+diff --git a/test_client.py b/test_client.py
+index a7a6dbd..4da66b8 100644
+--- a/test_client.py
++++ b/test_client.py
+@@ -1,10 +1,34 @@
+ import io
+ import json
+ import unittest
++import urllib.error
+ from unittest import mock
+ 
+ import client
+ 
++URL = "https://inventory.internal/api/stock/A1"
++
++
++def http_error(test, code):
++    err = urllib.error.HTTPError(URL, code, "msg", None, io.BytesIO())
++    test.addCleanup(err.close)
++    return err
++
++
++def body(quantity):
++    return io.BytesIO(json.dumps({"quantity": quantity}).encode())
++
++
++class BrokenRead:
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *exc_info):
++        return False
++
++    def read(self):
++        raise ConnectionResetError()
++
+ 
+ class GetStockTest(unittest.TestCase):
+     def test_returns_quantity(self):
+@@ -12,6 +36,96 @@ class GetStockTest(unittest.TestCase):
+         with mock.patch("urllib.request.urlopen", return_value=resp):
+             self.assertEqual(client.get_stock("A1"), 3)
+ 
++    def test_503_then_200_retries_and_sleeps(self):
++        err = http_error(self, 503)
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[err, body(3)]
++        ) as urlopen, mock.patch("client.time.sleep") as sleep, mock.patch(
++            "client.RETRY_WAIT_SECONDS", 7
++        ):
++            self.assertEqual(client.get_stock("A1"), 3)
++        self.assertEqual(urlopen.call_count, 2)
++        sleep.assert_called_once_with(7)
++        self.assertTrue(err.closed)
++
++    def test_urlerror_timeout_then_200(self):
++        with mock.patch(
++            "urllib.request.urlopen",
++            side_effect=[urllib.error.URLError(TimeoutError()), body(3)],
++        ) as urlopen, mock.patch("client.time.sleep"):
++            self.assertEqual(client.get_stock("A1"), 3)
++        self.assertEqual(urlopen.call_count, 2)
++
++    def test_connection_reset_during_read_then_200(self):
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[BrokenRead(), body(3)]
++        ) as urlopen, mock.patch("client.time.sleep"):
++            self.assertEqual(client.get_stock("A1"), 3)
++        self.assertEqual(urlopen.call_count, 2)
++
++    def test_404_raises_immediately_without_sleep(self):
++        err = http_error(self, 404)
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[err]
++        ) as urlopen, mock.patch("client.time.sleep") as sleep:
++            with self.assertRaises(urllib.error.HTTPError) as cm:
++                client.get_stock("A1")
++        self.assertIs(cm.exception, err)
++        self.assertEqual(urlopen.call_count, 1)
++        sleep.assert_not_called()
++
++    def test_200_missing_quantity_raises_keyerror(self):
++        with mock.patch(
++            "urllib.request.urlopen", return_value=io.BytesIO(json.dumps({}).encode())
++        ) as urlopen:
++            with self.assertRaises(KeyError):
++                client.get_stock("A1")
++        self.assertEqual(urlopen.call_count, 1)
++
++    def test_exhausts_attempts_raises_last_exception(self):
++        err500 = http_error(self, 500)
++        err502 = http_error(self, 502)
++        err503 = http_error(self, 503)
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[err500, err502, err503]
++        ) as urlopen, mock.patch("client.time.sleep") as sleep:
++            with self.assertRaises(urllib.error.HTTPError) as cm:
++                client.get_stock("A1")
++        self.assertIs(cm.exception, err503)
++        self.assertEqual(urlopen.call_count, 3)
++        self.assertEqual(sleep.call_count, 2)
++
++    def test_max_attempts_1_raises_after_single_call(self):
++        err = http_error(self, 500)
++        with mock.patch("client.MAX_ATTEMPTS", 1):
++            with mock.patch(
++                "urllib.request.urlopen", side_effect=[err]
++            ) as urlopen, mock.patch("client.time.sleep") as sleep:
++                with self.assertRaises(urllib.error.HTTPError) as cm:
++                    client.get_stock("A1")
++        self.assertIs(cm.exception, err)
++        self.assertEqual(urlopen.call_count, 1)
++        sleep.assert_not_called()
++
++
++class IsTransientTest(unittest.TestCase):
++    def test_table(self):
++        cases = [
++            (http_error(self, 500), True),
++            (http_error(self, 503), True),
++            (http_error(self, 400), False),
++            (http_error(self, 404), False),
++            (http_error(self, 499), False),
++            (urllib.error.URLError("refused"), True),
++            (TimeoutError(), True),
++            (ConnectionResetError(), True),
++            (json.JSONDecodeError("bad", "{}", 0), False),
++            (KeyError("quantity"), False),
++        ]
++        for exc, expected in cases:
++            with self.subTest(exc=exc):
++                self.assertEqual(client._is_transient(exc), expected)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

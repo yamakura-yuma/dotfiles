@@ -1,0 +1,7 @@
+# `reply_matches` is a regex over the final reply; here, a Markdown table.
+invoke: p-mode
+prompt: Python の標準ライブラリだけで HTTP リクエストを送る方法を比べて、どれを使うべきか教えて。
+opens: [poteto-mode]
+reply_matches: '\n\|[^\n]*\|[ \t]*\n\|[-:| \t]+\|'
+max_turns: 12
+timeout_seconds: 400

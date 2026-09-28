@@ -1,0 +1,27 @@
+# `invoke` is a skill the user starts explicitly; each adapter spells it in its
+# agent's syntax (Claude Code `/name`, Codex `$name`).
+invoke: poteto-mode
+prompt: |
+  このリトライ処理、過剰設計になってない？もっと単純にできるなら直して。
+
+  ```python
+  class RetryPolicy:
+      def __init__(self, attempts=3, delay=0.5, backoff=1.0):
+          self.attempts, self.delay, self.backoff = attempts, delay, backoff
+  class Retrier:
+      def __init__(self, policy: RetryPolicy):
+          self.policy = policy
+      def run(self, fn):
+          import time
+          d = self.policy.delay
+          for i in range(self.policy.attempts):
+              try:
+                  return fn()
+              except OSError:
+                  if i == self.policy.attempts - 1:
+                      raise
+                  time.sleep(d); d *= self.policy.backoff
+  ```
+opens: [principle-laziness-protocol, pstack-on-claude-code]
+max_turns: 20
+timeout_seconds: 600

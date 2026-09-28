@@ -1,0 +1,11 @@
+.get_stock('A1') failed, retrying in 0.5: <HTTPError 503: 'x'>
+get_stock('A1') failed, retrying in 2.0: <HTTPError 502: 'x'>
+.get_stock('A1') failed, retrying in 0.5: <HTTPError 500: 'x'>
+get_stock('A1') failed, retrying in 2.0: <HTTPError 500: 'x'>
+.get_stock('A1') failed, retrying in 0.5: TimeoutError('t')
+.get_stock('A1') failed, retrying in 0.5: URLError('refused')
+.
+----------------------------------------------------------------------
+Ran 5 tests in 0.004s
+
+OK

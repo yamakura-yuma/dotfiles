@@ -1,0 +1,140 @@
+diff --git a/client.py b/client.py
+index 6fbc814..49ba7c1 100644
+--- a/client.py
++++ b/client.py
+@@ -1,9 +1,23 @@
+ import json
++import time
++import urllib.error
+ import urllib.request
+ 
+ BASE_URL = "https://inventory.internal/api"
++ATTEMPTS = 3
++RETRY_DELAY_SECONDS = 0.5
+ 
+ 
+ def get_stock(sku):
+-    with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
+-        return json.load(resp)["quantity"]
++    for attempt in range(1, ATTEMPTS + 1):
++        try:
++            with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
++                return json.load(resp)["quantity"]
++        except OSError as exc:
++            if attempt == ATTEMPTS or not _is_transient(exc):
++                raise
++        time.sleep(RETRY_DELAY_SECONDS)
++
++
++def _is_transient(exc):
++    return not isinstance(exc, urllib.error.HTTPError) or exc.code >= 500
+diff --git a/test_client.py b/test_client.py
+index a7a6dbd..4e4465e 100644
+--- a/test_client.py
++++ b/test_client.py
+@@ -1,17 +1,105 @@
+ import io
+ import json
+ import unittest
++import urllib.error
+ from unittest import mock
+ 
+ import client
+ 
+ 
++def _response(quantity):
++    return io.BytesIO(json.dumps({"quantity": quantity}).encode())
++
++
+ class GetStockTest(unittest.TestCase):
++    def _http_error(self, code):
++        err = urllib.error.HTTPError(f"{client.BASE_URL}/stock/A1", code, "status", hdrs=None, fp=None)
++        self.addCleanup(err.close)
++        return err
++
+     def test_returns_quantity(self):
+         resp = io.BytesIO(json.dumps({"quantity": 3}).encode())
+         with mock.patch("urllib.request.urlopen", return_value=resp):
+             self.assertEqual(client.get_stock("A1"), 3)
+ 
++    def test_5xx_then_success_sleeps_the_configured_delay(self):
++        with mock.patch("client.RETRY_DELAY_SECONDS", 0.25):
++            with mock.patch(
++                "urllib.request.urlopen",
++                side_effect=[self._http_error(503), _response(7)],
++            ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++                self.assertEqual(client.get_stock("A1"), 7)
++            self.assertEqual(urlopen_mock.call_count, 2)
++            sleep_mock.assert_called_once_with(0.25)
++
++    def test_transient_os_errors_are_retried_then_succeed(self):
++        cases = {
++            "url_error_wrapping_timeout": urllib.error.URLError(TimeoutError("timed out")),
++            "raw_timeout": TimeoutError("timed out"),
++            "connection_reset": ConnectionResetError("reset"),
++        }
++        for name, exc in cases.items():
++            with self.subTest(name=name):
++                with mock.patch(
++                    "urllib.request.urlopen", side_effect=[exc, _response(9)]
++                ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++                    self.assertEqual(client.get_stock("A1"), 9)
++                self.assertEqual(urlopen_mock.call_count, 2)
++                self.assertEqual(sleep_mock.call_count, 1)
++
++    def test_three_consecutive_transient_failures_raises_last(self):
++        err_503 = self._http_error(503)
++        err_502 = self._http_error(502)
++        err_500 = self._http_error(500)
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[err_503, err_502, err_500]
++        ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++            with self.assertRaises(urllib.error.HTTPError) as cm:
++                client.get_stock("A1")
++            self.assertIs(cm.exception, err_500)
++        self.assertEqual(urlopen_mock.call_count, 3)
++        self.assertEqual(sleep_mock.call_count, 2)
++
++    def test_http_404_is_raised_immediately(self):
++        err_404 = self._http_error(404)
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[err_404]
++        ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++            with self.assertRaises(urllib.error.HTTPError) as cm:
++                client.get_stock("A1")
++            self.assertIs(cm.exception, err_404)
++        self.assertEqual(urlopen_mock.call_count, 1)
++        sleep_mock.assert_not_called()
++
++    def test_invalid_json_body_is_raised_immediately(self):
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[io.BytesIO(b"not json")]
++        ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++            with self.assertRaises(json.JSONDecodeError):
++                client.get_stock("A1")
++        self.assertEqual(urlopen_mock.call_count, 1)
++        sleep_mock.assert_not_called()
++
++    def test_missing_quantity_key_is_raised_immediately(self):
++        resp = io.BytesIO(json.dumps({"other": 1}).encode())
++        with mock.patch(
++            "urllib.request.urlopen", side_effect=[resp]
++        ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++            with self.assertRaises(KeyError):
++                client.get_stock("A1")
++        self.assertEqual(urlopen_mock.call_count, 1)
++        sleep_mock.assert_not_called()
++
++    def test_tunable_attempts_allows_more_retries(self):
++        with mock.patch("client.ATTEMPTS", 5):
++            errors = [self._http_error(503) for _ in range(4)]
++            with mock.patch(
++                "urllib.request.urlopen", side_effect=[*errors, _response(11)]
++            ) as urlopen_mock, mock.patch("time.sleep") as sleep_mock:
++                self.assertEqual(client.get_stock("A1"), 11)
++            self.assertEqual(urlopen_mock.call_count, 5)
++            self.assertEqual(sleep_mock.call_count, 4)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

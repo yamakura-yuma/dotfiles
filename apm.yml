@@ -20,3 +20,9 @@ dependencies:
   - path: ./core-principal
     alias: core-principal
 scripts: {}
+# ./pstack-claude is a second harness kept beside core-principal, not a part of
+# this repo's own config. apm compile scans every .apm/ under the repo that is
+# not a dependency, so without this its rule would leak into AGENTS.md.
+compilation:
+  exclude:
+  - pstack-claude/**

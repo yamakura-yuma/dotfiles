@@ -1,0 +1,154 @@
+diff --git a/client.py b/client.py
+index 6fbc814..f647f32 100644
+--- a/client.py
++++ b/client.py
+@@ -1,9 +1,43 @@
++import http.client
+ import json
++import time
++import urllib.error
+ import urllib.request
+ 
+ BASE_URL = "https://inventory.internal/api"
+ 
++RETRY_DELAYS = (0.5, 1.0)
++
+ 
+ def get_stock(sku):
++    for delay in RETRY_DELAYS:
++        try:
++            return _fetch_quantity(sku)
++        except Exception as exc:
++            if not _is_transient(exc):
++                raise
++            if isinstance(exc, urllib.error.HTTPError):
++                exc.close()
++        time.sleep(delay)
++    return _fetch_quantity(sku)
++
++
++def _fetch_quantity(sku):
+     with urllib.request.urlopen(f"{BASE_URL}/stock/{sku}", timeout=5) as resp:
+         return json.load(resp)["quantity"]
++
++
++def _is_transient(exc):
++    # Case order is load-bearing: HTTPError subclasses URLError, so it must
++    # come first or it would match the generic URLError case instead.
++    match exc:
++        case urllib.error.HTTPError(code=code):
++            return 500 <= code <= 599
++        case urllib.error.URLError(reason=OSError()):
++            return True
++        case urllib.error.URLError():
++            return False
++        case TimeoutError() | ConnectionError() | http.client.IncompleteRead():
++            return True  # raised raw while json.load reads the body
++        case _:
++            return False
+diff --git a/test_client.py b/test_client.py
+index a7a6dbd..566318b 100644
+--- a/test_client.py
++++ b/test_client.py
+@@ -1,16 +1,98 @@
++import http.client
+ import io
+ import json
+ import unittest
++import urllib.error
+ from unittest import mock
+ 
+ import client
+ 
+ 
++def _ok(quantity):
++    return io.BytesIO(json.dumps({"quantity": quantity}).encode())
++
++
++def _http(code):
++    return urllib.error.HTTPError(client.BASE_URL, code, "err", {}, None)
++
++
++class _TimesOutOnRead(io.BytesIO):
++    def read(self, *args):
++        raise TimeoutError("read timed out")
++
++
++class _IncompleteOnRead(io.BytesIO):
++    def read(self, *args):
++        raise http.client.IncompleteRead(b"")
++
++
+ class GetStockTest(unittest.TestCase):
++    def setUp(self):
++        self.slept = []
++        for patcher in (
++            mock.patch.object(client, "RETRY_DELAYS", (0.01, 0.02)),
++            mock.patch("time.sleep", side_effect=self.slept.append),
++        ):
++            patcher.start()
++            self.addCleanup(patcher.stop)
++
++    def _urlopen(self, *outcomes):
++        patcher = mock.patch("urllib.request.urlopen", side_effect=list(outcomes))
++        urlopen = patcher.start()
++        self.addCleanup(patcher.stop)
++        return urlopen
++
+     def test_returns_quantity(self):
+-        resp = io.BytesIO(json.dumps({"quantity": 3}).encode())
+-        with mock.patch("urllib.request.urlopen", return_value=resp):
+-            self.assertEqual(client.get_stock("A1"), 3)
++        self._urlopen(_ok(3))
++        self.assertEqual(client.get_stock("A1"), 3)
++        self.assertEqual(self.slept, [])
++
++    def test_transient_failures_are_retried_until_success(self):
++        cases = {
++            "5xx": _http(503),
++            "connect refused": urllib.error.URLError(ConnectionRefusedError()),
++            "connect timeout": urllib.error.URLError(TimeoutError()),
++            "raw reset": ConnectionResetError(),
++            "read timeout": _TimesOutOnRead(),
++            "incomplete read": _IncompleteOnRead(),
++        }
++        for name, failure in cases.items():
++            with self.subTest(name):
++                self.slept.clear()
++                self._urlopen(failure, _ok(7))
++                self.assertEqual(client.get_stock("A1"), 7)
++                self.assertEqual(self.slept, [0.01])
++
++    def test_non_transient_failures_raise_on_first_attempt(self):
++        cases = {
++            "404": (_http(404), urllib.error.HTTPError),
++            "bad json": (io.BytesIO(b"not json"), json.JSONDecodeError),
++            "missing key": (io.BytesIO(b"{}"), KeyError),
++            "bad url": (urllib.error.URLError("unknown url type"), urllib.error.URLError),
++        }
++        for name, (failure, expected) in cases.items():
++            with self.subTest(name):
++                urlopen = self._urlopen(failure, _ok(7))
++                with self.assertRaises(expected):
++                    client.get_stock("A1")
++                self.assertEqual(urlopen.call_count, 1)
++
++    def test_raises_last_exception_after_three_attempts(self):
++        last = _http(502)
++        self._urlopen(_http(500), TimeoutError(), last, _ok(7))
++        with self.assertRaises(urllib.error.HTTPError) as ctx:
++            client.get_stock("A1")
++        self.assertIs(ctx.exception, last)
++        self.assertEqual(self.slept, [0.01, 0.02])
++
++    def test_retry_delays_set_attempts_and_waits(self):
++        with mock.patch.object(client, "RETRY_DELAYS", (0.25,)):
++            urlopen = self._urlopen(_http(503), _http(504), _ok(7))
++            with self.assertRaises(urllib.error.HTTPError) as ctx:
++                client.get_stock("A1")
++        self.assertEqual(ctx.exception.code, 504)
++        self.assertEqual(urlopen.call_count, 2)
++        self.assertEqual(self.slept, [0.25])
+ 
+ 
+ if __name__ == "__main__":
