@@ -31,6 +31,7 @@ The user's own preferences on top of poteto-mode are the `p-mode` skill.
 | `control-ui` against a browser surface | Orca's embedded browser (`orca-cli` skill) when a page must be driven by hand |
 | **unslop** on Japanese prose | `humanizer-ja` |
 | Cursor cloud agent | An Orca worker in its own worktree (`orchestration` skill) |
+| **architect** Phase C (the synthesized sketch, before Phase D) | Run `ponytail-review` over the sketch as an adversarial reviewer, reading the sketch as the diff. Act on each `delete:` / `yagni:` finding before implementing, or state in one line why the requirement keeps it |
 | Origin (`origin pr ...`) | Not installed; stay on `gh` as pstack's fallback says |
 
 ## Models
