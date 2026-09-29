@@ -9,7 +9,8 @@
 #   reload        symlinks, the ~/.bashrc starship prompt hook, apm and the
 #                 codegraph/graphifyy/headroom-ai versions pinned in
 #                 versions.env, host-apm.yml's MCP servers and this repo's own
-#                 .apm/ primitives. Safe to re-run any time.
+#                 .apm/ primitives, and the OpenTelemetry env in
+#                 ~/.claude/settings.json. Safe to re-run any time.
 #   agents-init   one-time per host: durable headroom + graphify integrations
 #   all (default) install-nix + reload + agents-init
 set -euo pipefail
@@ -87,10 +88,28 @@ install_host_apm_manifest() {
   cp "$DIR/host-apm.yml" ~/.apm/apm.yml
 }
 
+# Merge claude/telemetry-env.json into the `env` of ~/.claude/settings.json so
+# every Claude Code on the host exports OpenTelemetry traces. An exception to
+# "nothing host-wide but MCP servers" (host-apm.yml), allowed on the same
+# grounds: it adds observation, not behaviour. Only these keys are written;
+# the rest of the file (headroom's ANTHROPIC_BASE_URL, graphify's hooks) is
+# left as it is. See docs/configuration.md#トレース for what is sent.
+merge_telemetry_env() {
+  local settings="$HOME/.claude/settings.json" tmp
+  [ -e "$settings" ] || echo '{}' >"$settings"
+  tmp="$(mktemp "$settings.XXXXXX")"
+  jq --slurpfile t "$DIR/claude/telemetry-env.json" '.env = ((.env // {}) + $t[0])' \
+    "$settings" >"$tmp"
+  # Write back through the existing file rather than `mv` so its mode stays.
+  cat "$tmp" >"$settings"
+  rm -f "$tmp"
+}
+
 cmd_reload() {
   cmd_nix_tools
   mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config ~/.config/dotfiles
   ln -sfn "$DIR/claude/statusline.sh" ~/.claude/statusline.sh
+  merge_telemetry_env
   install_host_apm_manifest
   ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh

@@ -11,6 +11,7 @@
 | `bin/install-nix.sh` | Nix 本体のインストール。ホストにつき1回 |
 | `bin/install-apm.sh` | `apm` を GitHub リリースのバイナリから入れる（nixpkgs に無いため） |
 | `claude/statusline.sh` | Claude Code の statusline |
+| `claude/telemetry-env.json` | OpenTelemetry トレースの環境変数。`reload` が `~/.claude/settings.json` の `env` にマージする。[トレース](#トレース) |
 | `starship.toml` | シェルプロンプトの設定。`kubernetes` モジュールを有効にし、`git_status` を記号ではなく件数で出す。`reload` が `~/.config/starship.toml` にリンクする |
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
 | `host-apm.yml` | ホスト全体のマニフェスト。`reload` が `~/.apm/apm.yml` にコピーする。`codegraph` と `headroom` の MCP サーバだけを宣言する（`~/.claude.json` の `mcpServers` はここが正で、あちらを手で編集しない） |
@@ -36,6 +37,7 @@
 | `~/.claude.json` の `mcpServers` | `apm install -g`（正は `host-apm.yml`。手で編集しない） | `reload` |
 | `~/.apm/apm.yml` | `host-apm.yml` のコピー。毎回消してから置き直す | `reload` |
 | `~/.claude/statusline.sh` | このリポジトリの `claude/statusline.sh` へのシンボリックリンク | `reload` |
+| `~/.claude/settings.json` の `env` のうち `claude/telemetry-env.json` にあるキー | `claude/telemetry-env.json` のマージ（他のキーは触らない） | `reload` |
 | `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
 | `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
 | `ANTHROPIC_BASE_URL` と常駐プロキシ | `headroom install apply` / `headroom init --global claude` | `agents-init` |
@@ -53,6 +55,28 @@
 | --- | --- |
 | `MAKURA_ALLOW_MAIN=1` | デフォルトブランチ上での commit / push と、coordinator でのファイル編集を許す |
 | `MAKURA_ALLOW_DESTRUCTIVE=1` | 破壊的な git コマンドを許す |
+
+## トレース
+
+このホストの Claude Code はすべて（coordinator もワーカーも）、公式の OpenTelemetry
+トレース（beta）を `http://localhost:4318` に OTLP/HTTP で送ります。値は
+`claude/telemetry-env.json` にあり、`reload` が `~/.claude/settings.json` の `env` に
+マージします。
+
+- 送るもの: `claude_code.interaction` を根に、`llm_request`・`tool`・`hook` の span。
+  メトリクスとログは送らない（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`）
+- 送らないもの: プロンプト、応答、ツールの入出力。`OTEL_LOG_USER_PROMPTS`・
+  `OTEL_LOG_TOOL_DETAILS`・`OTEL_LOG_TOOL_CONTENT` は設定せず、既定の伏せ字のまま
+- 受け口が無くても Claude Code は普通に動く。送れなかった span は捨てられる
+- 受け側（OTel Collector → Tempo → Grafana）の構築は home-k8s リポジトリの docs を参照
+
+ホスト全体に効く設定は MCP サーバだけ、という方針の例外です。MCP サーバと同じく、
+振る舞いを変えず観測という能力を足すだけなので認めています。
+
+止めるには `claude/telemetry-env.json` の `OTEL_TRACES_EXPORTER` を `none` にして
+`reload`。マージはキーを足して上書きするだけで消さないので、ファイルからキーを消しても
+`~/.claude/settings.json` には残ります。完全に外すなら、あちらの `env` からも手で消して
+ください。
 
 ## 生成物
 
