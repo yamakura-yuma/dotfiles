@@ -25,7 +25,7 @@ Code has been run; the other two columns are what lands on disk, checked with
 
 | | Claude Code | Codex | Copilot CLI |
 |---|---|---|---|
-| Skills (all 71) | `.claude/skills/` | `.agents/skills/` | `.agents/skills/` (Copilot reads it) |
+| Skills (all 72) | `.claude/skills/` | `.agents/skills/` | `.agents/skills/` (Copilot reads it) |
 | Rule | `.claude/rules/` | Only after `apm compile --target codex`, which writes `AGENTS.md` | `.github/instructions/` |
 | Subagents (`poteto-agent`, `Comment Sicko`) | `.claude/agents/` | `.codex/agents/*.toml` | `.github/agents/` |
 | `guard-destructive-git`, `guard-default-branch` hooks | Yes | Yes (`.codex/hooks.json`). Codex asks to trust project hooks before they run | Deployed, but **Claude only**: Copilot's `preToolUse` sends `toolArgs`, not `tool_input`, so the scripts see no command and allow it |
@@ -65,6 +65,7 @@ files are copied. `tests/check.sh` fails if either drifts.
 | `guard-default-branch` hook (copy, points at `orchestration` instead of `core-dispatch`) | Refuses commits and pushes on the default branch | None |
 | `find-skills` | Finds a published skill before one is written | `playbooks/authoring-a-skill.md` writes one; it does not search |
 | `show-me` | Diagrams and standalone HTML to explain a design | `show-me-your-work` keeps a decision log, it does not draw |
+| `drawio-skill` | Editable `.drawio` architecture diagrams kept in the repo and updated, not one-off HTML. Exports need the draw.io desktop CLI ([setup](../docs/setup.md)) | None. pstack draws nothing that outlives the reply |
 | `japanese-tech-writing`, `cognitive-rhythm-writing` | Norms and rhythm for Japanese technical prose | `technical-writing` and `unslop` are written for English |
 | `grill-me`, `grilling` | Interview the human to sharpen their plan | `interrogate` is a model panel reviewing code, not a questioning of the human |
 | `to-questionnaire` | Turns an open decision into a questionnaire for someone else | None |

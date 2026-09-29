@@ -16,7 +16,7 @@ Claude Code の設定ファイルを直接編集することはありません�
 | 助言フック（ブロックしない） | `dispatch-in-coordinator` | 1 |
 | コマンド | `/retro`、`/workers`、`/worktree` | 3 |
 | `core-*` スキル | `core-tools`、`core-communication`、`core-harness`、`core-retro`、`core-dispatch` | 5 |
-| 取り込んだ公開スキル | `find-skills`、`show-me`、`ponytail*`、Orca のスキル群、日本語文章のスキルなど | `core-principal/apm.yml` 参照 |
+| 取り込んだ公開スキル | `find-skills`、`show-me`、`drawio-skill`、`ponytail*`、Orca のスキル群、日本語文章のスキルなど | `core-principal/apm.yml` 参照 |
 
 ## ルール・スキル・フックの使い分け
 

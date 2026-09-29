@@ -64,6 +64,17 @@ Every panel is one model family. The panels still fan out, but they lose the
 cross-vendor disagreement pstack counts on; say so when a panel's verdict is
 unanimous.
 
+The table above is for subagents. An Orca worker is a separate launch: pass
+`--model` (and `--effort`, which needs `--model`) to `orca orchestration
+worker-start`, and name the model in one line when reporting the dispatch.
+
+| Orca worker's job | `--model` |
+|---|---|
+| Research and record, docs, routine additions | `claude-sonnet-5-5` |
+| A config change with a clear blast radius | `claude-sonnet-5-5` |
+| A build across components, or one that needs live verification | `claude-opus-5-5` |
+| Mostly design judgment, where a mistake is expensive | `claude-opus-5-5` (`--effort high` if needed) |
+
 ## Paths
 
 | pstack says | On Claude Code |
@@ -85,6 +96,35 @@ inside one session. In-session fan-out (`how`, `why`, `interrogate`,
 | Babysit | As written, on `gh` and `/loop` |
 | Pause safely | As written. In a dispatched worker, the resume note is also the worker report the preamble asks for |
 | Session pickup | As written, with the transcript path above. For an Orca worker, read its report and `orca orchestration` history first |
-| Worktree cleanup | Worktrees Orca created are removed with `orca worktree rm`, never `git worktree remove` |
+| Worktree cleanup | Worktrees Orca created are removed with `orca worktree rm`, never `git worktree remove`, after the checks in "Supervising Orca workers" below |
 
 Everything else is used as written.
+
+## Supervising Orca workers
+
+The `orchestration` skill is the procedure. These are the gaps it leaves that
+cost us in practice.
+
+- **Pick up completion without the notification.** `worker_done` can arrive
+  late or never. When checking status, read the inbox (`orca orchestration
+  check`), the worker's card comment (`orca worktree ps`) and its PR (`gh pr
+  list --head <branch>`); a comment saying done or an open PR means it finished,
+  so read its report.
+- **Rebind the Run when fenced.** If `worker-start` or another call fails with
+  `consumer_fenced` (it wants the coordinator terminal bound to the Task Run),
+  run `orca orchestration run-use --id <run_id>` and retry. When filtering Orca
+  output with jq or grep, keep `ok` and the error code visible; a filter that
+  dropped them hid a failed launch.
+- **Issues record leftovers only.** Instructions and completion go through
+  Orca, never an Issue. Anything under a report's remaining problems that is
+  not fixed on the spot becomes a `gh issue create` on the target repo; a
+  one-line fix does not get an Issue.
+- **When release is retained.** When `worker-release` returns
+  `retained` because Orca judged the terminal user-owned (user_takeover), do
+  not repeat or substitute release. Close with `orca terminal close --worktree
+  <selector> --all`; if that returns `terminal_stop_unverifiable`, remove the
+  worktree only after `orca terminal list --worktree <selector>` shows none and
+  no OS process uses the worktree path.
+- **Check for mounts before removing.** A dev container or other process that
+  mounts the worker's worktree blocks cleanup; recreate it on the original
+  checkout first, then remove the worktree.

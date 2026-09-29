@@ -76,6 +76,22 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 こちらは「3. 統合」で拾って `worker-release` する。コマンドは `references/orca.md`
 の「出す」。短い kebab-case の `--name` は必須で、これがそのままワーカー名になる。
 
+**モデルは作業ごとに選ぶ。** `worker-start --model <id>` で指定し（`--effort` は
+`--model` と組でしか渡せない）、選んだモデルを「報告の型」(c) に 1 行書く。
+
+| 作業 | `--model` |
+| --- | --- |
+| 調べて記録する・ドキュメント・定型の追記 | `claude-sonnet-5-5` |
+| 影響範囲がはっきりした設定変更 | `claude-sonnet-5-5` |
+| 複数コンポーネントにまたがる構築・実機検証が要るもの | `claude-opus-5-5` |
+| 設計判断が中心で失敗が高くつくもの | `claude-opus-5-5`（必要なら `--effort high`） |
+
+**起動の失敗を見落とさない。** `worker-start` などが `consumer_fenced`（coordinator
+端末が Task Run に束縛されていない）で失敗したら、`orca orchestration run-use --id
+<run_id>` で結び直してやり直す。Orca の出力を jq や grep で絞るときも、`ok:false` と
+エラーコードは必ず表示に残す。絞りすぎて起動失敗を見逃した実例がある
+（`references/orca.md`「Run を結び直す」）。
+
 例外は 1 つだけ。ユーザーが**所有権ごと渡す**と明示したときは handoff
 （`orca skills get orca-cli` の手順）にし、監督しない。
 
@@ -88,7 +104,7 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 にそのまま出るので、覗きに行かずに状況が分かる。状態の列（`--workspace-status`）は
 ボードに反映されない既知のバグ（Orca #13620）があるので、補助としてだけ使う。
 
-出したら、**そのターンで待たない。** 「報告の型」(a) の 2 行を返して終える。
+出したら、**そのターンで待たない。** 「報告の型」(c) の 3 行を返して終える。
 
 ## 3. 統合 — 張って待つのではなく、拾い直す
 
@@ -112,15 +128,21 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
    コメントを見る
 2. `orca orchestration check --json` で溜まっている worker_done / escalation /
    question を読む
-3. worker_done なら、`--report-path` が指すファイル（我々の規約では
+3. **worker_done が無くても完了を拾う。** worker_done は遅れる・来ないことがある。
+   1 のコメントが完了を言っている、または `gh pr list --head <branch>` に PR が
+   出ているワーカーは、終わったものとして 4 に進む
+4. 終わったワーカーは、`--report-path` が指すファイル（我々の規約では
    `~/.claude/worker-reports/<worktree 名>.md`）を Read して報告する
-   （チャット上の要約ではなく、これが正本）
-4. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
-5. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
+   （チャット上の要約ではなく、これが正本）。報告の「残っている問題」のうち
+   その場で片付けないものは、`gh issue create` で対象リポジトリに Issue として
+   残す。Issue は積み残しの記録にだけ使い、指示や完了のやり取りは Orca で行う。
+   1 行で済む作業に Issue は作らない
+5. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
+6. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
    worker_done は Task と Dispatch を自動で決着させるので、続けて `task-update` を
    打たない。ただし **拒否された・stale な完了では release しない**。その場合の
    決着だけが `worker-abandon` → `task-update` の順になる（`references/orca.md`）
-6. 決着したら「4. 片付け」に進む。端末を閉じても worktree は残るので、消すのは別の手順
+7. 決着したら「4. 片付け」に進む。端末を閉じても worktree は残るので、消すのは別の手順
 
 セッションが再起動した直後は、自分の端末ハンドルも変わっている。`check` が空に
 見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
@@ -165,6 +187,8 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
   で base に入っている）
 - 作業ツリーが clean で、push していないコミットが無い
 - 報告を (a) で取り込み済み
+- worktree を他のプロセス（開発用コンテナなど）がマウントしていない。している
+  なら、そのプロセスを元の checkout で作り直してから消す
 
 **(c) 端末を閉じる。** Dispatch が正常に settle しているなら release で閉じる。
 
@@ -172,8 +196,9 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 orca orchestration worker-release --dispatch <dispatch_id> --json
 ```
 
-settle できなかったとき（`worker-abandon` した、capability が失効した）は資源が
-user_owned になっていて release の対象にならないので、orca-cli 側で閉じる。
+settle できなかったとき（`worker-abandon` した、capability が失効した）や、Orca が
+端末をユーザー所有と判定して release が `retained`（user_takeover）を返したときは、
+資源が user_owned になっていて release の対象にならないので、orca-cli 側で閉じる。
 **release を代用してはならない。**
 
 ```
@@ -250,11 +275,12 @@ evidence にリンクとして添える。ユーザーがワーカー名だけ�
 **evidence には一次情報を短く置く。**「順調です」は evidence ではない。「make ci
 緑」「テスト 3 件失敗」のように、こちらが実際に見たものを書く。
 
-**(c) ディスパッチ直後は 2 行。** これは公式の型ではなく、待たずにターンを閉じる
+**(c) ディスパッチ直後は 3 行。** これは公式の型ではなく、待たずにターンを閉じる
 ための最小形である。
 
 ```
 出した: <ワーカー名> / <リポジトリ>:<ブランチ> / <エージェント>
+モデル: <--model の値>（<「2. 振り分け」の表のどの行か>）
 次: <何を待つか>
 ```
 
