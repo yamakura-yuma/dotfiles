@@ -11,7 +11,7 @@
 
 | スコープ | 正はどこか | 配置先 | 適用する操作 |
 | --- | --- | --- | --- |
-| ホスト全体 | `flake.nix`、`versions.env`、`host-apm.yml`、`starship.toml`、`shell/`、`claude/` | `~/.nix-profile/`、`~/.apm/`、`~/.claude.json`、`~/.config/` | `./setup.sh reload` |
+| ホスト全体 | `flake.nix`、`versions.env`、`host-apm.yml`、`starship.toml`、`shell/`、`claude/` | `~/.nix-profile/`、`~/.apm/`、`~/.claude.json`、`~/.config/`、`~/.claude/settings.json` の OpenTelemetry の `env` | `./setup.sh reload` |
 | ホストに1回きり | 外部ツール（headroom、graphify）自身が書く | `~/.claude/settings.json`、常駐サービス | `./setup.sh agents-init` |
 | リポジトリごと | `core-principal/`（APM パッケージ） | そのリポジトリの `./.claude/` | そのリポジトリでの `apm install` |
 
@@ -36,6 +36,7 @@
    shell/prompt.sh         ──  symlink + 追記   ──  ~/.config/dotfiles/prompt.sh
                                                     → ~/.bashrc の印付きブロック
    claude/statusline.sh    ──  symlink          ──  ~/.claude/statusline.sh
+   claude/telemetry-env.json ── jq でマージ ──  ~/.claude/settings.json の env
    apm.yml                 ──  apm install      ──  ./.claude/（このチェックアウト）
 ```
 
