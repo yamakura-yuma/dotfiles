@@ -28,7 +28,7 @@ dependencies:
   - .claude/skills/core-tools/SKILL.md
   deployed_file_hashes:
     .claude/commands/retro.md: sha256:cb7b04b93dfd16970f5cbc260dd590cb5ead870bf0bee6e488277bfc46452890
-    .claude/commands/workers.md: sha256:230890afb0ae7d9a81415df999d5388581ffca50ea76bfaa8f174a2503877067
+    .claude/commands/workers.md: sha256:f7bf085b584d158011a1f5dadb5e30ae8e9fd6250b499da20e96ef6ba14f6f45
     .claude/commands/worktree.md: sha256:bb84a26ae3da5fc24de4d3c246f9d7c4575b23105deb0a41184d22d6e5f7d230
     .claude/hooks/core-principal/.apm/hooks/scripts/dispatch-in-coordinator.sh: sha256:386eea829d306ff73c7f976948bf1f06e12835045dd21d9691de8ef132898e30
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-coordinator-edit.sh: sha256:9f334191e8dd50272df6f5356a345ae589c88d51faac40c7b3941be3a7a6cc54
@@ -37,8 +37,8 @@ dependencies:
     .claude/hooks/core-principal/.apm/hooks/scripts/lib/coordinator-workspace.sh: sha256:db2ba153ce0ab0126f6a1c6def88150c2b67e0ebc313e4ea546ff9eae3161542
     .claude/rules/core-principal.md: sha256:2713980ffbde09797ae2a27f046e31255aada776cf505cde181def10463191ff
     .claude/skills/core-communication/SKILL.md: sha256:290c4cfbd8095fd64035de93e5fae4c3ab5e80fbd110f0317d272231e5060750
-    .claude/skills/core-dispatch/SKILL.md: sha256:977c6ee274cf880d1547e717d8cf9658f1e3228c2a6bcc841c2709155b44f4b3
-    .claude/skills/core-dispatch/references/orca.md: sha256:b4591a05891212de7af96c81f729be02f778b19ab155306b479c8dc3d954cbe7
+    .claude/skills/core-dispatch/SKILL.md: sha256:dd4f9466f19d0e7ccfb79affa04fab40ac0d2e4f1cc3961dac865ce712506c64
+    .claude/skills/core-dispatch/references/orca.md: sha256:4e9d740d91d7a52014df270c5c6b37e3e46382dba04bb568f1b5801bc78d8b70
     .claude/skills/core-harness/SKILL.md: sha256:99c045d95e8dc280ded6ea6b097a2be74250332c29ed88d4f234484f2cfc88f0
     .claude/skills/core-retro/SKILL.md: sha256:eb696797ce02014584b939277d35552c9f02844402d480fb97f152bf56969c09
     .claude/skills/core-tools/SKILL.md: sha256:6ef187280006ff43a5fec623bbcccfcc86e53571cb156b770ddae63bf9c490cd
@@ -581,7 +581,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:230890afb0ae7d9a81415df999d5388581ffca50ea76bfaa8f174a2503877067
+  content_hash: sha256:f7bf085b584d158011a1f5dadb5e30ae8e9fd6250b499da20e96ef6ba14f6f45
 - kind: project-relative
   target: claude
   value: .claude/commands/worktree.md
@@ -716,7 +716,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:977c6ee274cf880d1547e717d8cf9658f1e3228c2a6bcc841c2709155b44f4b3
+  content_hash: sha256:dd4f9466f19d0e7ccfb79affa04fab40ac0d2e4f1cc3961dac865ce712506c64
 - kind: project-relative
   target: claude
   value: .claude/skills/core-dispatch/references/orca.md
@@ -725,7 +725,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:b4591a05891212de7af96c81f729be02f778b19ab155306b479c8dc3d954cbe7
+  content_hash: sha256:4e9d740d91d7a52014df270c5c6b37e3e46382dba04bb568f1b5801bc78d8b70
 - kind: project-relative
   target: claude
   value: .claude/skills/core-harness

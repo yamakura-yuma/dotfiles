@@ -55,6 +55,9 @@ orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --wor
 - `--spec` を渡すとタスクも同時に作られる。既に `task-create` したタスクに出すなら
   `--task <task_id>`。
 - `--comment` はカードの初期コメント。以後はワーカーが上書きする。
+- `--model <id>` で起動するモデルを選ぶ。`--effort <level>` は `--model` と組で
+  しか渡せず、どちらも `--terminal` とは併用できない（【公式】`--help`）。どの作業に
+  どのモデルかは SKILL.md「2. 振り分け」の表。
 - 投げっぱなし（`orca worktree create --prompt`）は使わない。完了が inbox に
   届かず、統合の手順に乗らない。ユーザーが所有権ごと渡すと明示したときだけ
   handoff にする（`orca skills get orca-cli`）。
@@ -134,6 +137,15 @@ orca orchestration run-use --id <run_id> --json
 
 `run-use` が取るのは **`--id`** で、`--run` ではない（`--run` を渡すとフラグエラーに
 なる。他の多くのサブコマンドが `--run` なので間違えやすい）。
+
+**【実測】束縛が外れると `worker-start` も失敗する。** エラーコードは
+`consumer_fenced` で、「coordinator terminal currently bound to the Task Run」が
+要ると言われる。`run-use --id <run_id>` で結び直してから同じコマンドを打ち直す。
+
+**【実測】出力を絞るときも失敗は表示に残す。** `worker-start` の結果を jq で
+`.result.worktree` だけに絞った結果、`ok:false` の起動失敗を見逃した。絞るなら
+`jq '{ok, error: .error.code, result: .result.worktree}'` のように `ok` と
+エラーコードを必ず残す。
 
 返事をする・解放する:
 
@@ -314,6 +326,16 @@ Sleep を使う、とも書かれている。
 戻り値だけでは判断できない。** unverifiable を受けたら、`terminal list --worktree
 <selector>` が 0 件であることと、OS 側にその worktree のパスを含むプロセスが残っていない
 ことを別々に確かめ、両方取れたときだけ `worktree rm` に進む。取れなければ消さない。
+
+**【実測】user_takeover で release が `retained` になる。** Orca が端末をユーザー
+所有と判定すると、settle 済みでも `worker-release` は閉じずに `retained` を返す。
+release を繰り返したり代用したりせず、上の bulk close で閉じ、同じく端末 0 件と
+残プロセス無しを確かめてから消す。
+
+**【実測】worktree を他のプロセスがマウントしていると片付けられない。** 開発用
+コンテナなどがワーカーの worktree をマウントしていた例がある。消す前に
+`ps -eo pid,args | grep -F <path>` などでそのパスを使うプロセスを探し、あれば元の
+checkout で作り直してから消す。
 
 **【公式】完了は削除ではなくカードで表す。** 「終わった」を表すのに worktree を
 消す必要はない。レビュー待ちや記録として残したいものは、コメントに「PR #N レビュー

@@ -30,11 +30,14 @@ outcome / evidence / unresolved blocker / 片付け**。Task は「`<ワーカ�
 evidence には一次情報を短く（「make ci 緑」「2 コミット、ci 未実行」）。「順調です」
 は evidence ではありません。
 
+worker_done が届いていなくても、カードのコメントが完了を言っているか
+`gh pr list --head <branch>` に PR があるワーカーは終わっているものとして扱います。
 終わっているワーカーは、worker_done の `--report-path` が指すファイル（我々の規約
 では `~/.claude/worker-reports/<worktree 名>.md`）を Read して outcome / evidence /
 unresolved blocker を埋めます。escalation / question があれば人に取り次ぎ、
 落ち着いたワーカーは `orca orchestration worker-release` で解放します。ただし拒否
-された・stale な完了では release しません。
+された・stale な完了では release しません。報告の「残っている問題」でその場で片付けない
+ものは、`gh issue create` で対象リポジトリに Issue として残します。
 
 **取りこぼしの回収はここで済ませます。** `worktree ps` に残っているもののうち、PR が
 マージ済みなのに worktree がまだある行は「片付け可能」です。`片付け` 列にそう書き、
