@@ -21,6 +21,16 @@ dependencies:
     targets:
     - claude
 
+  # Editable .drawio architecture diagrams, as opposed to show-me's one-off
+  # HTML. Python 3 is enough to write the XML; exporting to PNG/SVG/PDF needs
+  # the draw.io desktop CLI (on WSL2, the Windows exe under /mnt/c).
+  - git: https://github.com/Agents365-ai/drawio-skill.git
+    path: skills/drawio-skill
+    ref: 7aa92f73819766eb914fffac66762cf2adb5d828
+    alias: drawio-skill
+    targets:
+    - claude
+
   # --- Finding skills before writing one -------------------------------------
   # Consulted first whenever a skill or a procedure is about to be added or
   # improved: borrow a published skill where one fits, write one only where

@@ -64,6 +64,12 @@ statusline と `starship.toml` は `reload` が自動でリンクします。MCP
   （CLAUDE.md の節と `.claude/settings.json` の `PreToolUse` フック）を足します。後者は
   実行したディレクトリからの相対で書くので、`agents-init` は `$HOME` から実行します。
 
+- **draw.io desktop CLI** は `drawio-skill` が図を PNG / SVG / PDF に書き出すときの
+  前提で、setup.sh は入れません。WSL2 では Windows 版をインストールすれば、スキルが
+  `/mnt/c` 経由の `draw.io.exe` を自動で見つけます。CLI が無くても、`.drawio` の XML
+  生成・同期・検査は Python 3 だけで動きます（upstream の SKILL.md の
+  compatibility 欄）。書き出しだけができません。
+
 ## 他のリポジトリでこのハーネスを使う
 
 そのリポジトリの `apm.yml` に足して `apm install` します。

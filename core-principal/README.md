@@ -50,6 +50,7 @@ repo that depends on this package and move forward with `apm update`.
 | --- | --- |
 | `find-skills` | vercel-labs. Consulted **before** a skill or procedure is written here: borrow what exists, author only what does not. |
 | `show-me` | humanlayer. Diagrams and standalone HTML explanations. |
+| `drawio-skill` | Agents365-ai. Editable `.drawio` architecture diagrams, kept and updated rather than thrown away like `show-me`'s HTML. Exports need the draw.io desktop CLI ([setup](../docs/setup.md)). |
 | `writing-for-agents`, `grill-me`, `grilling`, `handoff`, `teach`, `to-questionnaire`, `wait-what` | mattpocock's `skills/productivity`. `writing-for-agents` is the one this package's own rule/skill split follows. |
 | `ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review` | Simplest-thing-that-works discipline. Upstream ships as a plugin wiring up its own `PreToolUse` hooks; only `skills/ponytail*` is taken, so the opinion is available without a hook firing on every tool call. |
 | `japanese-tech-writing`, `cognitive-rhythm-writing` | Japanese prose norms. The aliases are load-bearing: `cognitive-rhythm-writing` reads `../japanese-tech-writing/SKILL.md`, so the two only work deployed as siblings under exactly these names. |

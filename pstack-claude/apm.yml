@@ -120,6 +120,15 @@ dependencies:
     - codex
     - copilot
 
+  - git: https://github.com/Agents365-ai/drawio-skill.git
+    path: skills/drawio-skill
+    ref: 7aa92f73819766eb914fffac66762cf2adb5d828
+    alias: drawio-skill
+    targets:
+    - claude
+    - codex
+    - copilot
+
   - git: https://gist.github.com/k16shikano/fd287c3133457c4fd8f5601d34aa817d.git
     ref: 8f2d57610a73efc97d743c9b0b0ecb1002e09fa4
     alias: japanese-tech-writing
