@@ -30,6 +30,8 @@ make help        # ターゲット一覧
 | `test-harness` | `core-principal/tests/harness-check.sh` — ハーネスのドリフト |
 | `test-statusline` | `claude/tests/statusline.sh` |
 | `test-metrics` | `claude/tests/metrics.sh` fixture のログを `claude/metrics.py` に数えさせる |
+| `test-nix-tools` | `tests/nix-tools.sh` — 偽の `nix` を相手に `setup.sh nix-tools` を確かめる |
+| `test-github-settings` | `tests/github-settings.sh` — 偽の `gh` を相手に `bin/github-settings.sh` を確かめる（GitHub には触れない） |
 
 対象ファイルは `git ls-files --cached --others --exclude-standard` で選びます。コミット前の
 新しいファイルも拾い、生成物の `.claude/` や `apm_modules/` には入らないためです。

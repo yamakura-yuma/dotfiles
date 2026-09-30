@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-github-settings \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-github-settings
 
 lint-shell:
 	@echo "== shell syntax"
@@ -112,6 +112,12 @@ test-metrics:
 test-nix-tools:
 	@echo "== setup.sh nix-tools"
 	@./tests/nix-tools.sh
+
+# bin/github-settings.sh against a stub gh. The script itself is never run by
+# ci: it talks to GitHub, and its --apply paths change it.
+test-github-settings:
+	@echo "== github-settings"
+	@./tests/github-settings.sh
 
 # Reads ~/.claude/projects, so its output is this machine's history rather than
 # a check -- not part of ci. `make metrics ARGS=--json` for the machine form.
