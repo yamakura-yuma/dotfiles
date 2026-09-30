@@ -201,18 +201,40 @@ Everything else is used as written.
 The `orchestration` skill is the procedure. These are the gaps it leaves that
 cost us in practice.
 
+- **One Run per coordinator session.** The `orchestration` skill's "Canonical
+  supervised loop" binds one Run; put each purpose in its own Task
+  (`--task-title`) and worker name, and add later workers to the same Run with
+  `worker-start`. `check` and the notification only return the bound Run's mail,
+  so a Run per purpose, rebound with `run-use`, hides every other Run's
+  `worker_done`.
+- **Ack what you have handled.** A consuming `check` replays the bound Run's
+  oldest FIFO Delivery until it is acknowledged. Reply, validate the
+  `worker_done` against its active Dispatch and decide the release first, then
+  `orca orchestration check --ack <delivery_id>` (add `--wait --types
+  "worker_done,escalation,question" --timeout-ms <n> --json` to keep waiting).
+  An un-acked Delivery keeps returning and queues newer ones behind it.
+- **Wait with `check --wait`.** Run `check --wait --types
+  "worker_done,escalation,question" --timeout-ms <n> --json` with Bash
+  `run_in_background`; when it returns, process, ack, and start it again. An
+  empty result is a checkpoint, not a failure. After three empty waits in a row,
+  read `worker-list --include-remote --json` and follow each row's
+  `projection.attention` and `nextAction`.
 - **Pick up completion without the notification.** `worker_done` can arrive
-  late or never. When checking status, read the inbox (`orca orchestration
-  check`), the worker's card comment (`orca worktree ps`) and its PR (`gh pr
-  list --head <branch>`); a comment saying done or an open PR means it finished,
-  so read its report. For an implementation worker (`claude-sonnet-5-5`), check the
+  late or never. When checking status, read the unacked inbox (`orca
+  orchestration check --peek`), the worker's card comment (`orca worktree ps`)
+  and its PR (`gh pr list --head <branch>`); a comment saying done or an open PR
+  means it finished, so read its report. For an implementation worker (`claude-sonnet-5-5`), check the
   report for a `verdict: pass` round before releasing; if there is none, send it
   back to run the review. If the re-review still failed and the worker
   escalated, show the remaining required findings to the human to decide.
-- **Rebind the Run when fenced.** If `worker-start` or another call fails with
-  `consumer_fenced` (it wants the coordinator terminal bound to the Task Run),
-  run `orca orchestration run-use --id <run_id>` and retry. When filtering Orca
-  output with jq or grep, keep `ok` and the error code visible; a filter that
+- **Rebind the same Run when fenced.** If `worker-start` or another call fails
+  with `consumer_fenced` (a session restart dropped the binding; it wants the
+  coordinator terminal bound to the Task Run), run `orca orchestration run-use
+  --id <run_id>` for that same Run and retry. `run-use` is for nothing else. Runs
+  left over from the old one-Run-per-purpose habit: `check --run <run_id>` each,
+  process what is unacked and `check --run <run_id> --ack <delivery_id>` it, leave
+  finished Runs alone (`--peek` reads without a `deliveryId`, so it cannot ack).
+  When filtering Orca output with jq or grep, keep `ok` and the error code visible; a filter that
   dropped them hid a failed launch.
 - **Issues record leftovers only.** Instructions and completion go through
   Orca, never an Issue. Anything under a report's remaining problems that is

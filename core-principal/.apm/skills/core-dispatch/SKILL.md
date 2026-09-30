@@ -71,10 +71,13 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 パスはワーカー側のホストを指すので coordinator からは読めない。worktree 直下に
 置いても同じなので、悪化はしない。
 
-**出す。** 出し方は監督ありの 1 通りに統一する。Run を確かめ（無ければ
-`run-create`）、`worker-start` で出す。ワーカーは `worker_done` で完了を返し、
-こちらは「3. 統合」で拾って `worker-release` する。コマンドは `references/orca.md`
-の「出す」。短い kebab-case の `--name` は必須で、これがそのままワーカー名になる。
+**出す。** 出し方は監督ありの 1 通りに統一する。**Run は coordinator のセッションに
+つき 1 つ**（公式の「bind one Run」）。`run-current` で確かめ、無ければ `run-create`
+し、2 本目以降は同じ Run に `worker-start` で足す。目的の違いは Run ではなく
+Task（`--task-title`）とワーカー名で分ける。ワーカーは `worker_done` で完了を返し、
+こちらは「3. 統合」で拾い、処理してから ack して `worker-release` する。コマンドは
+`references/orca.md` の「出す」。短い kebab-case の `--name` は必須で、これがそのまま
+ワーカー名になる。
 
 **モデルは役割で選ぶ。** `worker-start --model <id>` で指定し（`--effort` は
 `--model` と組でしか渡せない）、選んだモデルと effort を「報告の型」(c) に 1 行書く。
@@ -173,8 +176,9 @@ coordinator は「3. 統合」で報告に pass のラウンドがあるかを�
 （Opus・Fable）には挟まない。
 
 **起動の失敗を見落とさない。** `worker-start` などが `consumer_fenced`（coordinator
-端末が Task Run に束縛されていない）で失敗したら、`orca orchestration run-use --id
-<run_id>` で結び直してやり直す。Orca の出力を jq や grep で絞るときも、`ok:false` と
+端末が Task Run に束縛されていない）で失敗したら、セッション再起動で束縛が外れている。
+`orca orchestration run-use --id <run_id>` で**同じ Run に**結び直してやり直す
+（`run-use` はこの用途だけ。Run の付け替えには使わない）。Orca の出力を jq や grep で絞るときも、`ok:false` と
 エラーコードは必ず表示に残す。絞りすぎて起動失敗を見逃した実例がある
 （`references/orca.md`「Run を結び直す」）。
 
@@ -190,30 +194,40 @@ coordinator は「3. 統合」で報告に pass のラウンドがあるかを�
 にそのまま出るので、覗きに行かずに状況が分かる。状態の列（`--workspace-status`）は
 ボードに反映されない既知のバグ（Orca #13620）があるので、補助としてだけ使う。
 
-出したら、**そのターンで待たない。** 「報告の型」(c) の 3 行を返して終える。
+出したら、**そのターンを前景の待ちで塞がない**（待ちは `check --wait` のバックグラウンド実行）。 「報告の型」(c) の 3 行を返して終える。
 
-## 3. 統合 — 張って待つのではなく、拾い直す
+## 3. 統合 — check --wait で待ち、処理して ack する
 
-`orca orchestration check --wait` をバックグラウンドで張って完了を待つ設計は
-**成立しない**。Claude Code のセッションが終わるとバックグラウンドプロセスごと
-消え、完了通知を取りこぼす（実測）。メッセージ自体は inbox に残る。
+公式の Canonical supervised loop（`orca skills get orchestration`）に合わせる。
+**Run は 1 つを束縛し、`check` を処理して ack し、待つときは `check --wait`。**
+通知と `check` は束縛中の Run の分しか返さず、`check` は最古の Delivery を ack される
+まで返し続ける。取りこぼしの原因は、Run を目的ごとに作って付け替えたこと、ack しな
+かったこと、待ちを通知任せにしたことだった。
 
-**そもそも到着を前提にできない。** 公式は、所有権を失ったことを知る手段は `check`
+待つときは `orca orchestration check --wait --types "worker_done,escalation,question"
+--timeout-ms <n> --json` を Bash の `run_in_background` で動かす。返ってきたら下の
+手順で処理し、ack して、また張る。空振りが 3 回続いたら `worker-list
+--include-remote --json` の `projection.attention` と `nextAction` を見る（公式どおり。
+`references/orca.md`「受け取る」）。セッションが終わるとバックグラウンドの待ちは
+消えるが、Delivery は ack されるまで残るので、次のセッションの最初の `check` で拾える。
+
+**通知の到着を前提にできない。** 公式は、所有権を失ったことを知る手段は `check`
 が返す `consumer_fenced` だけだと明記している（"`consumer_fenced` is the only way
 you learn that"）。つまり自分から引かなければ資格喪失にすら気づけない。さらに
 未文書の実測として、Orca 再起動で capability が失効し、送信自体が拒否される経路も
-ある。いずれも「来るはずのものが来ない」形なので、**完了は pull で突き合わせる**。
+ある。いずれも「来るはずのものが来ない」形なので、待ちに加えて**完了は pull でも突き合わせる**。
 詳しくは `references/orca.md`「資格を失うとき」。
 
-拾いに行く機会は 3 つ。**Orca 自身の通知**（「You have N orchestration message.
-Run `orca orchestration check --run <run_id>`」がセッションに注入される。これが実質の
-起こし役なので、来たら従う）、**セッションの最初**、**新しい依頼を受けた時**。
-いずれでも:
+拾いに行く機会は 4 つ。**`check --wait` が返ったとき**、**Orca 自身の通知**
+（「You have N orchestration message. Run `orca orchestration check --run <run_id>`」が
+セッションに注入される。補助の起こし役）、**セッションの最初**、**新しい依頼を受けた
+時**。いずれでも:
 
 1. `orca worktree ps --json` で稼働中の workspace と、ワーカーが書いたカードの
    コメントを見る
 2. `orca orchestration check --json` で溜まっている worker_done / escalation /
-   question を読む
+   question を読む。**ack するのは 5・6 を済ませてから**（`check --ack <delivery_id>`。
+   しないと同じ束が返り続け、新しい完了が後ろに詰まる）
 3. **worker_done が無くても完了を拾う。** worker_done は遅れる・来ないことがある。
    1 のコメントが完了を言っている、または `gh pr list --head <branch>` に PR が
    出ているワーカーは、終わったものとして 4 に進む
@@ -234,8 +248,9 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
 7. 決着したら「4. 片付け」に進む。端末を閉じても worktree は残るので、消すのは別の手順
 
 セッションが再起動した直後は、自分の端末ハンドルも変わっている。`check` が空に
-見えるときは、まず Run の束縛を確かめて結び直す（`references/orca.md` の
-「Run を結び直す」）。ワーカーが消えたのではなく、自分が Run から外れている。
+見えるときは、まず `run-current` で束縛を確かめ、外れていたら**同じ Run に**結び直す
+（`references/orca.md` の「Run を結び直す」）。ワーカーが消えたのではなく、自分が Run
+から外れている。旧運用で Run が複数残っているときの片付けは「状況を見る」の節にある。
 
 **liveness が `unverifiable` / `missing_status` でも、死んだと判定しない。** Orca
 再起動でハンドルが変わっただけのことが多い。引き直し方と起こし方は

@@ -42,12 +42,17 @@ orca worktree list --json |
 
 ## 出す — 監督ありの 1 通り 【公式】
 
-Run が無ければ先に作り、`worker-start` で出す。ワーカーは worker_done /
-escalation / question を返し、こちらは拾って `worker-release` する。
+**Run は coordinator のセッションにつき 1 つ。** 公式の Canonical supervised loop は
+「bind one Run」で、Run の中に Task を並べる。目的の違いは Task（`--task-title`）と
+ワーカー名（`--name`）で分ける。`check` と通知は束縛中の Run の分しか返さないので、
+目的ごとに Run を作って付け替えると、付け替え先以外の worker_done が届かなくなる。
+Run が無いときだけ `run-create` し、2 本目以降は同じ Run に `worker-start` で足す。
+ワーカーは worker_done / escalation / question を返し、こちらは拾って、処理して
+から ack し、`worker-release` する（下の「受け取る」）。
 
 ```
 orca orchestration run-current --json
-orca orchestration run-create --objective "<この一連の作業の目的>" --json
+orca orchestration run-create --objective "<このセッションの作業>" --json
 orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude --comment "<一行の題>" --setup run --json
 ```
 
@@ -99,7 +104,7 @@ coordinator は端末を読まずに進捗を追える。ワーカーの spec �
 ボードに反映されないバグがある（[Orca #13620](https://github.com/stablyai/orca/issues/13620)、
 2026-09 時点で open）。進捗と完了はコメントで表し、列は補助に留める。
 
-## 受け取る — 待ち続けずに、そのつど拾い直す
+## 受け取る — check --wait で待ち、処理して ack する
 
 ```
 orca orchestration check --json
@@ -112,23 +117,50 @@ orca orchestration check --terminal <handle> --json
 **【実測】** `check` は `--help` を解釈せず inbox を表示する（そのため
 `core-principal/tests/harness-check.sh` のフラグ検査はこのサブコマンドを飛ばす）。
 
-**【実測】** coordinator では `--wait` を使わない。前景で待てばターンが塞がって次の
-依頼を受けられず、バックグラウンドの Bash で待たせても **Claude Code のセッションが
-終われば道連れに消え、完了通知を取りこぼす**。
+**【公式】** 消費する `check` は、束縛中の Run の最古の FIFO Delivery を、ack される
+まで同じ束としてもう一度返す。つまり **処理して ack しない限り、古い worker_done が
+出続け、新しいものは後ろに詰まる**。受けたメッセージは、reply する、worker_done を
+期待する active Dispatch と突き合わせて検証する、決着した端末の次の持ち主を決めて
+`worker-release` する、の判断を済ませてから ack する。公式の手順は次のとおり。
 
-**【実測】** 待たなくても起こしてもらえる。Orca は coordinator 端末のセッションに
+```
+orca orchestration reply --id <message_id> --body "<返答>" --json
+orca orchestration worker-release --dispatch <dispatch_id> --json
+orca orchestration check --ack <delivery_id> --wait --types "worker_done,escalation,question" --timeout-ms 900000 --json
+```
+
+`check --ack <delivery_id>` は ack して、そのまま次の待ちに入る。待たずに ack だけ
+したいときは `--wait` を付けない。
+
+**待つときは `check --wait`。** `check --wait --types "worker_done,escalation,question"
+--timeout-ms <n> --json` を Claude Code のバックグラウンド実行（Bash の
+`run_in_background`）で動かす。前景で待つとターンが塞がって次の依頼を受けられない。
+返ってきたら処理して ack し、また張る。タイムアウトや空の結果は失敗ではなく
+チェックポイントで、止めたり、再試行したり、release したり、二重に起動したりしない。
+**空振りが 3 回続いたら**、盲目的に待つのをやめて `worker-list --include-remote --json`
+（既定は束縛 Run。`--run <run_id>` で上書き）を開き、各行の `projection.attention`
+と `projection.nextAction` に従う。`nextAction` が `none` なら `liveness.reason` を
+読んで `check --wait` に戻る。
+
+**【実測】** バックグラウンドの待ちは Claude Code のセッションが終われば道連れに
+消える。ただし Delivery は ack されるまで Orca 側に残り、次の `check` が同じ束を返す
+ので、待ちが消えても取りこぼしにはならない。セッションの最初に `check` を 1 回打って
+から張り直す。
+
+**【実測】** Orca は coordinator 端末のセッションに
 
 > You have N orchestration message. Run `orca orchestration check --run <run_id>`
 
-という通知を自分で注入してくる。これが統合の実際のトリガーだが、**通知に依存しない
-こと。** 通知が途絶える経路が 2 つあり、片方は公式に明記されている（下の「資格を失う
-とき」）。取りこぼしはセッション開始時と依頼を受けた時の拾い直しで回収する。
-メッセージは inbox に残っているので消えはしない。
+という通知を自分で注入してくる。補助の起こし役としては使えるが、通知は束縛中の Run
+の分しか出ない。**通知に依存せず**、待ち（`check --wait`）とセッション開始時・依頼を
+受けた時の `check` で拾う。通知が途絶える経路は下の「資格を失うとき」にもある。
 
 ## Run を結び直す 【公式】
 
-coordinator 側の端末ハンドルもセッション再起動で変わる。ハンドルが変われば Run との
-束縛も切れるので、通知が来ない・`check` が空に見えるときはここを疑う。
+**`run-use` はこの用途だけに使う。** Run の切り替えには使わない（Run は 1 つ）。
+coordinator 側の端末ハンドルはセッション再起動で変わる。ハンドルが変われば Run との
+束縛も切れるので、通知が来ない・`check` が空に見えるときはここを疑い、`run-current`
+で確かめて、同じ Run に結び直す。
 
 ```
 orca orchestration run-current --json
@@ -147,12 +179,7 @@ orca orchestration run-use --id <run_id> --json
 `jq '{ok, error: .error.code, result: .result.worktree}'` のように `ok` と
 エラーコードを必ず残す。
 
-返事をする・解放する:
-
-```
-orca orchestration reply --id <msg_id> --body "<返答>" --json
-orca orchestration worker-release --dispatch <dispatch_id> --json
-```
+返事をする・解放する・ack するコマンドは上の「受け取る」。
 
 ## 状況を見る — 公式の projection を読む 【公式】
 
@@ -168,6 +195,11 @@ orca orchestration inbox --limit 20 --json
 `projection.nextAction` がある。判断はここから組み立てる。`nextAction` が `none` の
 行に打つべき argv は無いので、`liveness.reason` を読んで待つ。行は新しい順で 100 件
 ごとに切れるので、`page.hasMore` の間は `page.nextCursor` を `--cursor` に渡す。
+
+**旧運用の Run が残っているとき。** 目的ごとに Run を作っていた頃の Run が複数残って
+いたら、各 Run で `check --run <run_id>` を打って未 ack の Delivery を確かめ（読むだけなら
+`--peek`。`deliveryId` は出ない）、処理してから `check --run <run_id> --ack <delivery_id>` で ack する。終わった Run は
+触らない。束縛は付け替えず、いまの 1 つの Run のままにする。
 
 `task-list --ready --brief` の ready view を、公式は **external memory** と呼ぶ。
 次に動けるものを覚えておくのではなく、そのつどここから引く。
