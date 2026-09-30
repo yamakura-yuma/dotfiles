@@ -41,8 +41,11 @@ kept them Claude-only was the `targets: [claude]` on each dependency in
 
 Upstream, pinned to one commit and never edited: every pstack skill and agent,
 plus `deslop`, `control-ui` and `control-cli` from `cursor-team-kit`, which
-poteto-mode calls by name. Also Orca's `orca-cli` and `orchestration`, and
-`humanizer-ja`, and the pieces in the next section's table.
+poteto-mode calls by name. Also Orca's `orca-cli` and `orchestration`,
+`humanizer-ja`, mizchi/explainer's `explainer`, `explainer-book` and
+`first-reader` (reader-specific crash courses and chaptered material, checked by
+their own scripts; the npm packages those scripts need go in the repository the
+material lives in), and the pieces in the next section's table.
 
 Ours, kept as thin as possible so that bumping `ref` in `apm.yml` stays the
 whole upgrade:
