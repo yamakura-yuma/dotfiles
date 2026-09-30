@@ -7,11 +7,12 @@
 
 | パス | 役割 |
 | --- | --- |
-| `flake.nix` | nixpkgs にあるツールのまとまり（statusline 用の `jq`、他のツールの土台になる `uv` と `node`、プロンプトの `starship`）。`flake.lock` をコミットしてあるので、どのホストでも同じ nixpkgs リビジョンに解決される。更新は `nix flake update` |
+| `flake.nix` | nixpkgs にあるツールのまとまり（statusline 用の `jq`、他のツールの土台になる `uv` と `node`、プロンプトの `starship`、図の書き出し用の `drawio` と `xvfb-run`）。`flake.lock` をコミットしてあるので、どのホストでも同じ nixpkgs リビジョンに解決される。更新は `nix flake update` |
 | `bin/install-nix.sh` | Nix 本体のインストール。ホストにつき1回 |
 | `bin/install-apm.sh` | `apm` を GitHub リリースのバイナリから入れる（nixpkgs に無いため） |
 | `claude/statusline.sh` | Claude Code の statusline |
 | `claude/telemetry-env.json` | OpenTelemetry トレースの環境変数。`reload` が `~/.claude/settings.json` の `env` にマージする。[トレース](#トレース) |
+| `claude/home-CLAUDE.md` | `~/CLAUDE.md` の coordinator 節の正。`reload` が `~/CLAUDE.md` のマーカー間に流し込む |
 | `starship.toml` | シェルプロンプトの設定。`kubernetes` モジュールを有効にし、`git_status` を記号ではなく件数で出す。`reload` が `~/.config/starship.toml` にリンクする |
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
 | `host-apm.yml` | ホスト全体のマニフェスト。`reload` が `~/.apm/apm.yml` にコピーする。`codegraph` と `headroom` の MCP サーバだけを宣言する（`~/.claude.json` の `mcpServers` はここが正で、あちらを手で編集しない） |
@@ -38,6 +39,7 @@
 | `~/.apm/apm.yml` | `host-apm.yml` のコピー。毎回消してから置き直す | `reload` |
 | `~/.claude/statusline.sh` | このリポジトリの `claude/statusline.sh` へのシンボリックリンク | `reload` |
 | `~/.claude/settings.json` の `env` のうち `claude/telemetry-env.json` にあるキー | `claude/telemetry-env.json` のマージ（他のキーは触らない） | `reload` |
+| `~/CLAUDE.md` のマーカー（`<!-- >>> dotfiles >>> -->`）の間 | `claude/home-CLAUDE.md`（外側は graphify が書くので触らない） | `reload` |
 | `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
 | `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
 | `ANTHROPIC_BASE_URL` と常駐プロキシ | `headroom install apply` / `headroom init --global claude` | `agents-init` |

@@ -1,5 +1,5 @@
 {
-  description = "Nix-packaged subset of the Claude Code agent-environment tools (jq, uv, node, starship)";
+  description = "Nix-packaged subset of the Claude Code agent-environment tools (jq, uv, node, starship, drawio, xvfb-run)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -14,7 +14,7 @@
         in {
           agent-tools = pkgs.symlinkJoin {
             name = "agent-tools";
-            paths = with pkgs; [ jq uv nodejs_24 starship ];
+            paths = with pkgs; [ jq uv nodejs_24 starship drawio xvfb-run ];
           };
           default = self.packages.${system}.agent-tools;
         });
