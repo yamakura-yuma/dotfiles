@@ -71,6 +71,43 @@ dependencies:
     - codex
     - copilot
 
+  # --- Explainers --------------------------------------------------------------
+  # MIT, mizchi (first-reader inside it is Apache-2.0, vendored from
+  # Shubhamsaboo/awesome-llm-apps; see its NOTICE). Crash courses and chaptered
+  # learning material written for one reader's persona, with diagrams and
+  # quoted output checked by scripts. Upstream publishes no tags, so pin the
+  # commit. The scripts' npm dependencies (@mizchi/vlmkit and others, Node 24+)
+  # belong to the repository the material lives in, not to this package.
+  #
+  # explainer-book runs ../../explainer/scripts/verify-doc.mjs and reads
+  # ../explainer/SKILL.md, so these aliases stay exactly these names.
+  - git: https://github.com/mizchi/explainer.git
+    path: skills/explainer
+    ref: a4b051bca0cba6ed3a3d19237adcea1695da4172
+    alias: explainer
+    targets:
+    - claude
+    - codex
+    - copilot
+
+  - git: https://github.com/mizchi/explainer.git
+    path: skills/explainer-book
+    ref: a4b051bca0cba6ed3a3d19237adcea1695da4172
+    alias: explainer-book
+    targets:
+    - claude
+    - codex
+    - copilot
+
+  - git: https://github.com/mizchi/explainer.git
+    path: skills/first-reader
+    ref: a4b051bca0cba6ed3a3d19237adcea1695da4172
+    alias: first-reader
+    targets:
+    - claude
+    - codex
+    - copilot
+
   # --- Orca -------------------------------------------------------------------
   # Orca runs parallel work and supervision in this environment, so the vendor's
   # own skills replace pstack's Cursor cloud agents. Only the two that the
