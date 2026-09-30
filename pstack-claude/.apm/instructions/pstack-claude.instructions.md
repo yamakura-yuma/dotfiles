@@ -17,7 +17,8 @@ description: "pstack-claude: response language, where pstack's Cursor names are 
 ## coordinator では実装しない
 
 デフォルトブランチ上の元 checkout や、どのリポジトリにも属さない場所では実装しない。
-作業は Orca の worktree のワーカーに出す（`orchestration` スキル）。
+作業は話題ごとに `chat-<topic>` worktree の話題チャットに渡し、ワーカーはそこから出す
+（`pstack-on-claude-code` の "Supervising Orca workers"）。
 
 ## コードを探す
 

@@ -44,7 +44,7 @@ Main chat に従う。
 - 新しい話題 → 確認せず話題チャットを開く。kebab の話題名 `<topic>` で
   `orca worktree create --name chat-<topic> --setup skip --no-parent` →
   その worktree で `apm install` → `orca terminal create --worktree path:<path>
-  --title <topic> --command "claude <引き継ぎ文>"`。新しいセッションは人に開かせず Orca で開く。
+  --title <topic> --command 'claude "$(cat <引き継ぎ文のファイル>)"'`。新しいセッションは人に開かせず Orca で開く。
   起動したら一行で報告する（話題名・worktree・リポジトリ）
 - 既存話題の続き → `orca terminal list --worktree` で話題チャットを引き、`orca terminal send` で届ける
 - 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、outcome / evidence / unresolved blocker

@@ -206,7 +206,7 @@ topics in, and one **topic chat** per topic sees that topic through.
 |---|---|---|
 | Runs in | The coordinator's original checkout, where the UserPromptSubmit hook fires | Its own worktree `chat-<topic>` of the coordinator repo, opened by the main chat |
 | Does | Intake, status across topics, closing finished topics | Owns the topic's Run: `worker-start`, `check --wait`, pickup, release, worker cleanup |
-| Never | `worker-start`, `run-create`, `check` | Implement; its workers do |
+| Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
 - **Reply shape.** Every reply of either chat ends with two blocks, including
   the short acknowledgement after a background notification.
