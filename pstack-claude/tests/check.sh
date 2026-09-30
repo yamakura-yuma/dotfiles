@@ -21,7 +21,8 @@ fail() {
 # Byte-for-byte copies.
 for f in .apm/hooks/scripts/lib/coordinator-workspace.sh \
   .apm/hooks/scripts/guard-destructive-git.sh .apm/hooks/guard-destructive-git.json \
-  .apm/hooks/guard-default-branch.json .apm/skills/core-tools/SKILL.md; do
+  .apm/hooks/guard-default-branch.json .apm/skills/core-tools/SKILL.md \
+  .apm/agents/completion-reviewer.agent.md; do
   cmp -s "$pkg/$f" "$repo/core-principal/$f" || fail "$f differs from core-principal's copy"
 done
 # Copied with one word changed: the skill its refusal points at.

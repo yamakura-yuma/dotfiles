@@ -12,12 +12,13 @@
 | `bin/install-apm.sh` | `apm` を GitHub リリースのバイナリから入れる（nixpkgs に無いため） |
 | `claude/statusline.sh` | Claude Code の statusline |
 | `claude/telemetry-env.json` | OpenTelemetry（トレース・メトリクス・ログ）の環境変数。`reload` が `~/.claude/settings.json` の `env` にマージする。[トレース](#トレース) |
+| `claude/advisor.json` | advisor のモデル（`advisorModel: "fable"`、お試し）。`reload` が `~/.claude/settings.json` のトップレベルにマージする。[advisor](#advisor) |
 | `claude/home-CLAUDE.md` | `~/CLAUDE.md` の coordinator 節の正。`reload` が `~/CLAUDE.md` のマーカー間に流し込む |
 | `starship.toml` | シェルプロンプトの設定。`kubernetes` モジュールを有効にし、`git_status` を記号ではなく件数で出す。`reload` が `~/.config/starship.toml` にリンクする |
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
 | `host-apm.yml` | ホスト全体のマニフェスト。`reload` が `~/.apm/apm.yml` にコピーする。`codegraph` と `headroom` の MCP サーバだけを宣言する（`~/.claude.json` の `mcpServers` はここが正で、あちらを手で編集しない） |
 | `apm.yml` | このリポジトリだけに効くマニフェスト。依存は `./core-principal` ひとつ |
-| `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、ブロックするガードフック3つと助言フック1つ、`/retro`・`/workers`・`/worktree`、`core-*` スキル、そして固定コミットで取り込んだ公開スキル群。詳しくは [agent-harness.md](agent-harness.md) |
+| `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、ブロックするガードフック3つと助言フック1つ、`/retro`・`/workers`・`/worktree`、`core-*` スキル、完了前レビューのサブエージェント `completion-reviewer`、そして固定コミットで取り込んだ公開スキル群。詳しくは [agent-harness.md](agent-harness.md) |
 | `Makefile` | `make ci` がこのリポジトリの検証 |
 | `AGENTS.md` | `apm compile --target agents` の生成物。元を直すこと |
 | `versions.env` | グローバルに入れる3ツール（`codegraph`・`graphifyy`・`headroom-ai`）の固定版。`reload` がこれを読む。上げるのは手で、1行の diff として残る |
@@ -39,6 +40,7 @@
 | `~/.apm/apm.yml` | `host-apm.yml` のコピー。毎回消してから置き直す | `reload` |
 | `~/.claude/statusline.sh` | このリポジトリの `claude/statusline.sh` へのシンボリックリンク | `reload` |
 | `~/.claude/settings.json` の `env` のうち `claude/telemetry-env.json` にあるキー | `claude/telemetry-env.json` のマージ（他のキーは触らない） | `reload` |
+| `~/.claude/settings.json` の `advisorModel` | `claude/advisor.json` のマージ（`/advisor` で変えても次の `reload` で戻る） | `reload` |
 | `~/CLAUDE.md` のマーカー（`<!-- >>> dotfiles >>> -->`）の間 | `claude/home-CLAUDE.md`（外側は graphify が書くので触らない） | `reload` |
 | `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
 | `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
@@ -104,6 +106,60 @@
 マージはキーを足して上書きするだけで消さないので、ファイルからキーを消しても
 `~/.claude/settings.json` には残ります。完全に外すなら、あちらの `env` からも手で消して
 ください。
+
+## advisor
+
+このホストの Claude Code はすべて、Fable を advisor にして動きます（お試し。効果は未確認）。
+いつ呼ぶかは主モデルが決め、回数を指定する設定はありません。値は `claude/advisor.json` に
+あり、`reload` が `~/.claude/settings.json` のトップレベルにマージします。
+
+役割は作業の前半（方針を決める前、行き詰まったとき）に限ります。完了時点の確認は
+`completion-reviewer` サブエージェントが担います。
+
+- advisor は会話全体を自動で渡され、道具を使わず短い助言だけを返す。同じ前提を引き継ぐ
+- サブエージェントは依頼文だけを受け取り、自分で調べ、経緯を知らないまま独立して見る
+- 完了時点では両者が重なるので、独立していて必ず走るレビューのほうに任せる
+
+Claude Code 組み込みの advisor の説明には「完了を宣言する前にも呼ぶ」が含まれていて、
+設定では消せません。実装系のワーカーには、公式の推奨文面から完了時の項目だけを削ったものを
+spec に貼り、そちらへ誘導します（`core-dispatch` の「advisor の誘導」）。止めるのではなく
+誘導なので、完了時に呼ばれることはあります。
+
+公式（[advisor](https://code.claude.com/docs/en/advisor)）で確かめた制約:
+
+- Fable を advisor にできる主モデル: Sonnet 5.5、Opus 5.5、Fable。Haiku 4.5 も呼べる
+- プランによっては、Fable の利用を usage credits に請求することへの 1 回きりの同意が要る。
+  同意が無いと advisor なしで動き、エラーにはならない。同意は `/model fable` で続行を選ぶ
+- `ANTHROPIC_BASE_URL` 経由（headroom）では、プロキシが要求をそのまま Anthropic API に
+  渡すかどうかで使えるかが決まる。`DISABLE_TELEMETRY` などフラグ取得を止める変数があると
+  advisor は有効にならない。このホストでは headroom 経由・テレメトリ有効のまま有効になった
+  （2026-10-01 に観測）
+- 費用: advisor は呼ばれるたびに会話全体をキャッシュなしで読み直す。会話が長いほど 1 回が
+  高い（実測で会話 2 万トークン時に約 $0.09）
+
+- 助言は読めない: Fable 5.1・Opus 5.5 などを advisor にすると、結果は暗号化された
+  `advisor_redacted_result` で返る（[API ドキュメント](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool)の仕様）。
+  主モデルはサーバ側で読むが、ログやトランスクリプトからは中身が見えない
+
+お試しの評価は次の 3 つで行います。
+
+| 見るもの | どこで |
+| --- | --- |
+| 呼ばれた回数 | `claude -p --debug-file <path>` のログの `Advisor tool called` の行数 |
+| Fable の費用 | Grafana のモデル別コストの `claude-fable-*` の行。ホスト設定なので `completion-reviewer` が呼んだ分も含む |
+| 完了前レビューの必須指摘が減ったか | ワーカーの報告ファイルに貼られた各ラウンドの `required` |
+
+有効になったかは `claude -p --debug-file <path>` のログに `[AdvisorTool] Server-side tool
+enabled with claude-fable-5-1 as the advisor model` が出るかで分かります。
+
+止めるには、そのセッションだけなら `/advisor off`、ホスト全体で無効にするなら
+`CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`。お試しをやめるなら `claude/advisor.json` と
+`setup.sh` の `merge_claude_settings` にあるそのマージを消し、`~/.claude/settings.json` の
+`advisorModel` も手で消します（マージはキーを消さないので）。
+
+ホスト全体に効く設定は MCP サーバだけ、という方針のもう 1 つの例外です。テレメトリと
+違って振る舞いを変えますが、ワーカーごとに入れる手段が無い（`orca orchestration
+worker-start` に advisor の指定が無い）ので、お試しの間だけホスト全体に置きます。
 
 ## 生成物
 
