@@ -3,9 +3,11 @@
 # agent environment. Subcommands mirror what used to be Justfile recipes;
 # dotfiles is plain shell scripts end to end, no task runner required.
 #
-# Usage: ./setup.sh [install-nix|nix-tools|reload|agents-init|all]
+# Usage: ./setup.sh [install-nix|nix-tools|reload|claude-settings|agents-init|all]
 #   install-nix   one-time: installs Nix itself (system/multi-user)
 #   nix-tools     installs/upgrades jq/uv/node via `nix profile`
+#   claude-settings  only the OpenTelemetry env and advisor model merge into
+#                 ~/.claude/settings.json (the part of reload the tests run)
 #   reload        symlinks, the ~/.bashrc starship prompt hook, apm and the
 #                 codegraph/graphifyy/headroom-ai versions pinned in
 #                 versions.env, host-apm.yml's MCP servers and this repo's own
@@ -197,6 +199,7 @@ case "${1:-all}" in
   install-nix) cmd_install_nix ;;
   nix-tools) cmd_nix_tools ;;
   reload) cmd_reload ;;
+  claude-settings) mkdir -p ~/.claude && merge_claude_settings ;;
   agents-init) cmd_agents_init ;;
   all)
     cmd_install_nix
@@ -209,7 +212,7 @@ uv/node are on PATH for future sessions.
 EOF
     ;;
   *)
-    echo "usage: $0 [install-nix|nix-tools|reload|agents-init|all]" >&2
+    echo "usage: $0 [install-nix|nix-tools|reload|claude-settings|agents-init|all]" >&2
     exit 1
     ;;
 esac
