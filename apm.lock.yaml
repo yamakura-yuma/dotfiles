@@ -1,11 +1,13 @@
 lockfile_version: '1'
-apm_version: 0.31.0
+apm_version: 0.32.0
 dependencies:
 - repo_url: _local/core-principal
+  alias: core-principal
   name: core-principal
   version: 1.1.0
   package_type: apm_package
   deployed_files:
+  - .claude/agents/completion-reviewer.md
   - .claude/commands/retro.md
   - .claude/commands/workers.md
   - .claude/commands/worktree.md
@@ -27,18 +29,19 @@ dependencies:
   - .claude/skills/core-tools
   - .claude/skills/core-tools/SKILL.md
   deployed_file_hashes:
+    .claude/agents/completion-reviewer.md: sha256:4141cbf80cf6962e038f62519149117397245a51fe73364118f91a495af88956
     .claude/commands/retro.md: sha256:cb7b04b93dfd16970f5cbc260dd590cb5ead870bf0bee6e488277bfc46452890
-    .claude/commands/workers.md: sha256:f7bf085b584d158011a1f5dadb5e30ae8e9fd6250b499da20e96ef6ba14f6f45
+    .claude/commands/workers.md: sha256:0055f51cc6fa1c73dec7940c15d27dca3d15e6c39bc67ae465cf6d451f33365f
     .claude/commands/worktree.md: sha256:bb84a26ae3da5fc24de4d3c246f9d7c4575b23105deb0a41184d22d6e5f7d230
     .claude/hooks/core-principal/.apm/hooks/scripts/dispatch-in-coordinator.sh: sha256:386eea829d306ff73c7f976948bf1f06e12835045dd21d9691de8ef132898e30
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-coordinator-edit.sh: sha256:9f334191e8dd50272df6f5356a345ae589c88d51faac40c7b3941be3a7a6cc54
-    .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh: sha256:1a32a0d5c9399d9fd4ff5d09599d62b8985dbdf3e5b7daa6fcf358c3e5721729
+    .claude/hooks/core-principal/.apm/hooks/scripts/guard-default-branch.sh: sha256:a79687acc40747d945be0243806f364e2e8fd8c46b2baafce19dfeaca1271544
     .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh: sha256:ee57fb415c9acbf409715032196a7186fa0f161a5b1187143a40ca6f054b4d35
     .claude/hooks/core-principal/.apm/hooks/scripts/lib/coordinator-workspace.sh: sha256:db2ba153ce0ab0126f6a1c6def88150c2b67e0ebc313e4ea546ff9eae3161542
     .claude/rules/core-principal.md: sha256:2713980ffbde09797ae2a27f046e31255aada776cf505cde181def10463191ff
     .claude/skills/core-communication/SKILL.md: sha256:27efe3d21b868ba3a8fb3020acaa6feeafd837e954909b2c537ef283bc4dc553
-    .claude/skills/core-dispatch/SKILL.md: sha256:dd4f9466f19d0e7ccfb79affa04fab40ac0d2e4f1cc3961dac865ce712506c64
-    .claude/skills/core-dispatch/references/orca.md: sha256:4e9d740d91d7a52014df270c5c6b37e3e46382dba04bb568f1b5801bc78d8b70
+    .claude/skills/core-dispatch/SKILL.md: sha256:0d652089bdb4267113292d11a60dbf68792a71e1b353431c25dbac5175f4f406
+    .claude/skills/core-dispatch/references/orca.md: sha256:69ed057ffdaf81ee012fc4d989097a4da2648d6cf4b300778624fcf20cfe9843
     .claude/skills/core-harness/SKILL.md: sha256:99c045d95e8dc280ded6ea6b097a2be74250332c29ed88d4f234484f2cfc88f0
     .claude/skills/core-retro/SKILL.md: sha256:eb696797ce02014584b939277d35552c9f02844402d480fb97f152bf56969c09
     .claude/skills/core-tools/SKILL.md: sha256:6ef187280006ff43a5fec623bbcccfcc86e53571cb156b770ddae63bf9c490cd
@@ -46,6 +49,7 @@ dependencies:
   local_path: ./core-principal
 - repo_url: agents365-ai/drawio-skill
   materialization_repo_url: Agents365-ai/drawio-skill
+  alias: drawio-skill
   name: drawio-skill
   host: github.com
   resolved_commit: 7aa92f73819766eb914fffac66762cf2adb5d828
@@ -221,6 +225,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail
   name: ponytail
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -240,6 +245,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail-audit
   name: ponytail-audit
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -259,6 +265,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail-debt
   name: ponytail-debt
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -278,6 +285,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail-gain
   name: ponytail-gain
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -297,6 +305,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail-help
   name: ponytail-help
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -316,6 +325,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: dietrichgebert/ponytail
+  alias: ponytail-review
   name: ponytail-review
   host: github.com
   resolved_commit: e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156
@@ -335,6 +345,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: gonta223/humanizer-ja
+  alias: humanizer-ja
   name: humanizer-ja
   host: github.com
   resolved_commit: a1e343696e43aa50e7218891f3319ab22cde3464
@@ -356,6 +367,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: humanlayer/skills
+  alias: show-me
   name: show-me
   host: github.com
   resolved_commit: ca7c8088db69e315a8b2deea43820270457f8f3c
@@ -378,6 +390,7 @@ dependencies:
   - claude
   declared_license: MIT
 - repo_url: k16shikano/eb2929f13ed19c97188393d297be8432
+  alias: cognitive-rhythm-writing
   name: cognitive-rhythm-writing
   host: gist.github.com
   resolved_commit: a3b1e26beced71d582e13314fb6f5b179b023c76
@@ -395,6 +408,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: k16shikano/fd287c3133457c4fd8f5601d34aa817d
+  alias: japanese-tech-writing
   name: japanese-tech-writing
   host: gist.github.com
   resolved_commit: 8f2d57610a73efc97d743c9b0b0ecb1002e09fa4
@@ -412,6 +426,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: grill-me
   name: grill-me
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -433,6 +448,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: grilling
   name: grilling
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -454,6 +470,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: handoff
   name: handoff
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -475,6 +492,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: teach
   name: teach
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -504,6 +522,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: to-questionnaire
   name: to-questionnaire
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -525,6 +544,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: wait-what
   name: wait-what
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -546,6 +566,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: mattpocock/skills
+  alias: writing-for-agents
   name: writing-for-agents
   host: github.com
   resolved_commit: c55ee46073ed923f86ce59a5eb3b6d895095d1b7
@@ -569,6 +590,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: computer-use
   name: computer-use
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -588,6 +610,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: linear-tickets
   name: linear-tickets
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -607,6 +630,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orca-cli
   name: orca-cli
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -626,6 +650,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orca-emulator
   name: orca-emulator
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -645,6 +670,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orca-emulator-android
   name: orca-emulator-android
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -664,6 +690,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orca-linear
   name: orca-linear
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -683,6 +710,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orca-per-workspace-env
   name: orca-per-workspace-env
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -702,6 +730,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: stablyai/orca
+  alias: orchestration
   name: orchestration
   host: github.com
   resolved_commit: a445abadd4b2fd75d987872c0aa9d274f05ab33b
@@ -721,6 +750,7 @@ dependencies:
   target_subset:
   - claude
 - repo_url: vercel-labs/skills
+  alias: find-skills
   name: find-skills
   host: github.com
   resolved_commit: 7407f3893ad4dceab546ac002c3ef806e4000c73
@@ -742,6 +772,15 @@ dependencies:
 deployments:
 - kind: project-relative
   target: claude
+  value: .claude/agents/completion-reviewer.md
+  runtime: null
+  scope: project
+  owners:
+  - ./core-principal
+  active_owner: ./core-principal
+  content_hash: sha256:4141cbf80cf6962e038f62519149117397245a51fe73364118f91a495af88956
+- kind: project-relative
+  target: claude
   value: .claude/commands/retro.md
   runtime: null
   scope: project
@@ -757,7 +796,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:f7bf085b584d158011a1f5dadb5e30ae8e9fd6250b499da20e96ef6ba14f6f45
+  content_hash: sha256:0055f51cc6fa1c73dec7940c15d27dca3d15e6c39bc67ae465cf6d451f33365f
 - kind: project-relative
   target: claude
   value: .claude/commands/worktree.md
@@ -793,7 +832,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:1a32a0d5c9399d9fd4ff5d09599d62b8985dbdf3e5b7daa6fcf358c3e5721729
+  content_hash: sha256:a79687acc40747d945be0243806f364e2e8fd8c46b2baafce19dfeaca1271544
 - kind: project-relative
   target: claude
   value: .claude/hooks/core-principal/.apm/hooks/scripts/guard-destructive-git.sh
@@ -892,7 +931,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:dd4f9466f19d0e7ccfb79affa04fab40ac0d2e4f1cc3961dac865ce712506c64
+  content_hash: sha256:0d652089bdb4267113292d11a60dbf68792a71e1b353431c25dbac5175f4f406
 - kind: project-relative
   target: claude
   value: .claude/skills/core-dispatch/references/orca.md
@@ -901,7 +940,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:4e9d740d91d7a52014df270c5c6b37e3e46382dba04bb568f1b5801bc78d8b70
+  content_hash: sha256:69ed057ffdaf81ee012fc4d989097a4da2648d6cf4b300778624fcf20cfe9843
 - kind: project-relative
   target: claude
   value: .claude/skills/core-harness
