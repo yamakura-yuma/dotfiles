@@ -77,19 +77,21 @@
   新しいシェルから有効。Orca の外では付かない。メトリクスのラベルでは `orca_worktree_name` になる
 - 入れていないもの: `ENABLE_BETA_TRACING_DETAILED` / `BETA_TRACING_ENDPOINT`。公式では
   これを有効にすると `tool_input`・`system_prompt_preview` などの中身が span に載り、
-  対話 CLI は組織の許可リスト入りが要る。ツール入力の中身は下の「送らないもの」と同じ理由で送らないので見送った。
+  対話 CLI は組織の許可リスト入りが要る。ツール入力の中身までは要らないので見送った。
   `claude_code.hook` span もこの beta の側にある
 - 送るもの（内容）: `OTEL_LOG_USER_PROMPTS=1`（依頼文）、`OTEL_LOG_TOOL_DETAILS=1`（Bash の
   コマンド、ファイルパス、skill 名、MCP のサーバ名・ツール名）、`OTEL_LOG_ASSISTANT_RESPONSES=1`
-  （応答文。公式ではプロンプトの設定に従うとされるので、明示的に同じ値にした）。
+  （応答文。公式ではプロンプトの設定に従うとされるので、明示的に同じ値にした）、
+  `OTEL_LOG_TOOL_CONTENT=1`（ツール出力の中身。トレースの `tool.output` span イベントに載る。
+  トレースが有効なことが前提で、1 件の上限は 60KB）。
   どの依頼が高くついたか・手戻りしたか、どのコマンドや skill が使われ失敗したかを見て、
   ハーネス・指示・モデル選択を改善する材料にするため。送り先はこの PC の中の
   `localhost:4318` だけで、外には出ない。内容の長さの上限
   （`CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH`、既定 60KB）は既定のまま。
-  秘密の値を伏せる処理は home-k8s 側の Collector に別途入れる（このリポジトリの範囲外）。
+  秘密の値を伏せる処理は home-k8s 側の Collector の `transform/redact` が担う（このリポジトリの範囲外）。
   `observe-share` で共有している間は、ログインした人に依頼文が見える
-- 送らないもの: ツール出力の中身（`OTEL_LOG_TOOL_CONTENT`）と API の生の本文
-  （`OTEL_LOG_RAW_API_BODIES`）。秘密が入りやすいので設定せず、既定のままにしている
+- 送らないもの: API の生の本文（`OTEL_LOG_RAW_API_BODIES`）。秘密が入りやすいので設定せず、
+  既定のままにしている
 - 受け口が無くても Claude Code は普通に動く。送れなかった span は捨てられる
 - 受け側（OTel Collector → Tempo → Grafana）の構築は home-k8s リポジトリの docs を参照
 
@@ -98,7 +100,7 @@
 
 止めるには `claude/telemetry-env.json` の `OTEL_TRACES_EXPORTER` を `none` にして
 `reload`。内容だけ止めるなら `OTEL_LOG_USER_PROMPTS`・`OTEL_LOG_TOOL_DETAILS`・
-`OTEL_LOG_ASSISTANT_RESPONSES` を `0` にして `reload`。
+`OTEL_LOG_ASSISTANT_RESPONSES`・`OTEL_LOG_TOOL_CONTENT` を `0` にして `reload`。
 マージはキーを足して上書きするだけで消さないので、ファイルからキーを消しても
 `~/.claude/settings.json` には残ります。完全に外すなら、あちらの `env` からも手で消して
 ください。
