@@ -40,7 +40,21 @@ cmd_nix_tools() {
   # `nix profile upgrade` warns and exits 0 when nothing matches, so an
   # `upgrade || install` chain silently installs nothing on a fresh profile.
   # Check first instead, and let real errors surface rather than hiding them.
-  if nix profile list | grep -qE '^Name:[[:space:]]+agent-tools$'; then
+  # Reloading from another checkout (or a worktree) makes `install` add the same
+  # attribute under a new originalUrl, named agent-tools-1..N, which then
+  # collides on priority. Drop every agent-tools* element except the one named
+  # exactly `agent-tools` that points at this checkout, then upgrade or install.
+  local name url have=0
+  while IFS=$'\t' read -r name url; do
+    if [ "$name" = agent-tools ] && [ "$url" = "path:$DIR" ]; then
+      have=1
+    else
+      nix profile remove "$name"
+    fi
+  done < <(nix profile list | sed 's/\x1b\[[0-9;]*m//g' | awk '
+    /^Name:/ { name = $2 }
+    /^Original flake URL:/ && name ~ /^agent-tools(-[0-9]+)?$/ { print name "\t" $4; name = "" }')
+  if [ "$have" = 1 ]; then
     nix profile upgrade agent-tools
   else
     nix profile install "path:$DIR#agent-tools"
