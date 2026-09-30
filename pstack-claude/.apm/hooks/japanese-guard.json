@@ -1,0 +1,1 @@
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"${PLUGIN_ROOT}/.apm/hooks/scripts/japanese-guard.py","timeout":15}]}]}}

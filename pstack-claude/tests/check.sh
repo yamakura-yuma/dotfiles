@@ -6,6 +6,8 @@
 #      the published skills both packages depend on.
 #   2. Each guard refuses what it exists to refuse and lets ordinary work
 #      through -- the only behaviour this package adds to upstream.
+#   3. japanese-guard is still upstream's script, and blocks an English
+#      final answer but not a Japanese one.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -81,6 +83,31 @@ expect 0 "default-branch blocked deleting a remote branch" bash_in guard-default
 expect 0 "default-branch fired on words inside a quoted argument" bash_in guard-default-branch "$tmp/origin-repo" 'orca x --spec "git push origin main"'
 expect 2 "destructive-git did not block reset --hard" bash_in guard-destructive-git "$tmp/child" "git reset --hard"
 expect 0 "destructive-git blocked reset --soft" bash_in guard-destructive-git "$tmp/child" "git reset --soft HEAD~1"
+
+# japanese-guard is vendored from minorun365/claude-code-japanese-guard at
+# e68864a (docs/japanese-guard.md): script and test are upstream's bytes.
+jg="$scripts/japanese-guard.py"
+echo "42a77c34a47a88fcfa2106252c7007f479539eef786c6cab91c0330f0e915547  $jg" | sha256sum -c --quiet - ||
+  fail "japanese-guard.py differs from upstream e68864a"
+echo "caa1cea475429ee3169447792ab6d622766240c233fe54ee55c1996cb2c126d3  $here/japanese-guard/test_japanese_guard.py" |
+  sha256sum -c --quiet - || fail "test_japanese_guard.py differs from upstream e68864a"
+jq -e '.hooks.Stop[0].hooks[0].command | endswith("/scripts/japanese-guard.py")' \
+  "$pkg/.apm/hooks/japanese-guard.json" >/dev/null || fail "japanese-guard.json does not run the script on Stop"
+[ -x "$jg" ] || fail "japanese-guard.py is not executable"
+
+stop() { printf '%s' "$1" | "$jg" 2>/dev/null; }
+en='{"last_assistant_message":"I have updated the configuration and all the tests pass now."}'
+[ "$(stop '{}')" = "" ] || fail "japanese-guard printed something for an empty input"
+stop "$en" | jq -e '.decision == "block"' >/dev/null || fail "japanese-guard let an English final answer through"
+[ "$(stop '{"last_assistant_message":"設定を更新し、テストがすべて通りました。"}')" = "" ] ||
+  fail "japanese-guard blocked a Japanese final answer"
+[ "$(stop "$(jq -c '.stop_hook_active = true' <<<"$en")")" = "" ] ||
+  fail "japanese-guard blocked twice in one turn"
+
+# Upstream's own tests, in upstream's layout: they find the hook at ../hooks/.
+mkdir -p "$tmp/jg/hooks" "$tmp/jg/tests"
+cp "$jg" "$tmp/jg/hooks/" && cp "$here/japanese-guard/test_japanese_guard.py" "$tmp/jg/tests/"
+python3 "$tmp/jg/tests/test_japanese_guard.py" >/dev/null || fail "upstream test_japanese_guard.py failed"
 
 [ "$failures" -eq 0 ] && echo "pstack-claude: ok"
 exit "$failures"
