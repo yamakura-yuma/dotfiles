@@ -105,11 +105,35 @@ merge_telemetry_env() {
   rm -f "$tmp"
 }
 
+# Keep the coordinator section of ~/CLAUDE.md in step with claude/home-CLAUDE.md.
+# Only the block between the markers is ours: `graphify claude install`
+# (agents-init) appends its own section to the same file, so the file cannot be
+# a symlink into this repo. The block is replaced in place, or appended on the
+# first run, dropping the unmarked copy that predates the markers.
+sync_home_claude_md() {
+  local f="$HOME/CLAUDE.md" b="<!-- >>> dotfiles >>> -->" e="<!-- <<< dotfiles <<< -->" tmp
+  [ -e "$f" ] || : >"$f"
+  tmp="$(mktemp "$f.XXXXXX")"
+  if grep -qF "$b" "$f"; then
+    awk -v b="$b" -v e="$e" -v src="$DIR/claude/home-CLAUDE.md" '
+      index($0, b) { print; while ((getline l < src) > 0) print l; skip = 1; next }
+      index($0, e) { skip = 0 }
+      !skip
+    ' "$f" >"$tmp"
+  else
+    { printf '%s\n' "$b"; cat "$DIR/claude/home-CLAUDE.md"; printf '%s\n\n' "$e"
+      awk '/^## /{skip = /^## ここは coordinator/} !skip' "$f"; } >"$tmp"
+  fi
+  cat "$tmp" >"$f"
+  rm -f "$tmp"
+}
+
 cmd_reload() {
   cmd_nix_tools
   mkdir -p ~/.claude ~/.local/bin ~/.apm ~/.config ~/.config/dotfiles
   ln -sfn "$DIR/claude/statusline.sh" ~/.claude/statusline.sh
   merge_telemetry_env
+  sync_home_claude_md
   install_host_apm_manifest
   ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
