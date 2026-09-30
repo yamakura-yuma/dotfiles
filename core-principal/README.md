@@ -191,9 +191,14 @@ because it is the one a sloppier regex would break every day.
 
 Two details worth knowing before editing it:
 
-- It reads `cwd` from the hook payload rather than `${CLAUDE_PROJECT_DIR}`,
-  which stays pinned to where the session started and does not follow Claude
-  into a worktree.
+- It judges the repository the command targets: it starts from `cwd` in the
+  hook payload rather than `${CLAUDE_PROJECT_DIR}`, which stays pinned to where
+  the session started and does not follow Claude into a worktree, then follows
+  `cd` and `git -C`. A directory or refspec it cannot read (`cd "$dir"`) gets
+  no opinion.
+- It splits the command roughly as a shell would, so a heredoc body or a quoted
+  argument that mentions `git push` does not trip it, and a push that names
+  only other branches (`--delete b`, `:b`, `HEAD:feature`) passes.
 - It resolves the default branch from the local `refs/remotes/origin/HEAD`
   ref, never `git remote show origin` — that would put a network round trip in
   front of every Bash call.

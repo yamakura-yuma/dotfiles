@@ -69,8 +69,8 @@ check 0 $g 'echo "git reset --hard"'
 check 0 $g 'git commit -m "undo the reset --hard"'
 
 # --- guard-default-branch ----------------------------------------------------
-# Branch-dependent cases are covered by the hook running for real; here we only
-# pin the fail-open paths, which are the ones a refactor is likely to break.
+# Commands that never reach a branch lookup. The branch-dependent cases need
+# real repositories and run against the fixture below.
 b=guard-default-branch.sh
 check 0 $b 'ls -la'
 check 0 $b 'echo "git commit"'
@@ -85,12 +85,17 @@ fixture="$(mktemp -d)"
 coordinator="$fixture/coordinator"
 child="$fixture/child"
 outside="$fixture/outside"
+other="$fixture/other"
 mkdir -p "$coordinator" "$outside"
 git init -q "$coordinator" >/dev/null 2>&1
 git -C "$coordinator" symbolic-ref HEAD refs/heads/main
 git -C "$coordinator" -c user.email=t@example.invalid -c user.name=t \
   commit -q --allow-empty -m init
 git -C "$coordinator" worktree add -q "$child" -b feature/x >/dev/null 2>&1
+# A second repository, on a branch of its own, for commands that cd or -C away
+# from the session's cwd.
+git init -q "$other" >/dev/null 2>&1
+git -C "$other" symbolic-ref HEAD refs/heads/feature/y
 
 # Runs one Edit case: expected exit code, the directory the session is in, and
 # the file it wants to write. Any remaining arguments are NAME=VALUE pairs put
@@ -141,6 +146,76 @@ printf '%s' "$out" | grep -q 'core-dispatch' ||
   { echo "FAIL dispatch-in-coordinator should point at the core-dispatch skill" >&2; failures=$((failures + 1)); }
 [ -z "$(emitted "$child")" ] ||
   { echo "FAIL dispatch-in-coordinator should stay silent in a child worktree" >&2; failures=$((failures + 1)); }
+
+# --- guard-default-branch ----------------------------------------------------
+# Runs one Bash case: expected exit code, the session's cwd, and the command.
+# HOME points at the fixture so `~` in a command has something real to reach;
+# remaining arguments are NAME=VALUE pairs, as for check_edit.
+check_bash() {
+  local want="$1" cwd="$2" cmd="$3"
+  shift 3
+  local payload got
+  payload="$(jq -nc --arg cmd "$cmd" --arg cwd "$cwd" \
+    '{tool_name:"Bash", tool_input:{command:$cmd}, cwd:$cwd}')"
+  printf '%s' "$payload" | env -u MAKURA_ALLOW_MAIN HOME="$fixture" "$@" "$scripts/$b" >/dev/null 2>&1
+  got=$?
+  if [ "$got" != "$want" ]; then
+    printf 'FAIL want=%s got=%s  %s (cwd %s)\n' "$want" "$got" "$cmd" "$cwd" >&2
+    failures=$((failures + 1))
+  fi
+}
+# What the guard exists for.
+check_bash 2 "$coordinator" 'git commit -m x'
+check_bash 2 "$coordinator" 'git push'
+check_bash 2 "$coordinator" 'git push origin main'
+check_bash 2 "$coordinator" 'git push -u origin HEAD'
+check_bash 2 "$coordinator" 'git push origin feature/x:main'
+check_bash 2 "$coordinator" 'git push --all origin'
+check_bash 2 "$coordinator" 'git status && git push'
+check_bash 0 "$child" 'git commit -m x'
+check_bash 0 "$coordinator" 'git commit -m x' MAKURA_ALLOW_MAIN=1
+# The everyday commit shape: the message is a heredoc inside $( ) inside
+# quotes, and still a commit on main.
+check_bash 2 "$coordinator" "git commit -m \"\$(cat <<'EOF'
+fix
+
+see the git push docs
+EOF
+)\""
+# The repository judged is the one the command targets, both directions: away
+# from the coordinator passes, into it from a child is still refused.
+check_bash 0 "$coordinator" "cd $other && git push"
+check_bash 0 "$coordinator" "cd ~/other && git commit -m x"
+check_bash 0 "$coordinator" 'cd "$HOME/other" && git push'
+check_bash 0 "$coordinator" "git -C $other push"
+check_bash 0 "$coordinator" "git -C ../other commit -m x"
+check_bash 0 "$coordinator" "( cd $other && git push )"
+check_bash 2 "$coordinator" "( cd $other ) && git push"
+check_bash 2 "$coordinator" "cd $other; git commit -m x; cd $coordinator; git push"
+check_bash 2 "$child" "cd $coordinator && git commit -m x"
+check_bash 2 "$child" "git -C $coordinator push"
+# A directory the hook cannot read has no opinion, like every other unknown.
+check_bash 0 "$coordinator" 'cd "$dir" && git push'
+check_bash 0 "$coordinator" 'git -C "$(git rev-parse --show-toplevel)" push'
+# Pushes that name a destination other than the default branch.
+check_bash 0 "$coordinator" 'git push origin --delete feature/x'
+check_bash 0 "$coordinator" 'git push -d origin feature/x'
+check_bash 0 "$coordinator" 'git push origin :feature/x'
+check_bash 0 "$coordinator" 'git push -u origin feature/x'
+check_bash 0 "$coordinator" 'git push origin HEAD:refs/heads/feature/x'
+check_bash 2 "$coordinator" 'git push origin --delete main'
+# The words appearing in text rather than as a command.
+check_bash 0 "$coordinator" 'orca orchestration worker-start --spec "cd x && git push origin main" --json'
+check_bash 0 "$coordinator" "orca orchestration worker-start --spec \"\$(cat <<'EOF'
+Do the work, then git commit and git push origin main.
+EOF
+)\" --json"
+check_bash 0 "$coordinator" "cat > notes.md <<'EOF'
+git push origin main
+EOF"
+check_bash 0 "$coordinator" '# git push origin main'
+check_bash 0 "$coordinator" "echo 'git commit -m x'"
+check_bash 0 "$coordinator" 'grep -n "git push" README.md'
 
 git -C "$coordinator" worktree remove --force "$child" >/dev/null 2>&1
 rm -rf "$fixture"

@@ -75,6 +75,9 @@ expect 2 "coordinator-edit did not block an edit on main of an original checkout
 expect 0 "coordinator-edit blocked an edit in a child worktree" edit "$tmp/child"
 expect 2 "default-branch did not block a commit on main" bash_in guard-default-branch "$tmp/origin-repo" "git commit -m x"
 expect 0 "default-branch blocked a commit on a feature branch" bash_in guard-default-branch "$tmp/child" "git commit -m x"
+expect 0 "default-branch judged cd <child> by the session's cwd" bash_in guard-default-branch "$tmp/origin-repo" "cd $tmp/child && git push"
+expect 0 "default-branch blocked deleting a remote branch" bash_in guard-default-branch "$tmp/origin-repo" "git push origin --delete feature"
+expect 0 "default-branch fired on words inside a quoted argument" bash_in guard-default-branch "$tmp/origin-repo" 'orca x --spec "git push origin main"'
 expect 2 "destructive-git did not block reset --hard" bash_in guard-destructive-git "$tmp/child" "git reset --hard"
 expect 0 "destructive-git blocked reset --soft" bash_in guard-destructive-git "$tmp/child" "git reset --soft HEAD~1"
 
