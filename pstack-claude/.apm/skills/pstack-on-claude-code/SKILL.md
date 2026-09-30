@@ -205,11 +205,14 @@ topics in, and one **topic chat** per topic sees that topic through.
 | | Main chat | Topic chat |
 |---|---|---|
 | Runs in | The coordinator's original checkout, where the UserPromptSubmit hook fires | Its own worktree `chat-<topic>` of the coordinator repo, opened by the main chat |
-| Does | Intake, status across topics, closing finished topics | Owns the topic's Run: `worker-start`, `check --wait`, pickup, release, worker cleanup |
+| Does | Intake, status across topics, closing finished topics | Owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
 | Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
-- **Reply shape.** Every reply of either chat ends with two blocks, including
-  the short acknowledgement after a background notification.
+- **Reply shape.** Every reply of either chat ends with two blocks. Write
+  nothing at all, no acknowledgement and no checklist, when all a background
+  return brought was heartbeats or an empty wait: reply only when a topic's
+  state changed (`worker_done`, `escalation`, `question`, a report file or a
+  PR appeared, or the human wrote).
   1. A checklist, one line per topic (main chat) or per worker (topic chat):
      state symbol (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌
      failed), name, repo, one line of current state, PR link (「—」 until there
@@ -244,7 +247,7 @@ topics in, and one **topic chat** per topic sees that topic through.
   claude-sonnet-5-5`. apm does not deploy a `model` setting into the
   consuming repo, so there is no file to put it in.
 - **Hand over a Run you already hold.** A Run has one consuming terminal. Stop
-  your background `check --wait` first, ack what it returned, and only then
+  your background `wait-worker-events` first, ack what it returned, and only then
   run the script with `--run <run_id>`; the topic chat binds it with
   `run-use`. Your next consuming call fails `consumer_fenced`: leave it, since
   the main chat stays unbound.
@@ -282,13 +285,13 @@ topics in, and one **topic chat** per topic sees that topic through.
   `worker-start` into the Run (`--task-title` = unit, `--name` = kebab worker
   name); the Models table picks the worker: implementation change, design
   research, design documents. Report in one line: worker name, repo, model.
-  The chat's first start also starts `check --wait` below; restart it after
+  The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
-  `orca orchestration check --ack <delivery_id>` (add `--wait --types
-  "worker_done,escalation,question" --timeout-ms <n> --json` to keep waiting).
+  restart the wait with `wait-worker-events --ack <delivery_id>` (below),
+  which acks and keeps waiting in one call.
   An un-acked Delivery keeps returning and queues newer ones behind it.
 - **Triage is a report, not a worker.** A message with `type=status` and a
   `[triage]` subject comes from the scheduled PR/Issue triage. Read the report
@@ -298,14 +301,24 @@ topics in, and one **topic chat** per topic sees that topic through.
   happens after the human approves it. It is sent to `@worktree:`, so every Run
   with a coordinator terminal in that worktree gets a copy with the same
   `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
-  copies with `check --run <run_id> --ack <delivery_id>`). `check --wait` does
+  copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events` does
   not wake on `status`; the message arrives with the next `check`.
-- **Wait with `check --wait`.** Run `check --wait --types
-  "worker_done,escalation,question" --timeout-ms <n> --json` with Bash
-  `run_in_background`; when it returns, process, ack, and start it again. An
-  empty result is a checkpoint, not a failure. After three empty waits in a row,
-  read `worker-list --include-remote --json` and follow each row's
-  `projection.attention` and `nextAction`.
+- **Wait with `wait-worker-events`.** Run
+  `.claude/skills/pstack-on-claude-code/scripts/wait-worker-events [--ack
+  <delivery_id>]` with Bash `run_in_background`, and never a bare `check
+  --wait`: a Run takes one waiter. It waits with `heartbeat` among the wake
+  types, so Orca types no "You have N orchestration messages" into this
+  terminal for a heartbeat, and it acks heartbeat-only batches itself. It
+  returns only with a batch holding something else, or empty at its deadline;
+  process the batch, then restart it with `--ack <delivery_id>`. An empty return
+  is a checkpoint: restart it and write nothing. After three empty returns in a
+  row, read `worker-list --include-remote --json` and follow each row's
+  `projection.attention` and `nextAction`; write only if one needs action.
+- **Heartbeats are not news.** If "You have N orchestration messages" still
+  arrives and the batch holds only heartbeats, ack it and restart the wait
+  without a word. Orca types that line into the terminal itself, not through a
+  hook, whenever no live waiter covers the message type, so it cannot be
+  switched off entirely.
 - **Pick up completion without the notification.** `worker_done` can arrive
   late or never. When checking status, read the unacked inbox (`orca
   orchestration check --peek`), the worker's card comment (`orca worktree ps`)
