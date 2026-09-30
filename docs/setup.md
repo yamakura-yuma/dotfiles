@@ -15,7 +15,7 @@ cd ~/dotfiles
 | --- | --- |
 | `./setup.sh install-nix` | Nix 本体を入れる。ホストにつき1回 |
 | `./setup.sh nix-tools` | `flake.nix` のバンドル（`jq` / `uv` / `node`）を `nix profile` で入れる |
-| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm` と `versions.env` で固定した `codegraph`・`graphifyy`・`headroom-ai` の導入、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く |
+| `./setup.sh reload` | `nix-tools`、シンボリックリンクの張り直し、`apm` と `versions.env` で固定した `codegraph`・`graphifyy`・`headroom-ai` の導入、`host-apm.yml` からの `apm install -g`、チェックアウト内での `apm install`。いつ再実行しても安全で、リポジトリを別の場所に移した後でも動く。別のチェックアウトから打つと、`nix profile` にある `agent-tools*` のうちそのチェックアウトを指さないものを外してから入れ直す（profile はホストに1つなので、worktree から打つと profile がその worktree を指す） |
 | `./setup.sh agents-init` | headroom の常駐プロキシと Claude Code ルーティングフック、graphify の Claude Code 統合。長時間動くプロセスを起こすので `reload` には含めない。ホストにつき1回 |
 | `./setup.sh`（引数なし） | 上を順に全部。新規ホストのブートストラップ |
 

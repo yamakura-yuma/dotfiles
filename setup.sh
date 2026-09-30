@@ -31,17 +31,36 @@ cmd_install_nix() {
   "$DIR/bin/install-nix.sh"
 }
 
+# nix colours `profile list` even when piped, which breaks anchored matches.
+nix_profile_list() {
+  nix profile list | sed 's/\x1b\[[0-9;]*m//g'
+}
+
 cmd_nix_tools() {
   ensure_nix_on_path
   if ! command -v nix >/dev/null 2>&1; then
     echo "setup.sh: nix not on PATH; run './setup.sh install-nix' first" >&2
     return 1
   fi
+  # Elements of this bundle can come from another checkout (an old path, a
+  # worktree). `install` from a different originalUrl adds agent-tools-1..N
+  # and then fails on priority conflicts, so drop every agent-tools* that
+  # does not point at this checkout before deciding between upgrade and
+  # install. The listing is "Name:" then "Original flake URL:" per element.
+  local name stale current
+  stale="$(nix_profile_list | awk -v want="path:$DIR" '
+    /^Name:/ { name = $2 }
+    /^Original flake URL:/ && name ~ /^agent-tools(-[0-9]+)?$/ && $4 != want { print name }')"
+  for name in $stale; do
+    echo "setup.sh: removing stale $name (not from $DIR)" >&2
+    nix profile remove "$name"
+  done
   # `nix profile upgrade` warns and exits 0 when nothing matches, so an
   # `upgrade || install` chain silently installs nothing on a fresh profile.
   # Check first instead, and let real errors surface rather than hiding them.
-  if nix profile list | grep -qE '^Name:[[:space:]]+agent-tools$'; then
-    nix profile upgrade agent-tools
+  current="$(nix_profile_list | awk '/^Name:/ && $2 ~ /^agent-tools(-[0-9]+)?$/ { print $2 }')"
+  if [ -n "$current" ]; then
+    for name in $current; do nix profile upgrade "$name"; done
   else
     nix profile install "path:$DIR#agent-tools"
   fi
