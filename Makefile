@@ -53,7 +53,7 @@ lint-shell:
 lint-exec:
 	@echo "== executable bits"
 	@$(ls_src) 'core-principal/.apm/hooks/scripts/*.sh' 'core-principal/tests/*.sh' \
-	    'claude/tests/*.sh' 'pstack-claude/.apm/hooks/scripts/*.sh' 'pstack-claude/tests/*.sh' \
+	    'claude/tests/*.sh' 'pstack-claude/.apm/hooks/scripts/*.sh' 'pstack-claude/.apm/hooks/scripts/*.py' 'pstack-claude/tests/*.sh' \
 	    ':(exclude)core-principal/tests/eval/cases/*' \
 	    ':(exclude)core-principal/.apm/hooks/scripts/lib/*' ':(exclude)pstack-claude/.apm/hooks/scripts/lib/*' | \
 	  while IFS= read -r f; do \
