@@ -71,8 +71,14 @@
   メトリクス（cost・token・lines_of_code・commit・pull_request・active_time・session.count
   など）とログ（user_prompt・tool_result・api_request 等のイベント）。メトリクスは
   Prometheus 向けに `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative`。
-  `OTEL_METRICS_INCLUDE_REPOSITORY=true` でリポジトリを、`OTEL_METRICS_INCLUDE_SESSION_ID=false`
-  でセッション ID を外す（ラベルの濃度を抑える。ワーカーの区別は下の属性で足りる）
+  `OTEL_METRICS_INCLUDE_REPOSITORY=true` でリポジトリを、`OTEL_METRICS_INCLUDE_SESSION_ID=true`
+  でセッション ID を、メトリクスとイベント（ログ）に付ける（スパンには元から付いている）。
+  grafana.com 25255 などのセッション系パネルが `session_id` のラベルで数えるので、外すと
+  誤った値になる（home-k8s #19）。ラベルの濃度は実測で小さい: worktree とセッションがほぼ
+  1 対 1 なので、系列は 1 日に約 1,800 本から約 2,000 本に増える程度で、Loki では
+  structured metadata に入るためストリームは増えない。キーを消さずに `true` と書くのは、
+  `merge_claude_settings` が足すだけで消さず、消すと settings.json に古い `"false"` が
+  残るため。反映は `reload` の後に起動したセッションから有効。
 - ワーカー識別: `shell/prompt.sh` が Orca の `ORCA_WORKTREE_ID`（`<uuid>::<path>`）から
   `OTEL_RESOURCE_ATTRIBUTES=orca.worktree.id=<uuid>,orca.worktree.name=<worktree 名>` を
   シェルで export する。settings.json の `env` は静的で、シェルの値を上書きするので使わない。
