@@ -30,19 +30,26 @@ skip() {
 # Compiles into a throwaway copy rather than in place: this script is reached
 # through `make ci`, and verification must not modify the repo it is
 # verifying.
+#
+# At the repo root, apm compile reads core-principal from apm_modules/, which
+# only `apm install` creates -- and that fetches the package's git deps, so a
+# fresh checkout or CI has nothing to compile. The root has no .apm/ of its
+# own, so compiling the package's sources --local-only yields the same file
+# offline. What that gives up: whether apm.yml's compilation.exclude still
+# keeps pstack-claude/ out, which only shows once dependencies are installed.
 check_agents_md() {
   command -v apm >/dev/null 2>&1 || { skip "no apm, not checking AGENTS.md"; return; }
   [ -f "$repo/AGENTS.md" ] || { skip "no AGENTS.md to check"; return; }
 
   local tmp
   tmp="$(mktemp -d)" || { fail "mktemp"; return; }
-  tar -C "$repo" -cf - --exclude=.git --exclude=graphify-out . 2>/dev/null |
+  tar -C "$repo" -cf - --exclude=.git --exclude=graphify-out --exclude=apm_modules . 2>/dev/null |
     tar -C "$tmp" -xf - 2>/dev/null
-  if (cd "$tmp" && apm compile --target agents) >/dev/null 2>&1; then
-    diff -u "$repo/AGENTS.md" "$tmp/AGENTS.md" ||
+  if (cd "$tmp/core-principal" && apm compile --target agents --local-only) >/dev/null 2>&1; then
+    diff -u "$repo/AGENTS.md" "$tmp/core-principal/AGENTS.md" ||
       fail "AGENTS.md is stale -- run: apm compile --target agents"
   else
-    fail "apm compile --target agents did not succeed on a clean copy"
+    fail "apm compile --target agents --local-only did not succeed in core-principal/"
   fi
   rm -rf "$tmp"
 }
