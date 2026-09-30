@@ -155,7 +155,7 @@ Claude Code 組み込みの advisor の説明には完了時の項目が残っ�
 
 ```unknown
 完了前レビュー: 完了条件を満たしたと判断したら、PR を出す前に Agent ツールで
-completion-reviewer サブエージェントを前景で（run_in_background なしで）呼び、この spec の全文とラウンド番号を渡す。
+completion-reviewer サブエージェントを前景で（run_in_background なしで）呼び、この spec の全文（要約・省略しない）、報告ファイルのパス、ラウンド番号を渡す。
 verdict が pass なら PR を出して worker_done を送る。fail なら required をすべて直して
 もう一度だけ呼ぶ（再レビュー）。optional は直すかどうかを自分で決める。再レビューが
 pass なら PR を出して worker_done を送る。再レビューでも fail なら PR を出さず、残った

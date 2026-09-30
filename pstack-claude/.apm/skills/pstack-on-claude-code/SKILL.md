@@ -151,8 +151,8 @@ the PR but returns them, and the coordinator asks the human.
 ```
 Review before PR: once you judge the completion criteria met, and before
 opening the PR, call the completion-reviewer subagent with the Agent tool in
-the foreground (no run_in_background), passing this spec verbatim and the
-round number. On verdict pass, open the PR and send worker_done. On fail, fix
+the foreground (no run_in_background), passing this spec verbatim (no summary, no
+omissions), the report file path, and the round number. On verdict pass, open the PR and send worker_done. On fail, fix
 every required finding and call it once more (the re-review); optional
 findings are your call. If the re-review passes, open the PR and send
 worker_done. If it still fails, do not open the PR: write the remaining
