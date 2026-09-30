@@ -11,7 +11,7 @@
 | `bin/install-nix.sh` | Nix 本体のインストール。ホストにつき1回 |
 | `bin/install-apm.sh` | `apm` を GitHub リリースのバイナリから入れる（nixpkgs に無いため） |
 | `claude/statusline.sh` | Claude Code の statusline |
-| `claude/telemetry-env.json` | OpenTelemetry トレースの環境変数。`reload` が `~/.claude/settings.json` の `env` にマージする。[トレース](#トレース) |
+| `claude/telemetry-env.json` | OpenTelemetry（トレース・メトリクス・ログ）の環境変数。`reload` が `~/.claude/settings.json` の `env` にマージする。[トレース](#トレース) |
 | `claude/home-CLAUDE.md` | `~/CLAUDE.md` の coordinator 節の正。`reload` が `~/CLAUDE.md` のマーカー間に流し込む |
 | `starship.toml` | シェルプロンプトの設定。`kubernetes` モジュールを有効にし、`git_status` を記号ではなく件数で出す。`reload` が `~/.config/starship.toml` にリンクする |
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
@@ -61,12 +61,24 @@
 ## トレース
 
 このホストの Claude Code はすべて（coordinator もワーカーも）、公式の OpenTelemetry
-トレース（beta）を `http://localhost:4318` に OTLP/HTTP で送ります。値は
+トレース（beta）・メトリクス・ログを `http://localhost:4318` に OTLP/HTTP で送ります。値は
 `claude/telemetry-env.json` にあり、`reload` が `~/.claude/settings.json` の `env` に
 マージします。
 
-- 送るもの: `claude_code.interaction` を根に、`llm_request`・`tool`・`hook` の span。
-  メトリクスとログは送らない（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`）
+- 送るもの: トレースは `claude_code.interaction` を根に `llm_request`・`tool` の span。
+  メトリクス（cost・token・lines_of_code・commit・pull_request・active_time・session.count
+  など）とログ（user_prompt・tool_result・api_request 等のイベント）。メトリクスは
+  Prometheus 向けに `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=cumulative`。
+  `OTEL_METRICS_INCLUDE_REPOSITORY=true` でリポジトリを、`OTEL_METRICS_INCLUDE_SESSION_ID=false`
+  でセッション ID を外す（ラベルの濃度を抑える。ワーカーの区別は下の属性で足りる）
+- ワーカー識別: `shell/prompt.sh` が Orca の `ORCA_WORKTREE_ID`（`<uuid>::<path>`）から
+  `OTEL_RESOURCE_ATTRIBUTES=orca.worktree.id=<uuid>,orca.worktree.name=<worktree 名>` を
+  シェルで export する。settings.json の `env` は静的で、シェルの値を上書きするので使わない。
+  新しいシェルから有効。Orca の外では付かない。メトリクスのラベルでは `orca_worktree_name` になる
+- 入れていないもの: `ENABLE_BETA_TRACING_DETAILED` / `BETA_TRACING_ENDPOINT`。公式では
+  これを有効にすると `tool_input`・`system_prompt_preview` などの中身が span に載り、
+  対話 CLI は組織の許可リスト入りが要る。下の「送らないもの」に反するので見送った。
+  `claude_code.hook` span もこの beta の側にある
 - 送らないもの: プロンプト、応答、ツールの入出力。`OTEL_LOG_USER_PROMPTS`・
   `OTEL_LOG_TOOL_DETAILS`・`OTEL_LOG_TOOL_CONTENT` は設定せず、既定の伏せ字のまま
 - 受け口が無くても Claude Code は普通に動く。送れなかった span は捨てられる
