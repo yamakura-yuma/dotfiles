@@ -146,7 +146,7 @@ spec に貼り、そちらへ誘導します（`core-dispatch` の「advisor の
 | 見るもの | どこで |
 | --- | --- |
 | 呼ばれた回数 | `claude -p --debug-file <path>` のログの `Advisor tool called` の行数 |
-| Fable の費用 | Grafana のモデル別コストの `claude-fable-*` の行 |
+| Fable の費用 | Grafana のモデル別コストの `claude-fable-*` の行。ホスト設定なので `completion-reviewer` が呼んだ分も含む |
 | 完了前レビューの必須指摘が減ったか | ワーカーの報告ファイルに貼られた各ラウンドの `required` |
 
 有効になったかは `claude -p --debug-file <path>` のログに `[AdvisorTool] Server-side tool

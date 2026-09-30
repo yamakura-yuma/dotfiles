@@ -1,6 +1,6 @@
 ---
 name: completion-reviewer
-description: Reviews a worker's finished change against its spec before the PR is opened, and returns required and optional findings with a pass or fail verdict. Read-only. Use when an implementation worker judges its completion criteria met, and once more after the fixes.
+description: Reviews a worker's finished change against its spec before the PR is opened, and returns required and optional findings with a pass or fail verdict. Read-only. Use when an implementation worker judges its completion criteria met, and again after the fixes, up to the re-review limit the spec sets.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
