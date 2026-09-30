@@ -224,29 +224,28 @@ topics in, and one **topic chat** per topic sees that topic through.
 
 - **Open a topic chat for each new topic, without asking.** Sort each message
   into a new topic, a continuation, a status question or a control (stop,
-  close). A new topic never starts a worker here. Pick a kebab `<topic>`, then
-  in order:
-  1. `orca worktree create --repo id:<coordinatorRepoId> --name chat-<topic>
-     --setup skip --no-parent --json`. The repo id is the part of a
-     `worktree list --json` id before `::`; `--no-parent` keeps unrelated
-     topics from nesting under this one. Read the path from the result.
-  2. `apm install` in that path. `.claude/` and `apm_modules/` are gitignored,
-     so a fresh worktree has no harness until this runs.
-  3. `orca terminal create --worktree path:<path> --title <topic> --command
-     'claude "$(cat <handoff file>)"' --json`. Write the hand-off file in your
-     scratchpad; reading it back with `cat` keeps quotes and newlines out of
-     the typed command. It holds the topic, the human's request verbatim, the
-     target repo, the Run id if one is being handed over (below), and the
-     role: "You are the topic chat for `<topic>`. Dispatch workers with
-     `worker-start`; do not implement. Follow `pstack-on-claude-code`'s
-     'Supervising Orca workers', Topic chat." The hook and the edit guard stay
-     silent in a child worktree, so this text is the only place the topic
-     chat is told its role.
+  close). A new topic never starts a worker here. Pick a kebab `<topic>` and
+  run `.claude/skills/pstack-on-claude-code/scripts/open-topic-chat
+  [--run <run_id>] <topic> "<hand-off>"`. It creates the worktree
+  `chat-<topic>` of the coordinator repo (repo id read from `orca worktree
+  list`, or `--repo <selector>`; `--setup skip --no-parent` so unrelated topics
+  do not nest), runs `apm install` there (`.claude/` and `apm_modules/` are
+  gitignored, so a fresh worktree has no harness), and opens `claude --model
+  claude-opus-5-5` on the hand-off. It adds the topic chat's role (the hook and
+  the edit guard stay silent in a child worktree, so that text is the only place
+  the chat is told) and, with `--run`, the instruction to bind that Run. The
+  hand-off is the topic, the human's request verbatim and the target repo. It
+  prints the worktree path and the terminal handle.
   Opening the session is yours, not the human's. Report in one line: topic,
   chat worktree, repo.
+- **Session models.** `--model` outranks every `model` setting, so the script pins the
+  topic chat to Opus and it stays Opus even where project settings name another
+  model. The main chat is Sonnet: the human starts it with `claude --model
+  claude-sonnet-5-5`. apm does not deploy a `model` setting into the
+  consuming repo, so there is no file to put it in.
 - **Hand over a Run you already hold.** A Run has one consuming terminal. Stop
   your background `check --wait` first, ack what it returned, and only then
-  run step 3 with the Run id in the hand-off; the topic chat binds it with
+  run the script with `--run <run_id>`; the topic chat binds it with
   `run-use`. Your next consuming call fails `consumer_fenced`: leave it, since
   the main chat stays unbound.
 - Continuation: `orca terminal list --worktree path:<path>` gives the topic
