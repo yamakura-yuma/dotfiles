@@ -4,12 +4,14 @@
 #
 #   wait-worker-events [--ack <delivery_id>] [--run <run_id>] [--deadline-ms <n>]
 #
-# A `check --wait` whose --types leaves out `heartbeat` gets no waiter for it, so
-# Orca types "You have N orchestration messages" into the terminal for every
-# heartbeat. Waiting on heartbeat too makes the heartbeat reach this script
+# A `check --wait` whose --types leaves out a type gets no waiter for it, so Orca
+# types "You have N orchestration messages" into the terminal for every message
+# of that type. `status` (a worker's state changed) is one the LLM should wake
+# for, so it is waited on and returned like worker_done. Waiting on heartbeat too
+# makes the heartbeat reach this script
 # instead: it acks a heartbeat-only batch itself and waits again. It returns, with
 # exit 0 and one JSON on stdout, only for a batch holding anything else
-# (worker_done, escalation, question), or empty at the deadline. Anything Orca
+# (worker_done, escalation, question, status), or empty at the deadline. Anything Orca
 # refuses (ok:false, non-JSON, a non-zero exit, waiter_exists) is printed as it
 # came and returns 1. A Run takes one waiter, so never run this next to a bare
 # `check --wait`.
@@ -55,7 +57,7 @@ while :; do
   args=(orchestration check)
   [ -n "$run" ] && args+=(--run "$run")
   [ -n "$ack" ] && args+=(--ack "$ack")
-  args+=(--wait --types "worker_done,escalation,question,heartbeat" --timeout-ms "$per" --json)
+  args+=(--wait --types "worker_done,escalation,question,status,heartbeat" --timeout-ms "$per" --json)
   call_start="$(now_ms)"
   out="$(orca "${args[@]}" 2>/dev/null)"; rc=$?
   ack=""

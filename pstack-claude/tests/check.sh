@@ -170,9 +170,11 @@ n=$(( $(cat "$WEV_LOG.n" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$WEV_LOG.n"
 echo '{"_keepalive":true}' >&2
 hb='{"type":"heartbeat","from":"w1","subject":"alive","payload":"{\"phase\":\"working\"}"}'
 done_='{"type":"worker_done","from":"w1","subject":"finished","payload":"{}"}'
+status_='{"type":"status","from":"w1","subject":"[triage] report","payload":"{}"}'
 case "$WEV_MODE/$n" in
   hb_done/1) echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
   hb_done/*) echo "{\"deliveryId\":\"d2\",\"messages\":[$hb,$done_],\"count\":2}" ;;
+  hb_status/*) echo "{\"deliveryId\":\"d4\",\"messages\":[$hb,$status_],\"count\":2}" ;;
   wrapped/*) echo "{\"ok\":true,\"result\":{\"deliveryId\":\"d3\",\"messages\":[$done_],\"count\":1}}" ;;
   hb_late/1) sleep 0.3; echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
   hb_late/*) echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
@@ -198,13 +200,19 @@ out="$(wev_run hb_done --ack D0 --run run_1)"; rc=$?
 sed -n 1p "$tmp/wev.log" | grep -q -- '--run run_1 --ack D0 ' || fail "wait-worker-events did not pass --run and the first --ack to its first check"
 sed -n 2p "$tmp/wev.log" | grep -q -- '--ack d1 ' || fail "wait-worker-events did not ack the heartbeat batch on its next check"
 sed -n 2p "$tmp/wev.log" | grep -q -- 'D0' && fail "wait-worker-events sent the first --ack twice"
-[ "$(grep -c -- '--wait --types worker_done,escalation,question,heartbeat --timeout-ms 900000 --json$' "$tmp/wev.log")" -eq 2 ] ||
-  fail "wait-worker-events did not wait on worker_done,escalation,question,heartbeat in 900000 ms slices"
+[ "$(grep -c -- '--wait --types worker_done,escalation,question,status,heartbeat --timeout-ms 900000 --json$' "$tmp/wev.log")" -eq 2 ] ||
+  fail "wait-worker-events did not wait on worker_done,escalation,question,status,heartbeat in 900000 ms slices"
 [ "$(printf '%s\n' "$out" | jq -s length)" -eq 1 ] || fail "wait-worker-events printed more or less than one JSON"
 printf '%s' "$out" | jq -e '.deliveryId == "d2" and (.messages | map(.type) == ["worker_done"]) and .count == 1' >/dev/null ||
   fail "wait-worker-events did not return the worker_done batch (heartbeat dropped, deliveryId kept)"
 grep -q keepalive <<<"$out" && fail "wait-worker-events let the stderr keepalive into stdout"
 [ -e "$tmp/wev-state" ] && fail "wait-worker-events wrote a heartbeat log"
+
+# A status is news, not a heartbeat: it comes back (heartbeat dropped), not acked here.
+out="$(wev_run hb_status)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(wc -l < "$tmp/wev.log")" -eq 1 ] &&
+  printf '%s' "$out" | jq -e '.deliveryId == "d4" and (.messages | map(.type) == ["status"]) and .count == 1' >/dev/null ||
+  fail "wait-worker-events did not return a status batch (heartbeat dropped, deliveryId kept)"
 
 out="$(wev_run wrapped)"; rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.ok == true and .result.deliveryId == "d3"' >/dev/null ||

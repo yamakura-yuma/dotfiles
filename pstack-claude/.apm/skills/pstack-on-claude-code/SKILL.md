@@ -220,7 +220,7 @@ topics in, and one **topic chat** per topic sees that topic through.
 - **Reply shape.** Every reply of either chat ends with two blocks. Write
   nothing at all, no acknowledgement and no checklist, when all a background
   return brought was heartbeats or an empty wait: reply only when a topic's
-  state changed (`worker_done`, `escalation`, `question`, a report file or a
+  state changed (`worker_done`, `escalation`, `question`, a `status`, a report file or a
   PR appeared, or the human wrote).
   1. A checklist, one line per topic (main chat) or per worker (topic chat):
      state symbol (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌
@@ -310,15 +310,15 @@ topics in, and one **topic chat** per topic sees that topic through.
   happens after the human approves it. It is sent to `@worktree:`, so every Run
   with a coordinator terminal in that worktree gets a copy with the same
   `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
-  copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events` does
-  not wake on `status`; the message arrives with the next `check`.
+  copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events`
+  wakes on `status` too, so it returns with the message.
 - **Wait with `wait-worker-events`.** Run
   `.claude/skills/pstack-on-claude-code/scripts/wait-worker-events [--ack
   <delivery_id>]` with Bash `run_in_background`, and never a bare `check
-  --wait`: a Run takes one waiter. It waits with `heartbeat` among the wake
-  types, so Orca types no "You have N orchestration messages" into this
-  terminal for a heartbeat, and it acks heartbeat-only batches itself. It
-  returns only with a batch holding something else, or empty at its deadline;
+  --wait`: a Run takes one waiter. It waits with `status` and `heartbeat` among
+  the wake types, so Orca types no "You have N orchestration messages" into this
+  terminal for either, and it acks heartbeat-only batches itself. It
+  returns only with a batch holding something else (`status` included), or empty at its deadline;
   process the batch, then restart it with `--ack <delivery_id>`. An empty return
   is a checkpoint: restart it and write nothing. After three empty returns in a
   row, read `worker-list --include-remote --json` and follow each row's
