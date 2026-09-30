@@ -6,17 +6,20 @@ argument-hint: "[絞り込みたい対象（省略可）]"
 いま走っているワーカーの状況を報告してください。絞り込み: $ARGUMENTS
 （空なら全部。）
 
-`core-dispatch` スキルの「3. 統合」と「報告の型」の手順です。完了は待ち受けでは
-なく、Orca がセッションに注入してくる「You have N orchestration message」の通知を
-きっかけに拾いに行きます。このコマンドはそれを人間から明示的に起こす入口であり、
-詳細を求めるときの入口でもあります。
+`core-dispatch` スキルの「3. 統合」と「報告の型」の手順です。Run はこのセッションで
+束縛した 1 つだけ（公式の「bind one Run」）。完了は `check --wait` の返りと Orca が注入
+する「You have N orchestration message」の通知をきっかけに拾います。このコマンドは
+それを人間から明示的に起こす入口であり、詳細を求めるときの入口でもあります。
 
 **自前の書式を作らないこと。** 公式の projection をそのまま整形して出します。
 
 1. `orca worktree ps --json`
-2. `orca orchestration worker-list --run <run_id> --include-remote --json`
+2. `orca orchestration worker-list --include-remote --json`（既定で束縛 Run。
+   `--run <run_id>` で上書き）
 3. `orca orchestration task-list --ready --brief --json`
-4. `orca orchestration check --json` で未処理のメッセージを読む
+4. `orca orchestration check --peek --json` で未 ack の Delivery を読む。`--peek` は
+   読むだけで進まない。処理（reply・検証・release の判断）を済ませたものだけを
+   `check --ack <delivery_id>` で ack する
 
 出力は表ひとつ。列は **Task / コメント / attention.categories / nextAction /
 outcome / evidence / unresolved blocker / 片付け**。Task は「`<ワーカー名>`
@@ -53,7 +56,10 @@ unresolved blocker を埋めます。escalation / question があれば人に取
 表の下に理由を 1〜2 文足します。
 
 `check` が空なら、ワーカーが消えたのではなく自分が Run から外れている可能性がある
-ので、`orca orchestration run-current` で束縛を確かめること。`unverifiable` や
+ので、`orca orchestration run-current` で束縛を確かめ、外れていたら同じ Run に
+`run-use --id <run_id>` で結び直すこと（Run の付け替えには使わない）。旧運用で Run が
+複数残っているときは、各 Run を `check --run <run_id> --peek` で見て、未 ack のものだけ
+処理して ack する。終わった Run は触らない。`unverifiable` や
 `missing_status` も死亡ではありません。殺したり再試行したりせず、`core-dispatch`
 スキルの `references/orca.md`「ハンドルが stale になったとき」に従って引き直し、
 生きているなら続きの指示で起こしてください。
