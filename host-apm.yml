@@ -3,7 +3,8 @@
 #
 # This is deliberately the only thing this repo installs host-wide, apart
 # from the OpenTelemetry env (claude/telemetry-env.json), admitted on the same
-# grounds: observation, not behaviour. MCP
+# grounds: observation, not behaviour, and the trial advisor model
+# (claude/advisor.json; docs/configuration.md#advisor). MCP
 # servers are capabilities — they add tools — rather than behaviour, and both
 # of these are expected to be reachable from every repo on the host. Anything
 # that instructs an agent (rules, skills, the default-branch hook) lives in

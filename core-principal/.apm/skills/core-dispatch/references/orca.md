@@ -57,7 +57,10 @@ orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --wor
 - `--comment` はカードの初期コメント。以後はワーカーが上書きする。
 - `--model <id>` で起動するモデルを選ぶ。`--effort <level>` は `--model` と組で
   しか渡せず、どちらも `--terminal` とは併用できない（【公式】`--help`）。どの作業に
-  どのモデルかは SKILL.md「2. 振り分け」の表。
+  どのモデル・effort か、review を挟むかは SKILL.md「2. 振り分け」の表。
+- 既存の worktree に出すときは `--worktree path:<worktree のパス>` などの selector
+  （Sonnet の PR を review させるときなど）。`--name`・`--repo`・`--comment`・`--setup`
+  などの作成用フラグは既存の worktree には拒否される（【公式】`--help`）。
 - 投げっぱなし（`orca worktree create --prompt`）は使わない。完了が inbox に
   届かず、統合の手順に乗らない。ユーザーが所有権ごと渡すと明示したときだけ
   handoff にする（`orca skills get orca-cli`）。

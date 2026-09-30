@@ -68,12 +68,61 @@ The table above is for subagents. An Orca worker is a separate launch: pass
 `--model` (and `--effort`, which needs `--model`) to `orca orchestration
 worker-start`, and name the model in one line when reporting the dispatch.
 
-| Orca worker's job | `--model` |
-|---|---|
-| Research and record, docs, routine additions | `claude-sonnet-5-5` |
-| A config change with a clear blast radius | `claude-sonnet-5-5` |
-| A build across components, or one that needs live verification | `claude-opus-5-5` |
-| Mostly design judgment, where a mistake is expensive | `claude-opus-5-5` (`--effort high` if needed) |
+| Orca worker's job | `--model` | `--effort` | Opus review after the PR |
+|---|---|---|---|
+| Research and record, docs, routine additions | `claude-sonnet-5-5` | `high` | Yes |
+| A config change with a clear blast radius | `claude-sonnet-5-5` | `high` (`xhigh` if long or easy to get lost in) | Yes |
+| A build across components, or one that needs live verification | `claude-opus-5-5` | omit (`high` if needed) | No |
+| Mostly design judgment, where a mistake is expensive | `claude-opus-5-5` | `high` | No |
+
+**Always pass `--effort high` to Sonnet.** Per the official model-config page,
+Sonnet 5.5 and Opus 5.5 default to `medium`; `high` is for "work where
+verification matters or edge cases are likely", and higher levels test more
+edge cases and verify more before answering. Tests and verification are what
+Sonnet alone dropped on dotfiles#19. Not `max`: the docs warn it overthinks.
+
+**Keep live-state work off Sonnet.** Shell profiles, clusters, systemd,
+`~/.claude/settings.json`: anything hard to undo goes to Opus. If it must go to
+Sonnet, the spec names the verification sandbox (a temp profile, a scratch
+`HOME`, a dry run). Sonnet with an advisor on #19 wrote duplicates into the
+real profile.
+
+**A spec for Sonnet adds these lines.** Sonnet alone on #19 missed each one.
+
+- Completion criteria as a checklist, one `- [ ]` per condition
+- "Write the root cause in the PR body" (why it broke, not what changed)
+- "Add tests, following the repo's existing test layout and style"
+- "Paste the verification commands and their results into the report file"
+- The live-state operations it must not do, named ("do not edit `~/.bashrc`",
+  "do not apply to the real cluster"), and where to verify instead
+
+**Review a Sonnet PR once with Opus.** When a `claude-sonnet-5-5` worker's PR
+is picked up, release it, then start an Opus 5.5 worker in the same worktree to
+review it. Opus workers get no review; it is not worth the cost. Creation flags
+(`--name`, `--repo`, `--comment`, `--setup`) are rejected on an existing
+worktree (`--help`).
+
+```
+orca orchestration worker-start --spec "<template below>" --task-title "review: <original title>" --worktree path:<original worktree path> --agent claude --model claude-opus-5-5 --json
+```
+
+```
+# review: <PR URL>
+<the original spec, verbatim>
+
+Review the PR the worker opened for the request above. Check:
+- [ ] every completion criterion is met (check each one)
+- [ ] the PR body states the root cause, and it is right
+- [ ] tests were added
+- [ ] verification (make ci etc.) is green when you run it yourself
+- [ ] no instruction in the request was skipped
+
+Post findings on the PR with `gh pr comment`. Plain gaps (tests,
+verification, the report file) you may fix on this branch and push. Findings
+that change the design: do not fix; send them back as an escalation. Write
+findings and fixes to ~/.claude/worker-reports/<worktree name>-review.md
+before sending completion. No report file inside the repo.
+```
 
 ## Paths
 
@@ -109,7 +158,8 @@ cost us in practice.
   late or never. When checking status, read the inbox (`orca orchestration
   check`), the worker's card comment (`orca worktree ps`) and its PR (`gh pr
   list --head <branch>`); a comment saying done or an open PR means it finished,
-  so read its report.
+  so read its report. If it was a `claude-sonnet-5-5` worker with a PR, start
+  the Opus review from "Models" after releasing it.
 - **Rebind the Run when fenced.** If `worker-start` or another call fails with
   `consumer_fenced` (it wants the coordinator terminal bound to the Task Run),
   run `orca orchestration run-use --id <run_id>` and retry. When filtering Orca
