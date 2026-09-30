@@ -39,7 +39,8 @@ echo "$out"
 # Launch the Windows default browser itself. Going through the .html file
 # association (explorer.exe, cmd /c start) lands on an "Open with" dialog on a
 # host whose association is stale, and the https association is the one that
-# tracks the browser the user actually picked. Its command line is `"exe" ... %1`.
+# tracks the browser the user actually picked. Assumes that command line has a bare
+# %1 (Chromium-family: `"exe" ... %1`); Firefox's quoted "%1" would double the quotes.
 ps="$(command -v powershell.exe || echo /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe)"
 CCL_TARGET="$(wslpath -w "$out")" WSLENV=CCL_TARGET "$ps" -NoProfile -Command '
 $p = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice").ProgId

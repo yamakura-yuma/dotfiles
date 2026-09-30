@@ -8,6 +8,8 @@
 #      through -- the only behaviour this package adds to upstream.
 #   3. japanese-guard is still upstream's script, and blocks an English
 #      final answer but not a Japanese one.
+#   4. claude-session-to-html stays pinned to claude-code-log 1.6.0 and never
+#      uploads; its uvx call and browser hand-off are checked against stubs.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

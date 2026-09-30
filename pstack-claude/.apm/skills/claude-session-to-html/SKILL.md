@@ -20,6 +20,6 @@ scripts/session-to-html.sh --no-open -o out.html <session.jsonl>
 - 出力先の既定は `~/.cache/claude-session-html/<session-id>.html`。jsonl は読むだけで書き換えない。
 - 外部へは送らない。`--gist` など送る option は足さない。
 - `claude-code-log` は 1.6.0 に固定している。上げるときは `tests/check.sh` の期待値と
-  `docs/claude-session-to-html.md` も合わせる。
+  `docs/claude-session-to-html.md`、README の行も合わせる。
 
 詳しい経緯と既知の癖は `docs/claude-session-to-html.md`。
