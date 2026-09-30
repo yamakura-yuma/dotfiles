@@ -42,7 +42,7 @@ orca_json() {
 }
 
 if [ -z "$repo" ]; then
-  here="$(git rev-parse --show-toplevel)"
+  here="$(git rev-parse --show-toplevel 2>/dev/null)" || here="$PWD"
   id="$(orca_json worktree list | jq -r --arg here "$here" \
     '[.result.worktrees[] | select(.path == $here) | .repoId][0] // empty')"
   [ -n "$id" ] || { echo "open-topic-chat: $here is not an Orca worktree; pass --repo" >&2; exit 1; }
