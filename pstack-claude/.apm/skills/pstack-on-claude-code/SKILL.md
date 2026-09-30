@@ -68,61 +68,67 @@ The table above is for subagents. An Orca worker is a separate launch: pass
 `--model` (and `--effort`, which needs `--model`) to `orca orchestration
 worker-start`, and name the model in one line when reporting the dispatch.
 
-| Orca worker's job | `--model` | `--effort` | Opus review after the PR |
+| Role | `--model` | `--effort` | Review before the PR |
 |---|---|---|---|
-| Research and record, docs, routine additions | `claude-sonnet-5-5` | `high` | Yes |
-| A config change with a clear blast radius | `claude-sonnet-5-5` | `high` (`xhigh` if long or easy to get lost in) | Yes |
-| A build across components, or one that needs live verification | `claude-opus-5-5` | omit (`high` if needed) | No |
-| Mostly design judgment, where a mistake is expensive | `claude-opus-5-5` | `high` | No |
+| Coordinator (this session) | Opus 5.5 | — | — |
+| Design worker: deciding the approach, research, root-causing, a setup across components | `claude-opus-5-5`; `claude-fable-5-1` when the user asks | omit (`high` if needed) | No |
+| Implementation worker: a change whose approach is settled | `claude-sonnet-5-5` | `high` (`xhigh` if long or easy to get lost in) | Yes |
+| Review | Opus 5.5, as the `completion-reviewer` subagent | — | — |
+| Advisor (every session, on trial) | Fable, a host setting (dotfiles `docs/configuration.md`, "advisor") | — | — |
 
-**Always pass `--effort high` to Sonnet.** Per the official model-config page,
-Sonnet 5.5 and Opus 5.5 default to `medium`; `high` is for "work where
+**Always pass `--effort high` to an implementation worker.** Per the official
+model-config page, Sonnet 5.5 defaults to `medium`; `high` is for "work where
 verification matters or edge cases are likely", and higher levels test more
 edge cases and verify more before answering. Tests and verification are what
 Sonnet alone dropped on dotfiles#19. Not `max`: the docs warn it overthinks.
 
-**Keep live-state work off Sonnet.** Shell profiles, clusters, systemd,
-`~/.claude/settings.json`: anything hard to undo goes to Opus. If it must go to
-Sonnet, the spec names the verification sandbox (a temp profile, a scratch
-`HOME`, a dry run). Sonnet with an advisor on #19 wrote duplicates into the
-real profile.
+**Keep live-state work off implementation workers.** Shell profiles,
+clusters, systemd, `~/.claude/settings.json`: anything hard to undo is a design
+worker's job, on Opus. If it must go to Sonnet, the spec names the verification
+sandbox (a temp profile, a scratch `HOME`, a dry run). Sonnet with an advisor on
+#19 wrote duplicates into the real profile.
 
-**A spec for Sonnet adds these lines.** Sonnet alone on #19 missed each one.
+**An implementation worker's spec adds these lines.** Sonnet alone on #19
+missed each one.
 
 - Completion criteria as a checklist, one `- [ ]` per condition
-- "Write the root cause in the PR body" (why it broke, not what changed)
+- "Write the root cause in the commit message and PR body" (why it broke, not
+  what changed)
 - "Add tests, following the repo's existing test layout and style"
 - "Paste the verification commands and their results into the report file"
 - The live-state operations it must not do, named ("do not edit `~/.bashrc`",
   "do not apply to the real cluster"), and where to verify instead
+- "Before declaring completion, have the advisor confirm every completion
+  criterion is met"
+- The review-loop paragraph below, verbatim
 
-**Review a Sonnet PR once with Opus.** When a `claude-sonnet-5-5` worker's PR
-is picked up, release it, then start an Opus 5.5 worker in the same worktree to
-review it. Opus workers get no review; it is not worth the cost. Creation flags
-(`--name`, `--repo`, `--comment`, `--setup`) are rejected on an existing
-worktree (`--help`).
-
-```
-orca orchestration worker-start --spec "<template below>" --task-title "review: <original title>" --worktree path:<original worktree path> --agent claude --model claude-opus-5-5 --json
-```
+**Review loop before the PR.** When an implementation worker judges its
+criteria met, it gets reviewed **before** opening the PR. The limit is **3**
+rounds (change only this number to change it). Paste into the spec, with the
+limit filled in:
 
 ```
-# review: <PR URL>
-<the original spec, verbatim>
-
-Review the PR the worker opened for the request above. Check:
-- [ ] every completion criterion is met (check each one)
-- [ ] the PR body states the root cause, and it is right
-- [ ] tests were added
-- [ ] verification (make ci etc.) is green when you run it yourself
-- [ ] no instruction in the request was skipped
-
-Post findings on the PR with `gh pr comment`. Plain gaps (tests,
-verification, the report file) you may fix on this branch and push. Findings
-that change the design: do not fix; send them back as an escalation. Write
-findings and fixes to ~/.claude/worker-reports/<worktree name>-review.md
-before sending completion. No report file inside the repo.
+Review before the PR: once you judge the completion criteria met, and before
+opening a PR, call the completion-reviewer subagent with the Agent tool in the foreground
+(no run_in_background), passing
+this spec verbatim and the round number. On verdict fail, fix every required
+finding and call it again as the next round; optional findings are your call.
+On pass, open the PR and send worker_done. If round <limit> still fails, do not
+open a PR: write the remaining required findings to the report file and send an
+escalation. Paste each round's reply verbatim into the report file.
 ```
+
+A subagent (`.apm/agents/completion-reviewer.agent.md`, `model: opus`,
+read-only) was the most reliable of the candidates. A coordinator-run loop
+(dispatch a review worker, `send` the findings back) advances only while the
+coordinator is awake to pull completions, so each round waits. It also puts a
+second agent into a worktree whose implementer is still live. With a subagent,
+the loop closes inside the implementer's session, and the fixer keeps its
+context. The reviewer still has a fresh context that wrote no code, and it reads
+the spec and the diff, not the whole conversation as the advisor does. Its one
+weakness is being skipped, so on pickup the coordinator checks the report for a
+passing round (see "Supervising Orca workers"). Design workers (Opus, Fable)
+get no review loop.
 
 ## Paths
 
@@ -158,8 +164,9 @@ cost us in practice.
   late or never. When checking status, read the inbox (`orca orchestration
   check`), the worker's card comment (`orca worktree ps`) and its PR (`gh pr
   list --head <branch>`); a comment saying done or an open PR means it finished,
-  so read its report. If it was a `claude-sonnet-5-5` worker with a PR, start
-  the Opus review from "Models" after releasing it.
+  so read its report. For an implementation worker (`claude-sonnet-5-5`), check the
+  report for a `verdict: pass` round before releasing; if there is none, send it
+  back to run the review loop.
 - **Rebind the Run when fenced.** If `worker-start` or another call fails with
   `consumer_fenced` (it wants the coordinator terminal bound to the Task Run),
   run `orca orchestration run-use --id <run_id>` and retry. When filtering Orca

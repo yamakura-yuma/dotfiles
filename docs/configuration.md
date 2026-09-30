@@ -18,7 +18,7 @@
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
 | `host-apm.yml` | ホスト全体のマニフェスト。`reload` が `~/.apm/apm.yml` にコピーする。`codegraph` と `headroom` の MCP サーバだけを宣言する（`~/.claude.json` の `mcpServers` はここが正で、あちらを手で編集しない） |
 | `apm.yml` | このリポジトリだけに効くマニフェスト。依存は `./core-principal` ひとつ |
-| `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、ブロックするガードフック3つと助言フック1つ、`/retro`・`/workers`・`/worktree`、`core-*` スキル、そして固定コミットで取り込んだ公開スキル群。詳しくは [agent-harness.md](agent-harness.md) |
+| `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、ブロックするガードフック3つと助言フック1つ、`/retro`・`/workers`・`/worktree`、`core-*` スキル、完了前レビューのサブエージェント `completion-reviewer`、そして固定コミットで取り込んだ公開スキル群。詳しくは [agent-harness.md](agent-harness.md) |
 | `Makefile` | `make ci` がこのリポジトリの検証 |
 | `AGENTS.md` | `apm compile --target agents` の生成物。元を直すこと |
 | `versions.env` | グローバルに入れる3ツール（`codegraph`・`graphifyy`・`headroom-ai`）の固定版。`reload` がこれを読む。上げるのは手で、1行の diff として残る |

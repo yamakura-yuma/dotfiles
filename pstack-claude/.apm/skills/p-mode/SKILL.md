@@ -19,4 +19,4 @@ poteto-mode disagree, the row wins.
 | Stating how a tool or service behaves | Check the vendor's docs or `--help` first. Label each claim as documented or observed |
 | About to write a new skill | The `find-skills` skill first. Take a well-known one as an apm dependency instead of copying it |
 | Work that splits across branches or worktrees | An Orca worker per unit (`orchestration` skill), not a subagent. Fan-out inside one unit (`how`, `arena`, `swarm`, `interrogate`, delegates) stays on subagents as poteto-mode says |
-| Dispatching, checking on or cleaning up Orca workers | `pstack-on-claude-code`'s "Supervising Orca workers" and its Orca worker model table (model, effort, the Sonnet spec lines, the Opus review of a Sonnet PR), on top of the `orchestration` skill |
+| Dispatching, checking on or cleaning up Orca workers | `pstack-on-claude-code`'s "Supervising Orca workers" and its Orca worker model table (role to model, effort, the implementation spec lines, the review loop before the PR), on top of the `orchestration` skill |

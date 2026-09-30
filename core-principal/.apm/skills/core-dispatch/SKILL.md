@@ -76,63 +76,62 @@ references）。依頼から一意に決まらないときだけ、ここで 1 �
 こちらは「3. 統合」で拾って `worker-release` する。コマンドは `references/orca.md`
 の「出す」。短い kebab-case の `--name` は必須で、これがそのままワーカー名になる。
 
-**モデルは作業ごとに選ぶ。** `worker-start --model <id>` で指定し（`--effort` は
-`--model` と組でしか渡せない）、選んだモデルを「報告の型」(c) に 1 行書く。
+**モデルは役割で選ぶ。** `worker-start --model <id>` で指定し（`--effort` は
+`--model` と組でしか渡せない）、選んだモデルと effort を「報告の型」(c) に 1 行書く。
 
-| 作業 | `--model` | `--effort` | review を挟む |
+| 役割 | `--model` | `--effort` | 完了前レビュー |
 | --- | --- | --- | --- |
-| 調べて記録する・ドキュメント・定型の追記 | `claude-sonnet-5-5` | `high` | 挟む |
-| 影響範囲がはっきりした設定変更 | `claude-sonnet-5-5` | `high`（長い・迷いやすいなら `xhigh`） | 挟む |
-| 複数コンポーネントにまたがる構築・実機検証が要るもの | `claude-opus-5-5` | 付けない（必要なら `high`） | 挟まない |
-| 設計判断が中心で失敗が高くつくもの | `claude-opus-5-5` | `high` | 挟まない |
+| coordinator（このセッション） | Opus 5.5 | — | — |
+| 設計系のワーカー（方針決め・調査・原因究明・複数部品にまたがる構成） | `claude-opus-5-5`。ユーザーが指示したときは `claude-fable-5-1` | 付けない（必要なら `high`） | 挟まない |
+| 実装系のワーカー（方針が決まった変更） | `claude-sonnet-5-5` | `high`（長い・迷いやすいなら `xhigh`） | 挟む |
+| レビュー | Opus 5.5（`completion-reviewer` サブエージェント） | — | — |
+| advisor（全セッション共通、お試し） | Fable（ホスト設定。docs/configuration.md「advisor」） | — | — |
 
-**Sonnet には `--effort high` を必ず付ける。** 公式（model-config）では Sonnet 5.5 と
-Opus 5.5 の既定は `medium` で、`high` は「検証が大事な、端のケースがありそうな作業」向け、
-上の段ほど端のケースを試し、自分の作業を検証してから答えるとされる。dotfiles#19 の
-Sonnet 単体で抜けたのがまさにテストと検証だったので、既定より 1 段上げる。`max` は
-考えすぎやすいと公式が注意しているので使わない。
+**実装系には `--effort high` を必ず付ける。** 公式（model-config）では Sonnet 5.5 の
+既定は `medium` で、`high` は「検証が大事な、端のケースがありそうな作業」向け、上の段ほど
+端のケースを試し、自分の作業を検証してから答えるとされる。dotfiles#19 の Sonnet 単体で
+抜けたのがまさにテストと検証だったので、既定より 1 段上げる。`max` は考えすぎやすいと
+公式が注意しているので使わない。
 
-**実機の状態を変える作業は Sonnet に回さない。** シェルの profile、クラスタ、systemd、
-`~/.claude/settings.json` など、壊すと戻しにくいものを触る作業は Opus に出す。Sonnet に
-出すなら、検証の方法（一時 profile、`HOME` を差し替えた一時ディレクトリ、dry-run など）を
-spec で具体的に指定する。#19 の advisor 付き Sonnet は実 profile に重複を入れた。
+**実機の状態を変える作業は実装系に回さない。** シェルの profile、クラスタ、systemd、
+`~/.claude/settings.json` など、壊すと戻しにくいものを触る作業は設計系として Opus に
+出す。Sonnet に出すなら、検証の場所（一時 profile、`HOME` を差し替えた一時ディレクトリ、
+dry-run など）を spec で具体的に指定する。#19 の advisor 付き Sonnet は実 profile に
+重複を入れた。
 
-**Sonnet に出す spec には、上の最低限に次を足す。** #19 の Sonnet 単体はこれらが抜けた。
+**実装系の spec には、上の最低限に次を足す。** #19 の Sonnet 単体はこれらが抜けた。
 
 - 完了条件をチェックリストで書く（`- [ ]` の 1 行 1 条件）
-- 「根本原因を PR 本文に書くこと」（何を直したかではなく、なぜ壊れていたか）
+- 「根本原因をコミットメッセージと PR 本文に書くこと」（何を直したかではなく、なぜ壊れていたか）
 - 「テストを足すこと。既存のテストの流儀（置き場・書き方）に合わせること」
 - 「検証コマンドとその結果を報告ファイルに貼ること」
 - 実機の状態を変える操作の禁止事項（「`~/.bashrc` を書き換えない」「実クラスタに apply
   しない」のように対象を名指しする）と、代わりに使う検証の場所
+- 「完了を宣言する前に、advisor に完了条件をすべて満たしているか確認してもらうこと」
+- 下の「完了前レビュー」の段落をそのまま
 
-**Sonnet の PR には Opus の review を 1 回挟む。** Sonnet のワーカーが PR を出したら
-（「3. 統合」で拾ったとき）、元のワーカーを release してから、同じ worktree に Opus 5.5 のワーカーを出して review
-させる。
-Opus で出したワーカーには挟まない（費用に見合わない）。
-
-```
-orca orchestration worker-start --spec "<下の雛形>" --task-title "review: <元の題>" --worktree path:<元のワーカーの worktree のパス> --agent claude --model claude-opus-5-5 --json
-```
-
-`--name` など作成用のフラグは既存の worktree には渡せない（`--help`）。
+**完了前レビューのループ。** 実装系のワーカーは、完了条件を満たしたと判断したら
+**PR を出す前に** レビューを受ける。上限は **3 回**（変えるならこの数字だけを直す）。
+spec には次を貼る（`<上限>` にこの数字を入れる）。
 
 ```unknown
-# review: <PR の URL>
-<元の spec をそのまま貼る>
-
-上の依頼に対してワーカーが出した PR を review する。見ること:
-- [ ] 完了条件をすべて満たしているか（1 つずつ確かめる）
-- [ ] 根本原因が PR 本文に書かれ、正しいか
-- [ ] テストが足されているか
-- [ ] 検証（make ci 等）を自分で走らせて緑か
-- [ ] 依頼の指示に抜けが無いか
-
-指摘は `gh pr comment` で PR に書く。明らかな抜け（テスト・検証・報告ファイル）は
-このブランチで直して push してよい。設計を変える指摘は直さず、escalation で返す。
-終わったら ~/.claude/worker-reports/<worktree 名>-review.md に指摘と直したものを書き、
-先に書いてから完了を送る。リポジトリの中に報告ファイルを作らない。
+完了前レビュー: 完了条件を満たしたと判断したら、PR を出す前に Agent ツールで
+completion-reviewer サブエージェントを前景で（run_in_background なしで）呼び、この spec の全文とラウンド番号を渡す。
+verdict が fail なら required をすべて直して、次のラウンドとして再び呼ぶ。optional は
+直すかどうかを自分で決める。pass になったら PR を出して worker_done を送る。
+<上限> 回目でも fail なら PR を出さず、残った required を報告ファイルに書いて
+escalation を送る。各ラウンドの返答はそのまま報告ファイルに貼る。
 ```
+
+仕組みにサブエージェント（`.apm/agents/completion-reviewer.agent.md`、`model: opus`、
+読むだけ）を選んだのは、候補のうちで一番確実だったから。coordinator がレビューワーカーを
+出して `send` で返す方式は、coordinator が起きているときにしか進まない（完了は pull で
+拾うので、1 往復ごとに待ちが入る）。しかも修正のたびに、生きている実装ワーカーと同じ
+worktree に 2 つ目のエージェントを入れることになる。サブエージェントなら実装ワーカーの
+セッションの中でループが閉じ、修正する側は文脈を持ったまま直せる。レビューする側は
+コードを書いていない新しい文脈で、spec と差分だけを読む（advisor のように会話全体は
+読まない）。弱点は呼び忘れだけなので、coordinator は「3. 統合」で報告に pass の
+ラウンドがあるかを確かめる。設計系のワーカー（Opus・Fable）には挟まない。
 
 **起動の失敗を見落とさない。** `worker-start` などが `consumer_fenced`（coordinator
 端末が Task Run に束縛されていない）で失敗したら、`orca orchestration run-use --id
@@ -184,8 +183,9 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
    （チャット上の要約ではなく、これが正本）。報告の「残っている問題」のうち
    その場で片付けないものは、`gh issue create` で対象リポジトリに Issue として
    残す。Issue は積み残しの記録にだけ使い、指示や完了のやり取りは Orca で行う。
-   1 行で済む作業に Issue は作らない。`claude-sonnet-5-5` で出したワーカーが PR を
-   出していたら、release の後に「2. 振り分け」の雛形で Opus の review を出す
+   1 行で済む作業に Issue は作らない。実装系のワーカー（`claude-sonnet-5-5`）なら、
+   報告に完了前レビューの `verdict: pass` のラウンドがあるかを確かめる。無ければ
+   受け取らず、「追加指示を届ける」で完了前レビューをやり直させる
 5. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
 6. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
    worker_done は Task と Dispatch を自動で決着させるので、続けて `task-update` を

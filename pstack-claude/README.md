@@ -27,7 +27,7 @@ Code has been run; the other two columns are what lands on disk, checked with
 |---|---|---|---|
 | Skills (all 72) | `.claude/skills/` | `.agents/skills/` | `.agents/skills/` (Copilot reads it) |
 | Rule | `.claude/rules/` | Only after `apm compile --target codex`, which writes `AGENTS.md` | `.github/instructions/` |
-| Subagents (`poteto-agent`, `Comment Sicko`) | `.claude/agents/` | `.codex/agents/*.toml` | `.github/agents/` |
+| Subagents (`poteto-agent`, `Comment Sicko`, `completion-reviewer`) | `.claude/agents/` | `.codex/agents/*.toml` | `.github/agents/` |
 | `guard-destructive-git`, `guard-default-branch` hooks | Yes | Yes (`.codex/hooks.json`). Codex asks to trust project hooks before they run | Deployed, but **Claude only**: Copilot's `preToolUse` sends `toolArgs`, not `tool_input`, so the scripts see no command and allow it |
 | `guard-coordinator-edit` hook | Yes | Deployed, but **Claude only**: Codex edits with `apply_patch`, which has no `file_path` | Deployed, but **Claude only**, same reason as above |
 | `pstack-on-claude-code` overlay | Yes | Deployed, but it maps Cursor's names onto **Claude Code only** | Same |
@@ -63,6 +63,7 @@ files are copied. `tests/check.sh` fails if either drifts.
 | `core-tools` skill (copy) | Which index to query: graphify for where to look, codegraph for verbatim source and call paths; creating an index; worktrees inherit none | None. pstack's `how` and `why` explore with subagents, not indexes |
 | `guard-destructive-git` hook (copy) | Refuses git commands that lose unrecoverable work (`reset --hard`, force push, ...) | None. pstack only says it in prose |
 | `guard-default-branch` hook (copy, points at `orchestration` instead of `core-dispatch`) | Refuses commits and pushes on the default branch | None |
+| `completion-reviewer` subagent (copy) | Opus reviews an implementation worker's change against its spec before the PR, in a loop capped in `pstack-on-claude-code` | pstack's Shipping verdict agent judges the PR after it is opened; this runs before, inside the worker |
 | `find-skills` | Finds a published skill before one is written | `playbooks/authoring-a-skill.md` writes one; it does not search |
 | `show-me` | Diagrams and standalone HTML to explain a design | `show-me-your-work` keeps a decision log, it does not draw |
 | `drawio-skill` | Editable `.drawio` architecture diagrams kept in the repo and updated, not one-off HTML. Exports need the draw.io desktop CLI ([setup](../docs/setup.md)) | None. pstack draws nothing that outlives the reply |
