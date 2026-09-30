@@ -49,6 +49,7 @@ if [ -z "$repo" ]; then
   repo="id:$id"
 fi
 
+# home-k8s's per-topic token dashboard keys off this name (coordinator-chat-<topic>); don't rename.
 created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup skip --no-parent)"
 path="$(printf '%s' "$created" | jq -r '.result.worktree.path // .result.path // empty')"
 [ -n "$path" ] || { echo "open-topic-chat: no worktree path in: $created" >&2; exit 1; }

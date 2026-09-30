@@ -96,6 +96,8 @@
   既定のままにしている
 - 受け口が無くても Claude Code は普通に動く。送れなかった span は捨てられる
 - 受け側（OTel Collector → Tempo → Grafana）の構築は home-k8s リポジトリの docs を参照
+- 話題別・役割別のトークン集計は home-k8s の orca-orchestration ダッシュボードにある。役割と話題を
+  worktree 名で決めるので、命名を変えると集計が崩れる（`docs/observability/orca-orchestration.md`）
 
 ホスト全体に効く設定は MCP サーバだけ、という方針の例外です。MCP サーバと同じく、
 振る舞いを変えず観測という能力を足すだけなので認めています。
