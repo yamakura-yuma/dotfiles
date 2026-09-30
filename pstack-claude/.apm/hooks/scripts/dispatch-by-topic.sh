@@ -42,14 +42,13 @@ context="$(cat <<'CTX'
 Main chat に従う。
 
 - 新しい話題 → 確認せず話題チャットを開く。kebab の話題名 `<topic>` で
-  `orca worktree create --name chat-<topic> --setup skip --no-parent` →
-  その worktree で `apm install` → `orca terminal create --worktree path:<path>
-  --title <topic> --command 'claude "$(cat <引き継ぎ文のファイル>)"'`。新しいセッションは人に開かせず Orca で開く。
-  起動したら一行で報告する（話題名・worktree・リポジトリ）
+  `.claude/skills/pstack-on-claude-code/scripts/open-topic-chat [--run <run_id>] <topic> "<引き継ぎ文>"`
+  （`chat-<topic>` worktree の作成・`apm install`・Opus の話題チャット起動までを行う）。
+  新しいセッションは人に開かせず Orca で開く。起動したら一行で報告する（話題名・worktree・リポジトリ）
 - 既存話題の続き → `orca terminal list --worktree` で話題チャットを引き、`orca terminal send` で届ける
 - 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、outcome / evidence / unresolved blocker
 - 制御（止める・閉じる）→ 同節の該当項目。話題が終わったら話題チャットの worktree を片付ける
-- この main chat が Run を握っているなら、`check --wait` を止めてから引き継ぐ（同節の "Hand over a Run"）
+- この main chat が Run を握っているなら、`check --wait` を止めてから引き継ぐ（同節の "Hand over a Run"。`--run` に Run id を渡す）
 - 聞いてよいのは、話題が曖昧なときと対象リポジトリが決まらないときの 1 問だけ
 
 どの応答も（短い相づち、バックグラウンド通知の処理後も）末尾に、話題ごとのチェックリストと

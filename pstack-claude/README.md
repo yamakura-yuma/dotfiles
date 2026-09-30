@@ -57,6 +57,7 @@ whole upgrade:
 | `pstack-claude` rule | Always loaded: reply in Japanese, read the overlay before pstack, the coordinator norm, index tools via `core-tools` |
 | `guard-coordinator-edit` hook | Refuses file edits in a coordinator workspace. The decision (`lib/coordinator-workspace.sh`) is a byte-for-byte copy of core-principal's, checked by `tests/check.sh` |
 | `dispatch-by-topic` hook (UserPromptSubmit) | In the coordinator workspace, attaches the rule that opens a topic chat (a `chat-<topic>` worktree with its own session) per topic without asking, never a worker, and that every reply ends with a per-topic checklist and what the human does next (`pstack-on-claude-code`, "Supervising Orca workers"). Silent elsewhere. Replaces the `dispatch-in-coordinator` hook of core-principal, whose text points at core-dispatch |
+| `open-topic-chat` script (`pstack-on-claude-code/scripts/`) | Opens a topic chat in one call: worktree `chat-<topic>` of the coordinator repo, `apm install` in it, a `claude --model claude-opus-5-5` session on the hand-off, optionally told to bind an existing Run (`--run`). Tested against stub `orca` and `apm` in `tests/check.sh` |
 | `japanese-guard` hook | Sends an English final answer back to be rewritten in Japanese. Vendored unedited from [minorun365/claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard) (Apache-2.0), which has no manifest to depend on; pin, thresholds and how to turn it off in [`docs/japanese-guard.md`](docs/japanese-guard.md) |
 
 ## What is taken from core-principal

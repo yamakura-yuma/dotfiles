@@ -91,7 +91,7 @@ topic() {
   jq -nc --arg cwd "$1" '{hook_event_name:"UserPromptSubmit", prompt:"x", cwd:$cwd}' |
     env -u MAKURA_ALLOW_MAIN "$scripts/dispatch-by-topic.sh" 2>/dev/null
 }
-topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("orca terminal create")' >/dev/null ||
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("open-topic-chat")' >/dev/null ||
   fail "dispatch-by-topic printed no topic-chat routing rule in the coordinator workspace"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("chat-<topic>")' >/dev/null ||
   fail "dispatch-by-topic does not name the chat-<topic> worktree"
@@ -105,6 +105,55 @@ done
 [ -z "$(printf '{}' | "$scripts/dispatch-by-topic.sh" 2>/dev/null)" ] || fail "dispatch-by-topic printed for a payload with no cwd"
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch-by-topic.sh")' \
   "$pkg/.apm/hooks/dispatch-by-topic.json" >/dev/null || fail "dispatch-by-topic.json does not run the script on UserPromptSubmit"
+
+# open-topic-chat, against stub orca and apm: nothing real is created. The orca
+# stub answers with the JSON shapes `orca ... --json` returns, logs each call,
+# and runs the --command it is given with `claude` replaced by a function that
+# records its arguments, so the quoting is exercised as well.
+otc="$pkg/.apm/skills/pstack-on-claude-code/scripts/open-topic-chat"
+[ -x "$otc" ] || fail "open-topic-chat is not executable"
+mkdir -p "$tmp/stub" "$tmp/chat-demo"
+cat > "$tmp/stub/orca" <<'STUB'
+#!/usr/bin/env bash
+echo "orca $*" >> "$STUB_LOG"
+case "$1 $2" in
+  "worktree list") printf '{"ok":true,"result":{"worktrees":[{"repoId":"R1","path":"%s"}]}}' "$STUB_REPO" ;;
+  "worktree create") printf '{"ok":true,"result":{"worktree":{"path":"%s"}}}' "$STUB_CHAT" ;;
+  "terminal create")
+    while [ $# -gt 0 ]; do [ "$1" = --command ] && cmd="$2"; shift; done
+    claude() { printf '%s\n' "$@" > "$STUB_LOG.claude"; }
+    eval "$cmd"
+    printf '{"ok":true,"result":{"handle":"term_stub"}}' ;;
+  *) printf '{"ok":false,"error":"unexpected"}' ;;
+esac
+STUB
+cat > "$tmp/stub/apm" <<'STUB'
+#!/usr/bin/env bash
+echo "apm $* in $PWD" >> "$STUB_LOG"
+STUB
+chmod +x "$tmp/stub/orca" "$tmp/stub/apm"
+otc_run() {
+  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude"
+  (cd "$tmp/origin-repo" && PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
+    STUB_CHAT="$tmp/chat-demo" "$otc" "$@" 2>&1)
+}
+out="$(otc_run demo 'the request, "quoted"')"
+grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup skip --no-parent --json$" "$tmp/stub.log" ||
+  fail "open-topic-chat did not create chat-<topic> from the repo id read from worktree list, with --setup skip --no-parent"
+grep -q "^apm install in $tmp/chat-demo$" "$tmp/stub.log" || fail "open-topic-chat did not run apm install in the new worktree"
+grep -q "^orca terminal create --worktree path:$tmp/chat-demo --title demo --command claude --model claude-opus-5-5 " "$tmp/stub.log" ||
+  fail "open-topic-chat did not open the topic chat in the new worktree on claude-opus-5-5"
+[ "$(sed -n 1,2p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--model\nclaude-opus-5-5')" ] || fail "open-topic-chat passed claude something other than --model claude-opus-5-5 first"
+grep -q 'the request, "quoted"' "$tmp/stub.log.claude" || fail "open-topic-chat lost the hand-off text"
+grep -q 'topic chat for `demo`' "$tmp/stub.log.claude" || fail "open-topic-chat did not state the topic chat's role"
+grep -q 'run-use' "$tmp/stub.log.claude" && fail "open-topic-chat mentioned run-use without --run"
+case "$out" in *"terminal: term_stub"*) ;; *) fail "open-topic-chat did not print the terminal handle" ;; esac
+otc_run --run run_42 demo x > /dev/null
+grep -q 'run-use --id run_42' "$tmp/stub.log.claude" || fail "open-topic-chat --run did not tell the chat to bind that Run"
+otc_run --repo id:R9 demo x > /dev/null
+grep -q -- "--repo id:R9 --name chat-demo" "$tmp/stub.log" || fail "open-topic-chat ignored --repo"
+grep -q "worktree list" "$tmp/stub.log" && fail "open-topic-chat read worktree list although --repo was given"
+otc_run 'Bad Topic' x > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
 
 # japanese-guard is vendored from minorun365/claude-code-japanese-guard at
 # e68864a (docs/japanese-guard.md): script and test are upstream's bytes.

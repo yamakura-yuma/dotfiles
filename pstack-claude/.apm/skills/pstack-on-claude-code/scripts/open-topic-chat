@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Open a topic chat: a worktree `chat-<topic>` of the coordinator repo, the
+# harness installed in it, and a claude session started there on the hand-off.
+#
+#   open-topic-chat [--run <run_id>] [--repo <selector>] <topic> <handoff>
+#
+# <handoff> is the topic, the human's request verbatim and the target repo; the
+# role and, with --run, the Run to bind are added here. --repo defaults to the
+# repo whose worktree contains the current directory, read from
+# `orca worktree list`. Prints the worktree path and the terminal handle.
+set -euo pipefail
+
+# Explicit, so a topic chat never inherits the main chat's model from settings.
+model=claude-opus-5-5
+
+usage() { echo "usage: open-topic-chat [--run <run_id>] [--repo <selector>] <topic> <handoff>" >&2; exit 2; }
+
+run="" repo=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --run) [ $# -ge 2 ] || usage; run="$2"; shift 2 ;;
+    --repo) [ $# -ge 2 ] || usage; repo="$2"; shift 2 ;;
+    -h|--help) usage ;;
+    --) shift; break ;;
+    -*) usage ;;
+    *) break ;;
+  esac
+done
+[ $# -eq 2 ] || usage
+topic="$1" handoff="$2"
+case "$topic" in
+  ''|*[!a-z0-9-]*|-*) echo "open-topic-chat: topic must be kebab-case: $topic" >&2; exit 2 ;;
+esac
+
+# `orca ... --json` prints {"ok":false,...} for a refused call, so check ok
+# rather than the exit status alone.
+orca_json() {
+  local out
+  out="$(orca "$@" --json)" || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s' "$out" | jq -e '.ok == true' >/dev/null || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s' "$out"
+}
+
+if [ -z "$repo" ]; then
+  here="$(git rev-parse --show-toplevel)"
+  id="$(orca_json worktree list | jq -r --arg here "$here" \
+    '[.result.worktrees[] | select(.path == $here) | .repoId][0] // empty')"
+  [ -n "$id" ] || { echo "open-topic-chat: $here is not an Orca worktree; pass --repo" >&2; exit 1; }
+  repo="id:$id"
+fi
+
+created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup skip --no-parent)"
+path="$(printf '%s' "$created" | jq -r '.result.worktree.path // .result.path // empty')"
+[ -n "$path" ] || { echo "open-topic-chat: no worktree path in: $created" >&2; exit 1; }
+
+# .claude/ and apm_modules/ are gitignored, so a fresh worktree has no harness.
+(cd "$path" && apm install)
+
+role="You are the topic chat for \`$topic\`. Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat."
+if [ -n "$run" ]; then
+  role="$role Bind the Run this topic already has with \`orca orchestration run-use --id $run\`; do not create a new Run."
+fi
+
+# The hand-off goes through a file: \`cat\` keeps quotes and newlines out of the
+# command Orca types into the terminal.
+file="$(mktemp "${TMPDIR:-/tmp}/topic-chat-$topic.XXXXXX")"
+printf '%s\n\n%s\n' "$role" "$handoff" > "$file"
+
+terminal="$(orca_json terminal create --worktree "path:$path" --title "$topic" \
+  --command "claude --model $model \"\$(cat $(printf %q "$file"))\"")"
+
+printf 'worktree: %s\n' "$path"
+printf 'terminal: %s\n' "$(printf '%s' "$terminal" | jq -r '.result.terminal.handle // .result.handle // "unknown"')"
