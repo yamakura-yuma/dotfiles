@@ -243,6 +243,11 @@ printf '%s' "$out" | jq -e '.ok == true' >/dev/null || fail "wait-worker-events 
 PATH="$tmp/wev-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/none" "$(command -v bash)" "$wev" >/dev/null 2>&1
 [ $? -eq 1 ] || fail "wait-worker-events did not fail when orca is nowhere"
 
+# The spec every worker gets updates its card without a notification.
+grep -q 'worktree set' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
+  grep -q -- '--workspace-status in-review' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  fail "pstack-on-claude-code lost the worker spec line that updates the card (worktree set --comment, in-review)"
+
 # The text the chats read names the script, and the main chat is told to stay silent on heartbeats.
 for f in .apm/skills/pstack-on-claude-code/SKILL.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do
   grep -q wait-worker-events "$pkg/$f" || fail "$f does not point at wait-worker-events"

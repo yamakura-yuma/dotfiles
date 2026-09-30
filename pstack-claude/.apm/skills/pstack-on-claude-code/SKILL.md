@@ -88,6 +88,15 @@ worker's job, on Opus. If it must go to Sonnet, the spec names the verification
 sandbox (a temp profile, a scratch `HOME`, a dry run). Sonnet with an advisor on
 #19 wrote duplicates into the real profile.
 
+**Every worker's spec, design or implementation, carries this line.** It
+keeps the human's view current without a notification:
+
+- "At the start of investigating, at the start of implementing, after the
+  tests, and before the report, update the card with `orca worktree set
+  --worktree active --comment "<one-line status>" --json` (no notification).
+  Do not report a failure of this command. Before `worker_done`, add
+  `--workspace-status in-review`."
+
 **An implementation worker's spec adds these lines.** Sonnet alone on #19
 dropped them.
 
