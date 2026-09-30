@@ -204,7 +204,7 @@ sed -n 2p "$tmp/wev.log" | grep -q -- 'D0' && fail "wait-worker-events sent the 
 printf '%s' "$out" | jq -e '.deliveryId == "d2" and (.messages | map(.type) == ["worker_done"]) and .count == 1' >/dev/null ||
   fail "wait-worker-events did not return the worker_done batch (heartbeat dropped, deliveryId kept)"
 grep -q keepalive <<<"$out" && fail "wait-worker-events let the stderr keepalive into stdout"
-[ "$(wc -l < "$tmp/wev-state/pstack/heartbeats-run_1.log")" -eq 1 ] || fail "wait-worker-events did not log the heartbeat it acked"
+[ -e "$tmp/wev-state" ] && fail "wait-worker-events wrote a heartbeat log"
 
 out="$(wev_run wrapped)"; rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.ok == true and .result.deliveryId == "d3"' >/dev/null ||

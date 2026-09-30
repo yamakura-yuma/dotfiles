@@ -36,10 +36,6 @@ fi
 command -v orca >/dev/null 2>&1 || { echo "wait-worker-events: orca not found" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "wait-worker-events: jq not found" >&2; exit 1; }
 
-# Heartbeats this script acked, for whoever wants to know a worker was alive.
-# The LLM never reads it.
-log="${XDG_STATE_HOME:-$HOME/.local/state}/pstack/heartbeats-${run:-current}.log"
-
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 start="$(now_ms)"
 
@@ -86,8 +82,6 @@ while :; do
       echo "wait-worker-events: heartbeat batch without a deliveryId, cannot ack" >&2
       exit 1
     fi
-    mkdir -p "$(dirname "$log")" 2>/dev/null &&
-      printf '%s' "$batch" | jq -r '.messages[] | "\(now | todate) \(.from // "-") \(.subject // "-") \((.payload // "") | tostring | .[0:120])"' >> "$log" 2>/dev/null
     continue
   fi
 
