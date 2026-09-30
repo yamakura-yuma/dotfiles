@@ -110,9 +110,20 @@
 ## advisor
 
 このホストの Claude Code はすべて、Fable を advisor にして動きます（お試し。効果は未確認）。
-主モデルが判断の節目（方針を決める前、同じエラーが続くとき、完了を宣言する前）で
-Fable に相談します。いつ呼ぶかはモデルが決め、回数を指定する設定はありません。値は
-`claude/advisor.json` にあり、`reload` が `~/.claude/settings.json` のトップレベルにマージします。
+いつ呼ぶかは主モデルが決め、回数を指定する設定はありません。値は `claude/advisor.json` に
+あり、`reload` が `~/.claude/settings.json` のトップレベルにマージします。
+
+役割は作業の前半（方針を決める前、行き詰まったとき）に限ります。完了時点の確認は
+`completion-reviewer` サブエージェントが担います。
+
+- advisor は会話全体を自動で渡され、道具を使わず短い助言だけを返す。同じ前提を引き継ぐ
+- サブエージェントは依頼文だけを受け取り、自分で調べ、経緯を知らないまま独立して見る
+- 完了時点では両者が重なるので、独立していて必ず走るレビューのほうに任せる
+
+Claude Code 組み込みの advisor の説明には「完了を宣言する前にも呼ぶ」が含まれていて、
+設定では消せません。実装系のワーカーには、公式の推奨文面から完了時の項目だけを削ったものを
+spec に貼り、そちらへ誘導します（`core-dispatch` の「advisor の誘導」）。止めるのではなく
+誘導なので、完了時に呼ばれることはあります。
 
 公式（[advisor](https://code.claude.com/docs/en/advisor)）で確かめた制約:
 
@@ -126,7 +137,18 @@ Fable に相談します。いつ呼ぶかはモデルが決め、回数を指�
 - 費用: advisor は呼ばれるたびに会話全体をキャッシュなしで読み直す。会話が長いほど 1 回が
   高い（実測で会話 2 万トークン時に約 $0.09）
 
-効果の測り方: Grafana のモデル別コストで、`claude-fable-*` の行が advisor の分です。
+- 助言は読めない: Fable 5.1・Opus 5.5 などを advisor にすると、結果は暗号化された
+  `advisor_redacted_result` で返る（[API ドキュメント](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool)の仕様）。
+  主モデルはサーバ側で読むが、ログやトランスクリプトからは中身が見えない
+
+お試しの評価は次の 3 つで行います。
+
+| 見るもの | どこで |
+| --- | --- |
+| 呼ばれた回数 | `claude -p --debug-file <path>` のログの `Advisor tool called` の行数 |
+| Fable の費用 | Grafana のモデル別コストの `claude-fable-*` の行 |
+| 完了前レビューの必須指摘が減ったか | ワーカーの報告ファイルに貼られた各ラウンドの `required` |
+
 有効になったかは `claude -p --debug-file <path>` のログに `[AdvisorTool] Server-side tool
 enabled with claude-fable-5-1 as the advisor model` が出るかで分かります。
 

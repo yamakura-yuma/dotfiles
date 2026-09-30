@@ -107,20 +107,60 @@ dry-run など）を spec で具体的に指定する。#19 の advisor 付き S
 - 「検証コマンドとその結果を報告ファイルに貼ること」
 - 実機の状態を変える操作の禁止事項（「`~/.bashrc` を書き換えない」「実クラスタに apply
   しない」のように対象を名指しする）と、代わりに使う検証の場所
-- 「完了を宣言する前に、advisor に完了条件をすべて満たしているか確認してもらうこと」
-- 下の「完了前レビュー」の段落をそのまま
+- 下の「advisor の誘導」と「完了前レビュー」の 2 つのブロックをそのまま
 
-**完了前レビューのループ。** 実装系のワーカーは、完了条件を満たしたと判断したら
-**PR を出す前に** レビューを受ける。上限は **3 回**（変えるならこの数字だけを直す）。
-spec には次を貼る（`<上限>` にこの数字を入れる）。
+**役割を分ける。advisor は作業の前半、完了時点の確認は完了前レビューだけ。** 完了時点
+では両者の役割がほぼ重なり、レビューのほうが独立していて（経緯を知らない）、確実に走る
+（spec で必ず呼ばせる）。advisor にしかできないのは、経緯を全部踏まえた途中の一言
+（方針を決める前、行き詰まったとき）である。
+
+| | advisor | completion-reviewer（サブエージェント） |
+| --- | --- | --- |
+| 受け取るもの | 会話全体が自動で渡る。同じ前提を引き継ぐ | 依頼文（spec とラウンド番号）だけ |
+| すること | 道具を使わず、短い助言を返すだけ | 自分で差分を読み、検証を打ち、独立して判定する |
+
+**advisor の誘導。** spec に次のブロックを英語のまま貼る。出典は公式
+[Advisor tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool)
+の「Suggested system prompt for coding tasks」と「Trimming advisor output length」で、
+文面はそのまま、完了時の項目（「When you believe the task is complete ...」の箇条と
+「and once before declaring done」）だけを削った。最後の 1 行は advisor の出力を短く
+する公式の一文で、公式もユーザーメッセージに置くのを勧めている。
+
+```text
+You have access to an `advisor` tool backed by a stronger reviewer model. It takes NO parameters — when you call advisor(), your entire conversation history is automatically forwarded. They see the task, every tool call you've made, every result you've seen.
+
+Call advisor BEFORE substantive work — before writing, before committing to an interpretation, before building on an assumption. If the task requires orientation first (finding files, fetching a source, seeing what's there), do that, then call advisor. Orientation is not substantive work. Writing, editing, and declaring an answer are.
+
+Also call advisor:
+- When stuck — errors recurring, approach not converging, results that don't fit.
+- When considering a change of approach.
+
+On tasks longer than a few steps, call advisor at least once before committing to an approach. On short reactive tasks where the next action is dictated by tool output you just read, you don't need to keep calling — the advisor adds most of its value on the first call, before the approach crystallizes.
+
+Give the advice serious weight. If you follow a step and it fails empirically, or you have primary-source evidence that contradicts a specific claim (the file says X, the paper states Y), adapt. A passing self-test is not evidence the advice is wrong — it's evidence your test doesn't check what the advice is checking.
+
+If you've already retrieved data pointing one way and the advisor points another: don't silently switch. Surface the conflict in one more advisor call — "I found X, you suggest Y, which constraint breaks the tie?" The advisor saw your evidence but may have underweighted it; a reconcile call is cheaper than committing to the wrong branch.
+
+(Advisor: please keep your guidance under 80 words — I need a focused starting point, not a comprehensive plan.)
+```
+
+Claude Code 組み込みの advisor の説明には完了時の項目が残っている。spec はそれを消せず、
+上書きの方向に誘導するだけである（docs/configuration.md「advisor」）。
+
+**完了前レビュー。** 実装系のワーカーは、完了条件を満たしたと判断したら **PR を出す
+前に** レビューを受け、必須の指摘があれば直して再レビューを受ける。再レビューの上限は
+下のブロックの「**もう一度だけ**」の 1 か所にだけ書く（変えるならそこを直す）。上限に
+達しても必須が残れば、それは解釈が分かれる指摘なので、ワーカーは PR を出さずに返し、coordinator が
+人に確認する。spec には次を貼る。
 
 ```unknown
 完了前レビュー: 完了条件を満たしたと判断したら、PR を出す前に Agent ツールで
 completion-reviewer サブエージェントを前景で（run_in_background なしで）呼び、この spec の全文とラウンド番号を渡す。
-verdict が fail なら required をすべて直して、次のラウンドとして再び呼ぶ。optional は
-直すかどうかを自分で決める。pass になったら PR を出して worker_done を送る。
-<上限> 回目でも fail なら PR を出さず、残った required を報告ファイルに書いて
-escalation を送る。各ラウンドの返答はそのまま報告ファイルに貼る。
+verdict が pass なら PR を出して worker_done を送る。fail なら required をすべて直して
+もう一度だけ呼ぶ（再レビュー）。optional は直すかどうかを自分で決める。再レビューが
+pass なら PR を出して worker_done を送る。再レビューでも fail なら PR を出さず、残った
+required を報告ファイルに書いて escalation（どう解釈すべきか聞きたいなら question）を
+送る。各ラウンドの返答はそのまま報告ファイルに貼る。
 ```
 
 仕組みにサブエージェント（`.apm/agents/completion-reviewer.agent.md`、`model: opus`、
@@ -128,10 +168,9 @@ escalation を送る。各ラウンドの返答はそのまま報告ファイル
 出して `send` で返す方式は、coordinator が起きているときにしか進まない（完了は pull で
 拾うので、1 往復ごとに待ちが入る）。しかも修正のたびに、生きている実装ワーカーと同じ
 worktree に 2 つ目のエージェントを入れることになる。サブエージェントなら実装ワーカーの
-セッションの中でループが閉じ、修正する側は文脈を持ったまま直せる。レビューする側は
-コードを書いていない新しい文脈で、spec と差分だけを読む（advisor のように会話全体は
-読まない）。弱点は呼び忘れだけなので、coordinator は「3. 統合」で報告に pass の
-ラウンドがあるかを確かめる。設計系のワーカー（Opus・Fable）には挟まない。
+セッションの中で閉じ、修正する側は文脈を持ったまま直せる。弱点は呼び忘れだけなので、
+coordinator は「3. 統合」で報告に pass のラウンドがあるかを確かめる。設計系のワーカー
+（Opus・Fable）には挟まない。
 
 **起動の失敗を見落とさない。** `worker-start` などが `consumer_fenced`（coordinator
 端末が Task Run に束縛されていない）で失敗したら、`orca orchestration run-use --id
@@ -185,7 +224,8 @@ Run `orca orchestration check --run <run_id>`」がセッションに注入さ�
    残す。Issue は積み残しの記録にだけ使い、指示や完了のやり取りは Orca で行う。
    1 行で済む作業に Issue は作らない。実装系のワーカー（`claude-sonnet-5-5`）なら、
    報告に完了前レビューの `verdict: pass` のラウンドがあるかを確かめる。無ければ
-   受け取らず、「追加指示を届ける」で完了前レビューをやり直させる
+   受け取らず、「追加指示を届ける」で完了前レビューをやり直させる。再レビューでも
+   fail で escalation が来たときは、残った required を人に見せて解釈を決めてもらう
 5. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
 6. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
    worker_done は Task と Dispatch を自動で決着させるので、続けて `task-update` を
