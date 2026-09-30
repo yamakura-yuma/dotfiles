@@ -93,6 +93,10 @@ topic() {
 }
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("worker-start")' >/dev/null ||
   fail "dispatch-by-topic printed no routing rule in the coordinator workspace"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
+  fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
+grep -q 'Reply shape' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  fail "pstack-on-claude-code lost the \"Reply shape\" bullet the dispatch-by-topic text points at"
 [ -z "$(topic "$tmp/child")" ] || fail "dispatch-by-topic printed in a child worktree"
 [ -z "$(printf '{}' | "$scripts/dispatch-by-topic.sh" 2>/dev/null)" ] || fail "dispatch-by-topic printed for a payload with no cwd"
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch-by-topic.sh")' \

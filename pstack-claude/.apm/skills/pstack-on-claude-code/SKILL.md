@@ -220,6 +220,15 @@ cost us in practice.
   - Control: to stop a topic, `send` its worker the instruction to stop; to
     release it, follow the release and cleanup bullets below.
   - Status: one entry per topic, naming outcome, evidence and unresolved blocker.
+  - Reply shape: every reply ends with the two blocks below, including a reply
+    to a short acknowledgement and one after a background notification.
+    1. A checklist, one line per topic: state symbol (✅ done, 🔄 working, ⏸
+       waiting on the human, ⬜ not started, ❌ failed), worker name, repo, one
+       line of current state, PR link (「—」 until there is one). Take it from `worker-list` (the
+       projection) and the Task list, never from memory. Add the coordinator's
+       own remaining steps (merge, release, cleanup) as items.
+    2. 「次にあなたがすること」: what needs the human's approval or decision,
+       numbered; 「なし（待機中）」 when nothing does.
   - Ask at most one question, and only when the topic is ambiguous or the
     target repo cannot be decided.
   - The ledger is Orca's Task list. Keep no topic file of your own.
