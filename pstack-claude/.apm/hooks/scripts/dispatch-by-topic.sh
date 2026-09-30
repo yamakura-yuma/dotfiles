@@ -5,8 +5,8 @@
 #
 # The rule itself lives in pstack-on-claude-code's "Supervising Orca workers";
 # this only puts it in front of the message, because the failure it prevents
-# (starting the work here, or asking before dispatching) happens in the first
-# tool call.
+# (starting the work or a worker here, or asking before opening a topic chat)
+# happens in the first tool call.
 #
 # UserPromptSubmit is read for its stdout, not its exit code, and exit 2 would
 # cancel the human's prompt. So this always exits 0 and prints nothing when it
@@ -36,16 +36,20 @@ cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
 is_coordinator_workspace "$cwd" || exit 0
 
 context="$(cat <<'CTX'
-ここは coordinator。ここでは実装しない（Edit / Write は hook が拒否する）。
+ここは coordinator の main chat。ここでは実装しないし、`worker-start` もしない
+（Edit / Write は hook が拒否する）。話題の受付と全話題の状況のまとめだけをする。
 このメッセージを分類し、`pstack-on-claude-code` の "Supervising Orca workers" 節、
-"Start workers by topic, without asking" に従う。
+Main chat に従う。
 
-- 新しい話題 → 確認せず、同じ Run に `worker-start`。kebab の話題名を
-  `--task-title` と `--name` に使う。実装は実装ワーカー、調査・設計・文書は設計ワーカー。
-  起動したら一行で報告する（話題名・リポジトリ・モデル）
-- 既存話題の続き → `worker-list` の Task 題とワーカー名から引き、`orca orchestration send` で届ける
-- 状況確認 → 話題ごとに outcome / evidence / unresolved blocker
-- 制御（止める・解放する）→ 同節の該当項目
+- 新しい話題 → 確認せず話題チャットを開く。kebab の話題名 `<topic>` で
+  `orca worktree create --name chat-<topic> --setup skip --no-parent` →
+  その worktree で `apm install` → `orca terminal create --worktree path:<path>
+  --title <topic> --command 'claude "$(cat <引き継ぎ文のファイル>)"'`。新しいセッションは人に開かせず Orca で開く。
+  起動したら一行で報告する（話題名・worktree・リポジトリ）
+- 既存話題の続き → `orca terminal list --worktree` で話題チャットを引き、`orca terminal send` で届ける
+- 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、outcome / evidence / unresolved blocker
+- 制御（止める・閉じる）→ 同節の該当項目。話題が終わったら話題チャットの worktree を片付ける
+- この main chat が Run を握っているなら、`check --wait` を止めてから引き継ぐ（同節の "Hand over a Run"）
 - 聞いてよいのは、話題が曖昧なときと対象リポジトリが決まらないときの 1 問だけ
 
 どの応答も（短い相づち、バックグラウンド通知の処理後も）末尾に、話題ごとのチェックリストと
