@@ -18,7 +18,7 @@ The user's own preferences on top of poteto-mode are the `p-mode` skill.
 | `generalPurpose` | `general-purpose` |
 | readonly subagent | `Explore` |
 | `run_in_background: true` | same parameter on `Agent` |
-| `AskQuestion` | `AskUserQuestion`. In an Orca-dispatched worker, `orca orchestration ask` instead (the `orchestration` skill), since nobody sees a local prompt |
+| `AskQuestion` | `AskUserQuestion`; if it is missing from the tool list, load it with `tool_search_tool_regex` (the headroom proxy defers it; `ToolSearch` cannot find it). In an Orca-dispatched worker, `orca orchestration ask` instead (the `orchestration` skill), since nobody sees a local prompt |
 | Cursor's `/loop` | Claude Code's `/loop` |
 | **create-skill** (Cursor's authoring skill) | pstack's own `playbooks/authoring-a-skill.md`, with Claude Code's `SKILL.md` frontmatter (`name`, `description`) |
 
@@ -214,7 +214,7 @@ topics in, and one **topic chat** per topic sees that topic through.
 | | Main chat | Topic chat |
 |---|---|---|
 | Runs in | The coordinator's original checkout, where the UserPromptSubmit hook fires | Its own worktree `chat-<topic>` of the coordinator repo, opened by the main chat |
-| Does | Intake, status across topics, closing finished topics | Owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
+| Does | Intake, status across topics, closing finished topics | Grounds the request with the human in plan mode, then owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
 | Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
 - **Reply shape.** Every reply of either chat ends with two blocks. Write
@@ -238,16 +238,20 @@ topics in, and one **topic chat** per topic sees that topic through.
   into a new topic, a continuation, a status question or a control (stop,
   close). A new topic never starts a worker here. Pick a kebab `<topic>` and
   run `.claude/skills/pstack-on-claude-code/scripts/open-topic-chat
-  [--run <run_id>] <topic> "<hand-off>"`. It creates the worktree
+  [--run <run_id>] --said "<words>" [--known "<facts>"] [--guess "<guesses>"]
+  <topic>`. It creates the worktree
   `chat-<topic>` of the coordinator repo (repo id read from `orca worktree
   list`, or `--repo <selector>`; `--setup skip --no-parent` so unrelated topics
   do not nest), runs `apm install` there (`.claude/` and `apm_modules/` are
   gitignored, so a fresh worktree has no harness), and opens `claude --model
-  claude-opus-5-5` on the hand-off. It adds the topic chat's role (the hook and
+  claude-opus-5-5 --permission-mode plan` on the hand-off. It adds the topic chat's role (the hook and
   the edit guard stay silent in a child worktree, so that text is the only place
   the chat is told) and, with `--run`, the instruction to bind that Run. The
-  hand-off is the topic, the human's request verbatim and the target repo. It
-  prints the worktree path and the terminal handle.
+  hand-off has three parts, and the main chat does not ground: `--said` is the
+  human's words verbatim, `--known` only what the human stated or the
+  repository shows (the target repo included), `--guess` everything you
+  inferred, for the topic chat to confirm. It prints the worktree path and the
+  terminal handle.
   Opening the session is yours, not the human's. Report in one line: topic,
   chat worktree, repo.
 - **Session models.** `--model` outranks every `model` setting, so the script pins the
@@ -271,8 +275,10 @@ topics in, and one **topic chat** per topic sees that topic through.
   --json` for the workers and `orca terminal read --terminal <handle>` for
   what the chat is doing. Unbound, `worker-list` without `--run` covers every
   Run.
-- Ask at most one question, and only when the topic is ambiguous or the target
-  repo cannot be decided.
+- Ask only to route, with `AskUserQuestion`, one question at most: whether a
+  message is a new topic or which topic it continues. Everything about the
+  work itself (target, goal, means, terms) goes to the topic chat, even when
+  the target repo is unclear; put it under `--guess`.
 - **Close a finished topic.** When the topic chat reports done, confirm
   `worker-list --run <run_id> --terminal-state active` is empty, then `orca
   terminal close --worktree path:<path> --all` and `orca worktree rm
@@ -282,6 +288,17 @@ topics in, and one **topic chat** per topic sees that topic through.
 
 ### Topic chat
 
+- **Ground before the first worker.** The chat starts in plan mode. Before the
+  first `worker-start`, ground the hand-off with the human: look terms up
+  first, ask in `grilling`'s rounds through `AskUserQuestion`, check the
+  checklist, and present the brief as the plan for `ExitPlanMode`; after
+  approval write it to `~/.claude/worker-reports/<topic>-brief.md` and start
+  every spec with it. Until approval, only reads and `run-use` of a handed-over
+  Run. If `AskUserQuestion` is not in the tool list, load it with
+  `tool_search_tool_regex`; if it still does not load, do not ask in text:
+  say in one line that the question tool is missing, and wait. Detail, the
+  brief template and how to change a brief under a running worker:
+  `grounding.md`.
 - **One Run per topic chat.** First `orca orchestration run-current --json`.
   If the hand-off names a Run, `run-use --id <run_id>` (a new Run would strand
   that Run's `worker_done`); if nothing is bound, `run-create --objective
@@ -290,10 +307,12 @@ topics in, and one **topic chat** per topic sees that topic through.
   (`--task-title`) and worker name, and add later workers to the same Run with
   `worker-start`. `check` only returns the bound Run's mail, so a Run per
   purpose, rebound with `run-use`, hides every other Run's `worker_done`.
-- **Dispatch, without asking.** Every worker for the topic goes through
+- **Dispatch within the brief, without asking.** Once the brief is approved,
+  every worker for the topic goes through
   `worker-start` into the Run (`--task-title` = unit, `--name` = kebab worker
   name); the Models table picks the worker: implementation change, design
-  research, design documents. Report in one line: worker name, repo, model.
+  research, design documents. A worker that falls outside the brief needs the
+  brief changed first. Report in one line: worker name, repo, model.
   The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
