@@ -291,6 +291,16 @@ topics in, and one **topic chat** per topic sees that topic through.
   `orca orchestration check --ack <delivery_id>` (add `--wait --types
   "worker_done,escalation,question" --timeout-ms <n> --json` to keep waiting).
   An un-acked Delivery keeps returning and queues newer ones behind it.
+- **Triage is a report, not a worker.** A message with `type=status` and a
+  `[triage]` subject comes from the scheduled PR/Issue triage. Read the report
+  file named in its body (`~/.claude/worker-reports/triage/YYYY-MM-DD.md`) and
+  put every item that needs approval (merge, close, start a worker, a human
+  decision) under 「次にあなたがすること」; the merge, close or `worker-start`
+  happens after the human approves it. It is sent to `@worktree:`, so every Run
+  with a coordinator terminal in that worktree gets a copy with the same
+  `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
+  copies with `check --run <run_id> --ack <delivery_id>`). `check --wait` does
+  not wake on `status`; the message arrives with the next `check`.
 - **Wait with `check --wait`.** Run `check --wait --types
   "worker_done,escalation,question" --timeout-ms <n> --json` with Bash
   `run_in_background`; when it returns, process, ack, and start it again. An
