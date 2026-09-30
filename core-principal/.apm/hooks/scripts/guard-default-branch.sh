@@ -216,7 +216,7 @@ commands="$(printf '%s' "$cmd" | GUARD_CWD="$cwd" LC_ALL=C awk "$split_commands"
 # (`--delete b`, `:b`) never lands on it. A refspec we cannot read has no
 # opinion, the same as an unknown directory.
 push_lands_on_default() {
-  local a remote="" del=0 opts=1 dst unknown=0
+  local a remote="" del=0 opts=1 dst
   local -a specs=()
   while [ $# -gt 0 ]; do
     a="$1"
@@ -234,7 +234,7 @@ push_lands_on_default() {
   done
   [ "${#specs[@]}" -gt 0 ] || { [ "$del" = 1 ] && return 1; return 0; }
   for a in "${specs[@]}"; do
-    case "$a" in $'\001'*) unknown=1; continue ;; esac
+    case "$a" in $'\001'*) continue ;; esac
     a="${a#+}"
     if [ "$del" = 1 ]; then dst="$a"; else dst="${a#*:}"; fi
     [ -n "$dst" ] || dst="${a%%:*}"
@@ -253,7 +253,7 @@ while IFS=$'\t' read -r -a f; do
   dir="${f[0]:-}"
   [ -n "$dir" ] && [ "$dir" != $'\001' ] || continue
   workspace_on_default_branch "$dir" || continue
-  [ "${f[1]}" = commit ] || push_lands_on_default "${f[@]:2}" || continue
+  [ "${f[1]:-}" = commit ] || push_lands_on_default "${f[@]:2}" || continue
   blocked="$dir"
   break
 done <<<"$commands"
