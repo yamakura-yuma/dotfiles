@@ -104,7 +104,7 @@ coordinator は端末を読まずに進捗を追える。ワーカーの spec �
 ボードに反映されないバグがある（[Orca #13620](https://github.com/stablyai/orca/issues/13620)、
 2026-09 時点で open）。進捗と完了はコメントで表し、列は補助に留める。
 
-## 受け取る — 待ち続けずに、そのつど拾い直す
+## 受け取る — check --wait で待ち、処理して ack する
 
 ```
 orca orchestration check --json
@@ -197,8 +197,8 @@ orca orchestration inbox --limit 20 --json
 ごとに切れるので、`page.hasMore` の間は `page.nextCursor` を `--cursor` に渡す。
 
 **旧運用の Run が残っているとき。** 目的ごとに Run を作っていた頃の Run が複数残って
-いたら、各 Run で `check --run <run_id>` を打って未 ack の Delivery を確かめ、処理
-してから `check --run <run_id> --ack <delivery_id>` で ack する。終わった Run は
+いたら、各 Run で `check --run <run_id>` を打って未 ack の Delivery を確かめ（読むだけなら
+`--peek`。`deliveryId` は出ない）、処理してから `check --run <run_id> --ack <delivery_id>` で ack する。終わった Run は
 触らない。束縛は付け替えず、いまの 1 つの Run のままにする。
 
 `task-list --ready --brief` の ready view を、公式は **external memory** と呼ぶ。

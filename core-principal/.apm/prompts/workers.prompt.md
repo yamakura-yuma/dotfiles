@@ -17,9 +17,10 @@ argument-hint: "[絞り込みたい対象（省略可）]"
 2. `orca orchestration worker-list --include-remote --json`（既定で束縛 Run。
    `--run <run_id>` で上書き）
 3. `orca orchestration task-list --ready --brief --json`
-4. `orca orchestration check --peek --json` で未 ack の Delivery を読む。`--peek` は
-   読むだけで進まない。処理（reply・検証・release の判断）を済ませたものだけを
-   `check --ack <delivery_id>` で ack する
+4. `orca orchestration check --json` で未 ack の Delivery を読む。ack するまで同じ束が
+   返るので、処理（reply・検証・release の判断）を済ませたものだけを結果の
+   `deliveryId` で `check --ack <delivery_id>` する（`--peek` は読むだけで
+   `deliveryId` が出ないので、ack には使えない）
 
 出力は表ひとつ。列は **Task / コメント / attention.categories / nextAction /
 outcome / evidence / unresolved blocker / 片付け**。Task は「`<ワーカー名>`
@@ -58,8 +59,8 @@ unresolved blocker を埋めます。escalation / question があれば人に取
 `check` が空なら、ワーカーが消えたのではなく自分が Run から外れている可能性がある
 ので、`orca orchestration run-current` で束縛を確かめ、外れていたら同じ Run に
 `run-use --id <run_id>` で結び直すこと（Run の付け替えには使わない）。旧運用で Run が
-複数残っているときは、各 Run を `check --run <run_id> --peek` で見て、未 ack のものだけ
-処理して ack する。終わった Run は触らない。`unverifiable` や
+複数残っているときは、各 Run を `check --run <run_id>` で見て、未 ack のものだけ
+処理して `check --run <run_id> --ack <delivery_id>` で ack する。終わった Run は触らない。`unverifiable` や
 `missing_status` も死亡ではありません。殺したり再試行したりせず、`core-dispatch`
 スキルの `references/orca.md`「ハンドルが stale になったとき」に従って引き直し、
 生きているなら続きの指示で起こしてください。

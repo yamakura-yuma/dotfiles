@@ -231,9 +231,10 @@ cost us in practice.
   with `consumer_fenced` (a session restart dropped the binding; it wants the
   coordinator terminal bound to the Task Run), run `orca orchestration run-use
   --id <run_id>` for that same Run and retry. `run-use` is for nothing else. Runs
-  left over from the old one-Run-per-purpose habit: `check --run <run_id> --peek`
-  each, process and ack what is unacked, leave finished Runs alone. When filtering Orca
-  output with jq or grep, keep `ok` and the error code visible; a filter that
+  left over from the old one-Run-per-purpose habit: `check --run <run_id>` each,
+  process what is unacked and `check --run <run_id> --ack <delivery_id>` it, leave
+  finished Runs alone (`--peek` reads without a `deliveryId`, so it cannot ack).
+  When filtering Orca output with jq or grep, keep `ok` and the error code visible; a filter that
   dropped them hid a failed launch.
 - **Issues record leftovers only.** Instructions and completion go through
   Orca, never an Issue. Anything under a report's remaining problems that is
