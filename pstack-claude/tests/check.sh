@@ -178,6 +178,7 @@ case "$WEV_MODE/$n" in
   hb_late/*) echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
   no_id/*) echo "{\"deliveryId\":null,\"messages\":[$hb],\"count\":1}" ;;
   empty/*) sleep 0.01; echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
+  refuse0/*) echo '{"ok":false,"error":{"code":"waiter_exists"}}' ;;
   refuse/*) echo '{"ok":false,"error":{"code":"waiter_exists"}}'; exit 1 ;;
   garbage/*) echo 'boom' ;;
 esac
@@ -227,6 +228,10 @@ out="$(wev_run no_id)"; rc=$?
 out="$(wev_run refuse)"; rc=$?
 [ "$rc" -eq 1 ] && printf '%s' "$out" | jq -e '.ok == false and .error.code == "waiter_exists"' >/dev/null ||
   fail "wait-worker-events hid or swallowed a refused wait (ok:false, waiter_exists)"
+out="$(wev_run refuse0 --deadline-ms 3000)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | jq -e '.ok == false and .error.code == "waiter_exists"' >/dev/null &&
+  [ "$(wc -l < "$tmp/wev.log")" -eq 1 ] ||
+  fail "wait-worker-events took ok:false with exit 0 for an empty batch and waited again"
 out="$(wev_run garbage)"; rc=$?
 [ "$rc" -eq 1 ] && [ "$out" = boom ] || fail "wait-worker-events did not pass non-JSON output through with exit 1"
 wev_run hb_done --bogus >/dev/null; [ $? -eq 2 ] || fail "wait-worker-events accepted an unknown option"
