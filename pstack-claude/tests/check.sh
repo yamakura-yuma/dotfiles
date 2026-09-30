@@ -127,5 +127,29 @@ mkdir -p "$tmp/jg/hooks" "$tmp/jg/tests"
 cp "$jg" "$tmp/jg/hooks/" && cp "$here/japanese-guard/test_japanese_guard.py" "$tmp/jg/tests/"
 python3 "$tmp/jg/tests/test_japanese_guard.py" >/dev/null || fail "upstream test_japanese_guard.py failed"
 
+# claude-session-to-html: the converter is pinned and never uploads. uvx, wslpath
+# and powershell.exe are stubs, so this stays offline and runs off WSL too. That
+# subagents/agent-*.jsonl get expanded into the parent is claude-code-log's
+# behaviour at the pinned version, checked by hand on a real session.
+s2h="$pkg/.apm/skills/claude-session-to-html/scripts/session-to-html.sh"
+[ -x "$s2h" ] || fail "session-to-html.sh is not executable"
+grep -q '^CCL_VERSION=1\.6\.0$' "$s2h" || fail "session-to-html.sh does not pin claude-code-log 1.6.0"
+! grep -q -- '--gist' "$s2h" || fail "session-to-html.sh mentions --gist, which uploads the conversation"
+mkdir -p "$tmp/bin" && : >"$tmp/session.jsonl"
+printf '#!/bin/sh\nprintf "%%s\\n" "$@" >"%s/uvx-args"\n' "$tmp" >"$tmp/bin/uvx"
+printf '#!/bin/sh\necho "WIN:$2"\n' >"$tmp/bin/wslpath"
+printf '#!/bin/sh\nprintf "%%s\\n" "$CCL_TARGET" >"%s/ps-target"\n' "$tmp" >"$tmp/bin/powershell.exe"
+chmod +x "$tmp/bin/"*
+s2h_run() { PATH="$tmp/bin:$PATH" XDG_CACHE_HOME="$tmp/cache" "$s2h" "$@" >"$tmp/s2h-out" 2>&1; }
+s2h_run --no-open -o "$tmp/out.html" "$tmp/session.jsonl" || fail "session-to-html.sh failed on a plain run"
+[ "$(cat "$tmp/uvx-args")" = "$(printf '%s\n' claude-code-log@1.6.0 "$tmp/session.jsonl" -o "$tmp/out.html")" ] ||
+  fail "session-to-html.sh did not call uvx claude-code-log@1.6.0 <jsonl> -o <out>"
+[ ! -e "$tmp/ps-target" ] || fail "session-to-html.sh opened a browser under --no-open"
+s2h_run "$tmp/session.jsonl" || fail "session-to-html.sh failed when opening"
+[ "$(cat "$tmp/ps-target")" = "WIN:$tmp/cache/claude-session-html/session.html" ] ||
+  fail "session-to-html.sh did not hand the wslpath -w path of the default output to the browser"
+s2h_run "$tmp/missing.jsonl" && fail "session-to-html.sh accepted a missing file"
+s2h_run && fail "session-to-html.sh accepted no argument"
+
 [ "$failures" -eq 0 ] && echo "pstack-claude: ok"
 exit "$failures"

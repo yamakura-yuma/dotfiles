@@ -58,6 +58,7 @@ whole upgrade:
 | `guard-coordinator-edit` hook | Refuses file edits in a coordinator workspace. The decision (`lib/coordinator-workspace.sh`) is a byte-for-byte copy of core-principal's, checked by `tests/check.sh` |
 | `dispatch-by-topic` hook (UserPromptSubmit) | In the coordinator workspace, attaches the rule that starts an Orca worker per topic without asking, and that every reply ends with a per-topic checklist and what the human does next (`pstack-on-claude-code`, "Supervising Orca workers"). Silent elsewhere. Replaces the `dispatch-in-coordinator` hook of core-principal, whose text points at core-dispatch |
 | `japanese-guard` hook | Sends an English final answer back to be rewritten in Japanese. Vendored unedited from [minorun365/claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard) (Apache-2.0), which has no manifest to depend on; pin, thresholds and how to turn it off in [`docs/japanese-guard.md`](docs/japanese-guard.md) |
+| `claude-session-to-html` skill | Turns a session jsonl (subagents included) into one HTML file with `uvx claude-code-log@1.6.0` and opens it in the Windows browser; usage in [`docs/claude-session-to-html.md`](docs/claude-session-to-html.md) |
 
 ## What is taken from core-principal
 
