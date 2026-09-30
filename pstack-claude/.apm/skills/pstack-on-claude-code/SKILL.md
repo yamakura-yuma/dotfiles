@@ -207,6 +207,22 @@ cost us in practice.
   `worker-start`. `check` and the notification only return the bound Run's mail,
   so a Run per purpose, rebound with `run-use`, hides every other Run's
   `worker_done`.
+- **Start workers by topic, without asking.** Sort each message into a new
+  topic, a continuation, a status question, or control (stop, release).
+  - New topic: pick a kebab topic name and `worker-start` it into the same Run
+    (`--task-title` = the topic, `--name` = the topic name), no confirmation.
+    The Models table picks the worker: implementation for a change, design for
+    research, design and documents. Report in one line: topic name, repo, model.
+    The session's first start also starts the `check --wait` below; restart it
+    after each return.
+  - Continuation: find the worker in `worker-list` by Task title and worker
+    name, and deliver with `orca orchestration send`.
+  - Control: to stop a topic, `send` its worker the instruction to stop; to
+    release it, follow the release and cleanup bullets below.
+  - Status: one entry per topic, naming outcome, evidence and unresolved blocker.
+  - Ask at most one question, and only when the topic is ambiguous or the
+    target repo cannot be decided.
+  - The ledger is Orca's Task list. Keep no topic file of your own.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then

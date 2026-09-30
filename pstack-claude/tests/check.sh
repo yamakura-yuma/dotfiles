@@ -84,6 +84,20 @@ expect 0 "default-branch fired on words inside a quoted argument" bash_in guard-
 expect 2 "destructive-git did not block reset --hard" bash_in guard-destructive-git "$tmp/child" "git reset --hard"
 expect 0 "destructive-git blocked reset --soft" bash_in guard-destructive-git "$tmp/child" "git reset --soft HEAD~1"
 
+# dispatch-by-topic: UserPromptSubmit is read for its stdout (exit 2 would cancel
+# the prompt), so check what it printed. The coordinator gets the rule; a child
+# worktree and a payload with no cwd get nothing.
+topic() {
+  jq -nc --arg cwd "$1" '{hook_event_name:"UserPromptSubmit", prompt:"x", cwd:$cwd}' |
+    env -u MAKURA_ALLOW_MAIN "$scripts/dispatch-by-topic.sh" 2>/dev/null
+}
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("worker-start")' >/dev/null ||
+  fail "dispatch-by-topic printed no routing rule in the coordinator workspace"
+[ -z "$(topic "$tmp/child")" ] || fail "dispatch-by-topic printed in a child worktree"
+[ -z "$(printf '{}' | "$scripts/dispatch-by-topic.sh" 2>/dev/null)" ] || fail "dispatch-by-topic printed for a payload with no cwd"
+jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch-by-topic.sh")' \
+  "$pkg/.apm/hooks/dispatch-by-topic.json" >/dev/null || fail "dispatch-by-topic.json does not run the script on UserPromptSubmit"
+
 # japanese-guard is vendored from minorun365/claude-code-japanese-guard at
 # e68864a (docs/japanese-guard.md): script and test are upstream's bytes.
 jg="$scripts/japanese-guard.py"

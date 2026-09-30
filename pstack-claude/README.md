@@ -30,6 +30,7 @@ Code has been run; the other two columns are what lands on disk, checked with
 | Subagents (`poteto-agent`, `Comment Sicko`, `completion-reviewer`) | `.claude/agents/` | `.codex/agents/*.toml` | `.github/agents/` |
 | `guard-destructive-git`, `guard-default-branch` hooks | Yes | Yes (`.codex/hooks.json`). Codex asks to trust project hooks before they run | Deployed, but **Claude only**: Copilot's `preToolUse` sends `toolArgs`, not `tool_input`, so the scripts see no command and allow it |
 | `guard-coordinator-edit` hook | Yes | Deployed, but **Claude only**: Codex edits with `apply_patch`, which has no `file_path` | Deployed, but **Claude only**, same reason as above |
+| `dispatch-by-topic` hook (UserPromptSubmit) | Yes | Deployed, but **Claude only**: only checked on Claude Code | Deployed, but **Claude only**, same reason above |
 | `pstack-on-claude-code` overlay | Yes | Deployed, but it maps Cursor's names onto **Claude Code only** | Same |
 | `japanese-guard` hook (Stop) | Yes | Deployed to `.codex/hooks.json`, not run | Deployed as `agentStop`, not run |
 
@@ -52,6 +53,7 @@ whole upgrade:
 | `pstack-on-claude-code` skill | Reads pstack's Cursor names as Claude Code and Orca ones: tools, Bugbot, models, paths, and which playbooks hand parallel work to Orca |
 | `pstack-claude` rule | Always loaded: reply in Japanese, read the overlay before pstack, the coordinator norm, index tools via `core-tools` |
 | `guard-coordinator-edit` hook | Refuses file edits in a coordinator workspace. The decision (`lib/coordinator-workspace.sh`) is a byte-for-byte copy of core-principal's, checked by `tests/check.sh` |
+| `dispatch-by-topic` hook (UserPromptSubmit) | In the coordinator workspace, attaches the rule that starts an Orca worker per topic without asking (`pstack-on-claude-code`, "Supervising Orca workers"). Silent elsewhere. Replaces the `dispatch-in-coordinator` hook of core-principal, whose text points at core-dispatch |
 | `japanese-guard` hook | Sends an English final answer back to be rewritten in Japanese. Vendored unedited from [minorun365/claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard) (Apache-2.0), which has no manifest to depend on; pin, thresholds and how to turn it off in [`docs/japanese-guard.md`](docs/japanese-guard.md) |
 
 ## What is taken from core-principal
