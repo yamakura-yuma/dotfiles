@@ -198,40 +198,93 @@ Everything else is used as written.
 
 ## Supervising Orca workers
 
-The `orchestration` skill is the procedure. These are the gaps it leaves that
-cost us in practice.
+`orchestration` skill is the procedure. These are the gaps it leaves that
+cost us in practice. Two kinds of chat split the work: the **main chat** takes
+topics in, and one **topic chat** per topic sees that topic through.
 
-- **One Run per coordinator session.** The `orchestration` skill's "Canonical
-  supervised loop" binds one Run; put each purpose in its own Task
+| | Main chat | Topic chat |
+|---|---|---|
+| Runs in | The coordinator's original checkout, where the UserPromptSubmit hook fires | Its own worktree `chat-<topic>` of the coordinator repo, opened by the main chat |
+| Does | Intake, status across topics, closing finished topics | Owns the topic's Run: `worker-start`, `check --wait`, pickup, release, worker cleanup |
+| Never | `worker-start`, `run-create`, `check` | Implement; its workers do |
+
+- **Reply shape.** Every reply of either chat ends with two blocks, including
+  the short acknowledgement after a background notification.
+  1. A checklist, one line per topic (main chat) or per worker (topic chat):
+     state symbol (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌
+     failed), name, repo, one line of current state, PR link (「—」 until there
+     is one). Take it from `worker-list` (the projection) and the Task list,
+     never from memory. Add the chat's own remaining steps (merge, release,
+     cleanup) as items.
+  2. 「次にあなたがすること」: what needs the human's approval or decision,
+     numbered; 「なし（待機中）」 when nothing does.
+- The ledger is Orca's Task list. Keep no topic file of your own.
+
+### Main chat
+
+- **Open a topic chat for each new topic, without asking.** Sort each message
+  into a new topic, a continuation, a status question or a control (stop,
+  close). A new topic never starts a worker here. Pick a kebab `<topic>`, then
+  in order:
+  1. `orca worktree create --repo id:<coordinatorRepoId> --name chat-<topic>
+     --setup skip --no-parent --json`. The repo id is the part of a
+     `worktree list --json` id before `::`; `--no-parent` keeps unrelated
+     topics from nesting under this one. Read the path from the result.
+  2. `apm install` in that path. `.claude/` and `apm_modules/` are gitignored,
+     so a fresh worktree has no harness until this runs.
+  3. `orca terminal create --worktree path:<path> --title <topic> --command
+     'claude "$(cat <handoff file>)"' --json`. Write the hand-off file in your
+     scratchpad; reading it back with `cat` keeps quotes and newlines out of
+     the typed command. It holds the topic, the human's request verbatim, the
+     target repo, the Run id if one is being handed over (below), and the
+     role: "You are the topic chat for `<topic>`. Dispatch workers with
+     `worker-start`; do not implement. Follow `pstack-on-claude-code`'s
+     'Supervising Orca workers', Topic chat." The hook and the edit guard stay
+     silent in a child worktree, so this text is the only place the topic
+     chat is told its role.
+  Opening the session is yours, not the human's. Report in one line: topic,
+  chat worktree, repo.
+- **Hand over a Run you already hold.** A Run has one consuming terminal. Stop
+  your background `check --wait` first, ack what it returned, and only then
+  run step 3 with the Run id in the hand-off; the topic chat binds it with
+  `run-use`. Your next consuming call fails `consumer_fenced`: leave it, since
+  the main chat stays unbound.
+- Continuation: `orca terminal list --worktree path:<path>` gives the topic
+  chat's handle; deliver with `orca terminal send --terminal <handle> --text
+  "<message>" --enter`.
+- Control: to stop a topic, `send` the topic chat the instruction; it stops and
+  releases its workers. To close a finished topic, see below.
+- Status: one entry per topic, naming outcome, evidence and unresolved
+  blocker. Find the topic's Run with `orca orchestration run-list --json`
+  (its objective starts with the topic), then read `worker-list --run <run_id>
+  --json` for the workers and `orca terminal read --terminal <handle>` for
+  what the chat is doing. Unbound, `worker-list` without `--run` covers every
+  Run.
+- Ask at most one question, and only when the topic is ambiguous or the target
+  repo cannot be decided.
+- **Close a finished topic.** When the topic chat reports done, confirm
+  `worker-list --run <run_id> --terminal-state active` is empty, then `orca
+  terminal close --worktree path:<path> --all` and `orca worktree rm
+  --worktree path:<path>` (the checks in "Check for mounts before removing"
+  first). `worktree rm` also drops the local `chat-<topic>` branch unless Orca
+  cannot prove it merged; report a retained branch to the human.
+
+### Topic chat
+
+- **One Run per topic chat.** First `orca orchestration run-current --json`.
+  If the hand-off names a Run, `run-use --id <run_id>` (a new Run would strand
+  that Run's `worker_done`); if nothing is bound, `run-create --objective
+  "<topic>: <goal>" --json`. `orchestration` skill's "Canonical supervised
+  loop" binds one Run; put each unit of the topic in its own Task
   (`--task-title`) and worker name, and add later workers to the same Run with
-  `worker-start`. `check` and the notification only return the bound Run's mail,
-  so a Run per purpose, rebound with `run-use`, hides every other Run's
-  `worker_done`.
-- **Start workers by topic, without asking.** Sort each message into a new
-  topic, a continuation, a status question, or control (stop, release).
-  - New topic: pick a kebab topic name and `worker-start` it into the same Run
-    (`--task-title` = the topic, `--name` = the topic name), no confirmation.
-    The Models table picks the worker: implementation for a change, design for
-    research, design and documents. Report in one line: topic name, repo, model.
-    The session's first start also starts the `check --wait` below; restart it
-    after each return.
-  - Continuation: find the worker in `worker-list` by Task title and worker
-    name, and deliver with `orca orchestration send`.
-  - Control: to stop a topic, `send` its worker the instruction to stop; to
-    release it, follow the release and cleanup bullets below.
-  - Status: one entry per topic, naming outcome, evidence and unresolved blocker.
-  - Reply shape: every reply ends with the two blocks below, including a reply
-    to a short acknowledgement and one after a background notification.
-    1. A checklist, one line per topic: state symbol (✅ done, 🔄 working, ⏸
-       waiting on the human, ⬜ not started, ❌ failed), worker name, repo, one
-       line of current state, PR link (「—」 until there is one). Take it from `worker-list` (the
-       projection) and the Task list, never from memory. Add the coordinator's
-       own remaining steps (merge, release, cleanup) as items.
-    2. 「次にあなたがすること」: what needs the human's approval or decision,
-       numbered; 「なし（待機中）」 when nothing does.
-  - Ask at most one question, and only when the topic is ambiguous or the
-    target repo cannot be decided.
-  - The ledger is Orca's Task list. Keep no topic file of your own.
+  `worker-start`. `check` only returns the bound Run's mail, so a Run per
+  purpose, rebound with `run-use`, hides every other Run's `worker_done`.
+- **Dispatch, without asking.** Every worker for the topic goes through
+  `worker-start` into the Run (`--task-title` = unit, `--name` = kebab worker
+  name); the Models table picks the worker: implementation change, design
+  research, design documents. Report in one line: worker name, repo, model.
+  The chat's first start also starts `check --wait` below; restart it after
+  each return.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
@@ -254,8 +307,9 @@ cost us in practice.
   escalated, show the remaining required findings to the human to decide.
 - **Rebind the same Run when fenced.** If `worker-start` or another call fails
   with `consumer_fenced` (a session restart dropped the binding; it wants the
-  coordinator terminal bound to the Task Run), run `orca orchestration run-use
-  --id <run_id>` for that same Run and retry. `run-use` is for nothing else. Runs
+  topic chat's terminal bound to the Task's Run), run `orca orchestration
+  run-use --id <run_id>` for that same Run and retry. Besides the hand-over
+  above, `run-use` is for nothing else. Runs
   left over from the old one-Run-per-purpose habit: `check --run <run_id>` each,
   process what is unacked and `check --run <run_id> --ack <delivery_id>` it, leave
   finished Runs alone (`--peek` reads without a `deliveryId`, so it cannot ack).

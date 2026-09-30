@@ -91,12 +91,16 @@ topic() {
   jq -nc --arg cwd "$1" '{hook_event_name:"UserPromptSubmit", prompt:"x", cwd:$cwd}' |
     env -u MAKURA_ALLOW_MAIN "$scripts/dispatch-by-topic.sh" 2>/dev/null
 }
-topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("worker-start")' >/dev/null ||
-  fail "dispatch-by-topic printed no routing rule in the coordinator workspace"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("orca terminal create")' >/dev/null ||
+  fail "dispatch-by-topic printed no topic-chat routing rule in the coordinator workspace"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("chat-<topic>")' >/dev/null ||
+  fail "dispatch-by-topic does not name the chat-<topic> worktree"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
   fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
-grep -q 'Reply shape' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
-  fail "pstack-on-claude-code lost the \"Reply shape\" bullet the dispatch-by-topic text points at"
+for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat'; do
+  grep -q "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+    fail "pstack-on-claude-code lost \"$h\", which the dispatch-by-topic text points at"
+done
 [ -z "$(topic "$tmp/child")" ] || fail "dispatch-by-topic printed in a child worktree"
 [ -z "$(printf '{}' | "$scripts/dispatch-by-topic.sh" 2>/dev/null)" ] || fail "dispatch-by-topic printed for a payload with no cwd"
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch-by-topic.sh")' \
