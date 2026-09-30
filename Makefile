@@ -20,13 +20,13 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools \
         metrics eval skill-eval install
 
 help:
 	@echo "make ci       lint + test (deterministic, offline; what CI runs)"
 	@echo "make lint     shell syntax, executable bits, JSON, YAML, frontmatter"
-	@echo "make test     guard hooks, harness invariants, statusline"
+	@echo "make test     guard hooks, harness invariants, statusline, setup.sh"
 	@echo "make metrics  count sessions, turns, tool calls, hook blocks from local logs"
 	@echo "make eval     behavioural evals -- real API calls, costs money"
 	@echo "make skill-eval  whether pstack-claude skills fire -- real API calls"
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools
 
 lint-shell:
 	@echo "== shell syntax"
@@ -108,6 +108,10 @@ test-statusline:
 test-metrics:
 	@echo "== metrics"
 	@./claude/tests/metrics.sh
+
+test-nix-tools:
+	@echo "== setup.sh nix-tools"
+	@./tests/nix-tools.sh
 
 # Reads ~/.claude/projects, so its output is this machine's history rather than
 # a check -- not part of ci. `make metrics ARGS=--json` for the machine form.

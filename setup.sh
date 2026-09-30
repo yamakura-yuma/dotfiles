@@ -31,6 +31,14 @@ cmd_install_nix() {
   "$DIR/bin/install-nix.sh"
 }
 
+# NIX_PROFILE points `nix profile` at another profile than ~/.nix-profile, so
+# cmd_nix_tools can be exercised against a throwaway one.
+nix_profile() {
+  local sub="$1"
+  shift
+  nix profile "$sub" ${NIX_PROFILE:+--profile "$NIX_PROFILE"} "$@"
+}
+
 cmd_nix_tools() {
   ensure_nix_on_path
   if ! command -v nix >/dev/null 2>&1; then
@@ -40,10 +48,28 @@ cmd_nix_tools() {
   # `nix profile upgrade` warns and exits 0 when nothing matches, so an
   # `upgrade || install` chain silently installs nothing on a fresh profile.
   # Check first instead, and let real errors surface rather than hiding them.
-  if nix profile list | grep -qE '^Name:[[:space:]]+agent-tools$'; then
-    nix profile upgrade agent-tools
+  #
+  # Installing from another checkout (a worktree, an old path) does not
+  # replace the element: nix adds it again as agent-tools-1, -2, ... and the
+  # next install fails on the priority clash. So upgrade only when the one
+  # element is exactly this checkout's; otherwise drop every copy and install
+  # afresh, which converges the profile back to one agent-tools. The listing
+  # bolds each name even into a pipe, so strip the escapes before matching.
+  # (`remove --regex` matches the flake reference, not the name, so the
+  # copies are removed by the names read here.)
+  local elems names
+  elems="$(nix_profile list | awk '
+    { gsub(/\033\[[0-9;]*m/, "") }
+    /^Name:/ { name = $2 }
+    /^Original flake URL:/ && name ~ /^agent-tools(-[0-9]+)?$/ { print name, $4 }
+  ')"
+  if [[ "$elems" == "agent-tools path:$DIR" ]]; then
+    nix_profile upgrade agent-tools
   else
-    nix profile install "path:$DIR#agent-tools"
+    names="$(cut -d' ' -f1 <<<"$elems")"
+    # shellcheck disable=SC2086 # one word per name, split on purpose
+    [[ -z "$names" ]] || nix_profile remove $names
+    nix_profile install "path:$DIR#agent-tools"
   fi
   command -v starship >/dev/null 2>&1 ||
     echo "setup.sh: warning: starship still not on PATH after nix profile install" >&2
