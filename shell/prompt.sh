@@ -13,6 +13,17 @@ case $- in
   *) return 0 ;;
 esac
 
+# Tell the OTLP backend which Orca worktree (= worker) a Claude Code session
+# belongs to. Orca exports ORCA_WORKTREE_ID as "<uuid>::<path>" into every
+# terminal it opens; Claude Code reads OTEL_RESOURCE_ATTRIBUTES from its own
+# environment, so this cannot live in settings.json `env` (static, and it would
+# override this). Values must be percent-encoded, no spaces: the worktree name
+# is a kebab-case dir name, the id a uuid. Skipped if already set or outside Orca.
+if [ -n "${ORCA_WORKTREE_ID:-}" ] && [ -z "${OTEL_RESOURCE_ATTRIBUTES:-}" ]; then
+  OTEL_RESOURCE_ATTRIBUTES="orca.worktree.id=${ORCA_WORKTREE_ID%%::*},orca.worktree.name=$(basename "${ORCA_WORKTREE_ID#*::}")"
+  export OTEL_RESOURCE_ATTRIBUTES
+fi
+
 # Nix profile holds starship. A login shell gets this from /etc/profile.d,
 # but a plain `bash -i` does not always.
 case ":$PATH:" in
