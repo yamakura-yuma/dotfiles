@@ -2,32 +2,39 @@
 # Open a topic chat: a worktree `chat-<topic>` of the coordinator repo, the
 # harness installed in it, and a claude session started there on the hand-off.
 #
-#   open-topic-chat [--run <run_id>] [--repo <selector>] <topic> <handoff>
+#   open-topic-chat [--run <run_id>] [--repo <selector>] --said <words>
+#                   [--known <facts>] [--guess <guesses>] <topic>
 #
-# <handoff> is the topic, the human's request verbatim and the target repo; the
-# role and, with --run, the Run to bind are added here. --repo defaults to the
-# repo whose worktree contains the current directory, read from
-# `orca worktree list`. Prints the worktree path and the terminal handle.
+# The hand-off comes in three parts so a guess cannot pass for what the human
+# said: --said is the human's words verbatim (required), --known what they
+# stated or the repo shows, --guess what the main chat inferred. A part left out
+# reads （なし）. The role and, with --run, the Run to bind are added here.
+# The chat starts in plan mode. --repo defaults to the repo whose worktree
+# contains the current directory, read from `orca worktree list`. Prints the
+# worktree path and the terminal handle.
 set -euo pipefail
 
 # Explicit, so a topic chat never inherits the main chat's model from settings.
 model=claude-opus-5-5
 
-usage() { echo "usage: open-topic-chat [--run <run_id>] [--repo <selector>] <topic> <handoff>" >&2; exit 2; }
+usage() { echo "usage: open-topic-chat [--run <run_id>] [--repo <selector>] --said <words> [--known <facts>] [--guess <guesses>] <topic>" >&2; exit 2; }
 
-run="" repo=""
+run="" repo="" said="" known="" guess=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --run) [ $# -ge 2 ] || usage; run="$2"; shift 2 ;;
     --repo) [ $# -ge 2 ] || usage; repo="$2"; shift 2 ;;
+    --said) [ $# -ge 2 ] || usage; said="$2"; shift 2 ;;
+    --known) [ $# -ge 2 ] || usage; known="$2"; shift 2 ;;
+    --guess) [ $# -ge 2 ] || usage; guess="$2"; shift 2 ;;
     -h|--help) usage ;;
     --) shift; break ;;
     -*) usage ;;
     *) break ;;
   esac
 done
-[ $# -eq 2 ] || usage
-topic="$1" handoff="$2"
+[ $# -eq 1 ] && [ -n "$said" ] || usage
+topic="$1"
 case "$topic" in
   ''|*[!a-z0-9-]*|-*) echo "open-topic-chat: topic must be kebab-case: $topic" >&2; exit 2 ;;
 esac
@@ -57,7 +64,7 @@ path="$(printf '%s' "$created" | jq -r '.result.worktree.path // .result.path //
 # .claude/ and apm_modules/ are gitignored, so a fresh worktree has no harness.
 (cd "$path" && apm install)
 
-role="You are the topic chat for \`$topic\`. Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat."
+role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat."
 if [ -n "$run" ]; then
   role="$role Bind the Run this topic already has with \`orca orchestration run-use --id $run\`; do not create a new Run."
 fi
@@ -65,10 +72,11 @@ fi
 # The hand-off goes through a file: \`cat\` keeps quotes and newlines out of the
 # command Orca types into the terminal.
 file="$(mktemp "${TMPDIR:-/tmp}/topic-chat-$topic.XXXXXX")"
-printf '%s\n\n%s\n' "$role" "$handoff" > "$file"
+printf '%s\n\n## ユーザーの原文\n%s\n\n## わかっていること\n%s\n\n## 推測（要確認）\n%s\n' \
+  "$role" "$said" "${known:-（なし）}" "${guess:-（なし）}" > "$file"
 
 terminal="$(orca_json terminal create --worktree "path:$path" --title "$topic" \
-  --command "claude --model $model \"\$(cat $(printf %q "$file"))\"")"
+  --command "claude --model $model --permission-mode plan \"\$(cat $(printf %q "$file"))\"")"
 
 printf 'worktree: %s\n' "$path"
 printf 'terminal: %s\n' "$(printf '%s' "$terminal" | jq -r '.result.terminal.handle // .result.handle // "unknown"')"

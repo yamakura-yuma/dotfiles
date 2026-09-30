@@ -137,23 +137,40 @@ otc_run() {
   (cd "$tmp/origin-repo" && PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
     STUB_CHAT="$tmp/chat-demo" "$otc" "$@" 2>&1)
 }
-out="$(otc_run demo 'the request, "quoted"')"
+out="$(otc_run --said 'the request, "quoted"' --guess 'guessed target' demo)"
 grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup skip --no-parent --json$" "$tmp/stub.log" ||
   fail "open-topic-chat did not create chat-<topic> from the repo id read from worktree list, with --setup skip --no-parent"
 grep -q "^apm install in $tmp/chat-demo$" "$tmp/stub.log" || fail "open-topic-chat did not run apm install in the new worktree"
 grep -q "^orca terminal create --worktree path:$tmp/chat-demo --title demo --command claude --model claude-opus-5-5 " "$tmp/stub.log" ||
   fail "open-topic-chat did not open the topic chat in the new worktree on claude-opus-5-5"
 [ "$(sed -n 1,2p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--model\nclaude-opus-5-5')" ] || fail "open-topic-chat passed claude something other than --model claude-opus-5-5 first"
+[ "$(sed -n 3,4p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--permission-mode\nplan')" ] || fail "open-topic-chat did not start the topic chat in plan mode"
 grep -q 'the request, "quoted"' "$tmp/stub.log.claude" || fail "open-topic-chat lost the hand-off text"
+grep -q -A1 '^## ユーザーの原文$' "$tmp/stub.log.claude" && grep -A1 '^## ユーザーの原文$' "$tmp/stub.log.claude" | grep -q 'the request, "quoted"' ||
+  fail "open-topic-chat did not put --said under 「ユーザーの原文」"
+grep -A1 '^## わかっていること$' "$tmp/stub.log.claude" | grep -q '^（なし）$' || fail "open-topic-chat did not write （なし） for an omitted --known"
+grep -A1 '^## 推測（要確認）$' "$tmp/stub.log.claude" | grep -q '^guessed target$' || fail "open-topic-chat did not put --guess under 「推測（要確認）」"
+grep -q 'plan mode' "$tmp/stub.log.claude" && grep -q 'grounding.md' "$tmp/stub.log.claude" || fail "open-topic-chat's role does not point the chat at plan mode and grounding.md"
 grep -q 'topic chat for `demo`' "$tmp/stub.log.claude" || fail "open-topic-chat did not state the topic chat's role"
 grep -q 'run-use' "$tmp/stub.log.claude" && fail "open-topic-chat mentioned run-use without --run"
 case "$out" in *"terminal: term_stub"*) ;; *) fail "open-topic-chat did not print the terminal handle" ;; esac
-otc_run --run run_42 demo x > /dev/null
+otc_run --said x --known 'a fact' demo > /dev/null
+grep -A1 '^## わかっていること$' "$tmp/stub.log.claude" | grep -q '^a fact$' || fail "open-topic-chat did not put --known under 「わかっていること」"
+otc_run --run run_42 --said x demo > /dev/null
 grep -q 'run-use --id run_42' "$tmp/stub.log.claude" || fail "open-topic-chat --run did not tell the chat to bind that Run"
-otc_run --repo id:R9 demo x > /dev/null
+otc_run --repo id:R9 --said x demo > /dev/null
 grep -q -- "--repo id:R9 --name chat-demo" "$tmp/stub.log" || fail "open-topic-chat ignored --repo"
 grep -q "worktree list" "$tmp/stub.log" && fail "open-topic-chat read worktree list although --repo was given"
-otc_run 'Bad Topic' x > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
+otc_run --said x 'Bad Topic' > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
+case "$(otc_run --said x 'Bad Topic')" in *kebab-case*) ;; *) fail "open-topic-chat refused a bad topic for a reason other than kebab-case" ;; esac
+# The old two-positional form and a missing --said stop at usage: no worktree is created.
+for bad in "demo x" "demo" "--known k demo" "--said x"; do
+  # shellcheck disable=SC2086 # the words of $bad are the arguments
+  case "$(otc_run $bad)" in usage:\ open-topic-chat*) ;; *) fail "open-topic-chat did not stop at usage for: $bad" ;; esac
+  grep -q 'worktree create' "$tmp/stub.log" && fail "open-topic-chat created a worktree for: $bad"
+done
+[ -f "$pkg/.apm/skills/pstack-on-claude-code/grounding.md" ] || fail "pstack-on-claude-code/grounding.md is missing"
+grep -q 'grounding.md' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code's Topic chat no longer points at grounding.md"
 
 # japanese-guard is vendored from minorun365/claude-code-japanese-guard at
 # e68864a (docs/japanese-guard.md): script and test are upstream's bytes.
