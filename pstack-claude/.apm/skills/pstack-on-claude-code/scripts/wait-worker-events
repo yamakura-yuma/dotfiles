@@ -45,11 +45,14 @@ start="$(now_ms)"
 
 while :; do
   remaining=$(( deadline_ms - ( $(now_ms) - start ) ))
-  if [ "$remaining" -le 0 ]; then
+  # A heartbeat batch still to ack gets one last short wait, so it is not left
+  # blocking the Run's FIFO.
+  if [ "$remaining" -le 0 ] && [ -z "$ack" ]; then
     echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}'
     exit 0
   fi
   per=$(( remaining < 900000 ? remaining : 900000 ))
+  [ "$per" -ge 1000 ] || per=1000
 
   # --ack goes on the first call only; later ones carry the heartbeat batch's own.
   # stderr is the keepalive lines.
@@ -57,6 +60,7 @@ while :; do
   [ -n "$run" ] && args+=(--run "$run")
   [ -n "$ack" ] && args+=(--ack "$ack")
   args+=(--wait --types "worker_done,escalation,question,heartbeat" --timeout-ms "$per" --json)
+  call_start="$(now_ms)"
   out="$(orca "${args[@]}" 2>/dev/null)"; rc=$?
   ack=""
 
@@ -70,6 +74,8 @@ while :; do
   # The batch is at the top level, or under .result like other `--json` output.
   batch="$(printf '%s' "$out" | jq -c '.result // .')"
   if [ "$(printf '%s' "$batch" | jq '(.messages // []) | length')" -eq 0 ]; then
+    # An empty batch that came back at once is not a wait; do not spin on it.
+    [ $(( $(now_ms) - call_start )) -ge 1000 ] || sleep 1
     continue
   fi
 

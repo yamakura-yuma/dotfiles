@@ -174,6 +174,9 @@ case "$WEV_MODE/$n" in
   hb_done/1) echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
   hb_done/*) echo "{\"deliveryId\":\"d2\",\"messages\":[$hb,$done_],\"count\":2}" ;;
   wrapped/*) echo "{\"ok\":true,\"result\":{\"deliveryId\":\"d3\",\"messages\":[$done_],\"count\":1}}" ;;
+  hb_late/1) sleep 0.3; echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
+  hb_late/*) echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
+  no_id/*) echo "{\"deliveryId\":null,\"messages\":[$hb],\"count\":1}" ;;
   empty/*) sleep 0.01; echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
   refuse/*) echo '{"ok":false,"error":{"code":"waiter_exists"}}'; exit 1 ;;
   garbage/*) echo 'boom' ;;
@@ -210,8 +213,16 @@ grep -q -- '--ack\|--run' "$tmp/wev.log" && fail "wait-worker-events passed --ac
 out="$(wev_run empty --deadline-ms 50)"; rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.timedOut == true and .messages == []' >/dev/null ||
   fail "wait-worker-events did not return an empty batch at its deadline"
-grep -q -- '--timeout-ms [0-9]\{1,2\} ' "$tmp/wev.log" && ! grep -q -- '--timeout-ms 900000' "$tmp/wev.log" ||
-  fail "wait-worker-events did not cap --timeout-ms at the time left"
+grep -q -- '--timeout-ms 1000 ' "$tmp/wev.log" && ! grep -q -- '--timeout-ms 900000' "$tmp/wev.log" ||
+  fail "wait-worker-events did not shorten --timeout-ms to the time left (1000 ms at least)"
+
+# A heartbeat batch that lands after the deadline is still acked.
+out="$(wev_run hb_late --deadline-ms 100)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.timedOut == true' >/dev/null &&
+  [ "$(wc -l < "$tmp/wev.log")" -eq 2 ] && sed -n 2p "$tmp/wev.log" | grep -q -- '--ack d1 ' ||
+  fail "wait-worker-events left a heartbeat batch un-acked at its deadline"
+out="$(wev_run no_id)"; rc=$?
+[ "$rc" -eq 1 ] || fail "wait-worker-events did not stop on a heartbeat batch it cannot ack"
 
 out="$(wev_run refuse)"; rc=$?
 [ "$rc" -eq 1 ] && printf '%s' "$out" | jq -e '.ok == false and .error.code == "waiter_exists"' >/dev/null ||
