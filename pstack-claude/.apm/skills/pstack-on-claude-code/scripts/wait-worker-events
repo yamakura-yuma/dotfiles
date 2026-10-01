@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Wait for the bound Run's next worker event without waking the LLM for a
+# heartbeat.
+#
+#   wait-worker-events [--ack <delivery_id>] [--run <run_id>] [--deadline-ms <n>]
+#
+# A `check --wait` whose --types leaves out a type gets no waiter for it, so Orca
+# types "You have N orchestration messages" into the terminal for every message
+# of that type. `status` (a worker's state changed) is one the LLM should wake
+# for, so it is waited on and returned like worker_done. Waiting on heartbeat too
+# makes the heartbeat reach this script
+# instead: it acks a heartbeat-only batch itself and waits again. It returns, with
+# exit 0 and one JSON on stdout, only for a batch holding anything else
+# (worker_done, escalation, question, status), or empty at the deadline. Anything Orca
+# refuses (ok:false, non-JSON, a non-zero exit, waiter_exists) is printed as it
+# came and returns 1. A Run takes one waiter, so never run this next to a bare
+# `check --wait`.
+set -uo pipefail
+
+usage() { echo "usage: wait-worker-events [--ack <delivery_id>] [--run <run_id>] [--deadline-ms <n>]" >&2; exit 2; }
+
+ack="" run="" deadline_ms=5400000
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ack) [ $# -ge 2 ] || usage; ack="$2"; shift 2 ;;
+    --run) [ $# -ge 2 ] || usage; run="$2"; shift 2 ;;
+    --deadline-ms) [ $# -ge 2 ] || usage; deadline_ms="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+case "$deadline_ms" in ''|*[!0-9]*) usage ;; esac
+
+# Orca puts its CLI on PATH inside its terminals; a remote one may only have it
+# under ORCA_REMOTE_CLI_BIN_DIR.
+if ! command -v orca >/dev/null 2>&1 && [ -x "${ORCA_REMOTE_CLI_BIN_DIR:-}/orca" ]; then
+  PATH="$ORCA_REMOTE_CLI_BIN_DIR:$PATH"
+fi
+command -v orca >/dev/null 2>&1 || { echo "wait-worker-events: orca not found" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "wait-worker-events: jq not found" >&2; exit 1; }
+
+now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
+start="$(now_ms)"
+
+while :; do
+  remaining=$(( deadline_ms - ( $(now_ms) - start ) ))
+  # A heartbeat batch still to ack gets one last short wait, so it is not left
+  # blocking the Run's FIFO.
+  if [ "$remaining" -le 0 ] && [ -z "$ack" ]; then
+    echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}'
+    exit 0
+  fi
+  per=$(( remaining < 900000 ? remaining : 900000 ))
+  [ "$per" -ge 1000 ] || per=1000
+
+  # --ack goes on the first call only; later ones carry the heartbeat batch's own.
+  # stderr is the keepalive lines.
+  args=(orchestration check)
+  [ -n "$run" ] && args+=(--run "$run")
+  [ -n "$ack" ] && args+=(--ack "$ack")
+  args+=(--wait --types "worker_done,escalation,question,status,heartbeat" --timeout-ms "$per" --json)
+  call_start="$(now_ms)"
+  out="$(orca "${args[@]}" 2>/dev/null)"; rc=$?
+  ack=""
+
+  # ok and the error code stay in what is printed: a refused wait must not look
+  # like an empty one.
+  if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | jq -e 'type == "object" and .ok != false' >/dev/null 2>&1; then
+    printf '%s\n' "$out"
+    exit 1
+  fi
+
+  # The batch is at the top level, or under .result like other `--json` output.
+  batch="$(printf '%s' "$out" | jq -c '.result // .')"
+  if [ "$(printf '%s' "$batch" | jq '(.messages // []) | length')" -eq 0 ]; then
+    # An empty batch that came back at once is not a wait; do not spin on it.
+    [ $(( $(now_ms) - call_start )) -ge 1000 ] || sleep 1
+    continue
+  fi
+
+  if printf '%s' "$batch" | jq -e 'all(.messages[]; .type == "heartbeat")' >/dev/null; then
+    ack="$(printf '%s' "$batch" | jq -r '.deliveryId // empty')"
+    if [ -z "$ack" ]; then
+      printf '%s\n' "$out"
+      echo "wait-worker-events: heartbeat batch without a deliveryId, cannot ack" >&2
+      exit 1
+    fi
+    continue
+  fi
+
+  # Something to act on. Heartbeats in the same batch are dropped from the output;
+  # the ack covers the whole batch, deliveryId stays.
+  printf '%s' "$out" | jq -c '
+    def strip: .messages |= map(select(.type != "heartbeat")) | if has("count") then .count = (.messages | length) else . end;
+    if (.result | type) == "object" then .result |= strip else strip end'
+  exit 0
+done

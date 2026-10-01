@@ -64,7 +64,7 @@ path="$(printf '%s' "$created" | jq -r '.result.worktree.path // .result.path //
 # .claude/ and apm_modules/ are gitignored, so a fresh worktree has no harness.
 (cd "$path" && apm install)
 
-role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat."
+role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat. Wait with its \`wait-worker-events\`, and write nothing for heartbeats or empty waits."
 if [ -n "$run" ]; then
   role="$role Bind the Run this topic already has with \`orca orchestration run-use --id $run\`; do not create a new Run."
 fi

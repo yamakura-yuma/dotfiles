@@ -172,6 +172,114 @@ done
 [ -f "$pkg/.apm/skills/pstack-on-claude-code/grounding.md" ] || fail "pstack-on-claude-code/grounding.md is missing"
 grep -q 'grounding.md' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code's Topic chat no longer points at grounding.md"
 
+# wait-worker-events, against a stub orca: no Run is touched. The stub logs
+# each call's arguments, counts its calls in a file (every call is a new
+# process), writes a keepalive line to stderr as the real check does, and
+# answers as WEV_MODE says.
+wev="$pkg/.apm/skills/pstack-on-claude-code/scripts/wait-worker-events"
+[ -x "$wev" ] || fail "wait-worker-events is not executable"
+bash -n "$wev" || fail "wait-worker-events does not parse"
+mkdir -p "$tmp/wev-stub" "$tmp/wev-min"
+cat > "$tmp/wev-stub/orca" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$WEV_LOG"
+n=$(( $(cat "$WEV_LOG.n" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$WEV_LOG.n"
+echo '{"_keepalive":true}' >&2
+hb='{"type":"heartbeat","from":"w1","subject":"alive","payload":"{\"phase\":\"working\"}"}'
+done_='{"type":"worker_done","from":"w1","subject":"finished","payload":"{}"}'
+status_='{"type":"status","from":"w1","subject":"[triage] report","payload":"{}"}'
+case "$WEV_MODE/$n" in
+  hb_done/1) echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
+  hb_done/*) echo "{\"deliveryId\":\"d2\",\"messages\":[$hb,$done_],\"count\":2}" ;;
+  hb_status/*) echo "{\"deliveryId\":\"d4\",\"messages\":[$hb,$status_],\"count\":2}" ;;
+  wrapped/*) echo "{\"ok\":true,\"result\":{\"deliveryId\":\"d3\",\"messages\":[$done_],\"count\":1}}" ;;
+  hb_late/1) sleep 0.3; echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
+  hb_late/*) echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
+  no_id/*) echo "{\"deliveryId\":null,\"messages\":[$hb],\"count\":1}" ;;
+  empty/*) sleep 0.01; echo '{"deliveryId":null,"messages":[],"count":0,"timedOut":true}' ;;
+  refuse0/*) echo '{"ok":false,"error":{"code":"waiter_exists"}}' ;;
+  refuse/*) echo '{"ok":false,"error":{"code":"waiter_exists"}}'; exit 1 ;;
+  garbage/*) echo 'boom' ;;
+esac
+STUB
+chmod +x "$tmp/wev-stub/orca"
+# A PATH with only what the script needs, so orca is found (or not) by its fallback.
+for b in jq date dirname mkdir sleep cat env bash; do ln -sf "$(command -v "$b")" "$tmp/wev-min/$b"; done
+wev_run() {
+  local mode="$1"; shift
+  : > "$tmp/wev.log"; rm -f "$tmp/wev.log.n"
+  PATH="$tmp/wev-stub:$PATH" WEV_MODE="$mode" WEV_LOG="$tmp/wev.log" XDG_STATE_HOME="$tmp/wev-state" "$wev" "$@" 2>"$tmp/wev.err"
+}
+
+out="$(wev_run hb_done --ack D0 --run run_1)"; rc=$?
+[ "$rc" -eq 0 ] || fail "wait-worker-events did not exit 0 on a batch with a worker_done"
+[ "$(wc -l < "$tmp/wev.log")" -eq 2 ] || fail "wait-worker-events did not wait again after a heartbeat-only batch"
+sed -n 1p "$tmp/wev.log" | grep -q -- '--run run_1 --ack D0 ' || fail "wait-worker-events did not pass --run and the first --ack to its first check"
+sed -n 2p "$tmp/wev.log" | grep -q -- '--ack d1 ' || fail "wait-worker-events did not ack the heartbeat batch on its next check"
+sed -n 2p "$tmp/wev.log" | grep -q -- 'D0' && fail "wait-worker-events sent the first --ack twice"
+[ "$(grep -c -- '--wait --types worker_done,escalation,question,status,heartbeat --timeout-ms 900000 --json$' "$tmp/wev.log")" -eq 2 ] ||
+  fail "wait-worker-events did not wait on worker_done,escalation,question,status,heartbeat in 900000 ms slices"
+[ "$(printf '%s\n' "$out" | jq -s length)" -eq 1 ] || fail "wait-worker-events printed more or less than one JSON"
+printf '%s' "$out" | jq -e '.deliveryId == "d2" and (.messages | map(.type) == ["worker_done"]) and .count == 1' >/dev/null ||
+  fail "wait-worker-events did not return the worker_done batch (heartbeat dropped, deliveryId kept)"
+grep -q keepalive <<<"$out" && fail "wait-worker-events let the stderr keepalive into stdout"
+[ -e "$tmp/wev-state" ] && fail "wait-worker-events wrote a heartbeat log"
+
+# A status is news, not a heartbeat: it comes back (heartbeat dropped), not acked here.
+out="$(wev_run hb_status)"; rc=$?
+[ "$rc" -eq 0 ] && [ "$(wc -l < "$tmp/wev.log")" -eq 1 ] &&
+  printf '%s' "$out" | jq -e '.deliveryId == "d4" and (.messages | map(.type) == ["status"]) and .count == 1' >/dev/null ||
+  fail "wait-worker-events did not return a status batch (heartbeat dropped, deliveryId kept)"
+
+out="$(wev_run wrapped)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.ok == true and .result.deliveryId == "d3"' >/dev/null ||
+  fail "wait-worker-events did not return a batch wrapped in .result"
+grep -q -- '--ack\|--run' "$tmp/wev.log" && fail "wait-worker-events passed --ack or --run that it was not given"
+
+out="$(wev_run empty --deadline-ms 50)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.timedOut == true and .messages == []' >/dev/null ||
+  fail "wait-worker-events did not return an empty batch at its deadline"
+grep -q -- '--timeout-ms 1000 ' "$tmp/wev.log" && ! grep -q -- '--timeout-ms 900000' "$tmp/wev.log" ||
+  fail "wait-worker-events did not shorten --timeout-ms to the time left (1000 ms at least)"
+
+# A heartbeat batch that lands after the deadline is still acked.
+out="$(wev_run hb_late --deadline-ms 100)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | jq -e '.timedOut == true' >/dev/null &&
+  [ "$(wc -l < "$tmp/wev.log")" -eq 2 ] && sed -n 2p "$tmp/wev.log" | grep -q -- '--ack d1 ' ||
+  fail "wait-worker-events left a heartbeat batch un-acked at its deadline"
+out="$(wev_run no_id)"; rc=$?
+[ "$rc" -eq 1 ] || fail "wait-worker-events did not stop on a heartbeat batch it cannot ack"
+
+out="$(wev_run refuse)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | jq -e '.ok == false and .error.code == "waiter_exists"' >/dev/null ||
+  fail "wait-worker-events hid or swallowed a refused wait (ok:false, waiter_exists)"
+out="$(wev_run refuse0 --deadline-ms 3000)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | jq -e '.ok == false and .error.code == "waiter_exists"' >/dev/null &&
+  [ "$(wc -l < "$tmp/wev.log")" -eq 1 ] ||
+  fail "wait-worker-events took ok:false with exit 0 for an empty batch and waited again"
+out="$(wev_run garbage)"; rc=$?
+[ "$rc" -eq 1 ] && [ "$out" = boom ] || fail "wait-worker-events did not pass non-JSON output through with exit 1"
+wev_run hb_done --bogus >/dev/null; [ $? -eq 2 ] || fail "wait-worker-events accepted an unknown option"
+
+# orca off PATH: found under ORCA_REMOTE_CLI_BIN_DIR, and an error when nowhere.
+out="$(PATH="$tmp/wev-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/wev-stub" WEV_MODE=wrapped WEV_LOG="$tmp/wev.log" \
+  XDG_STATE_HOME="$tmp/wev-state" "$(command -v bash)" "$wev" 2>/dev/null)"
+printf '%s' "$out" | jq -e '.ok == true' >/dev/null || fail "wait-worker-events did not fall back to ORCA_REMOTE_CLI_BIN_DIR/orca"
+PATH="$tmp/wev-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/none" "$(command -v bash)" "$wev" >/dev/null 2>&1
+[ $? -eq 1 ] || fail "wait-worker-events did not fail when orca is nowhere"
+
+# The spec every worker gets updates its card without a notification.
+grep -q 'worktree set' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
+  grep -q -- '--workspace-status in-review' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  fail "pstack-on-claude-code lost the worker spec line that updates the card (worktree set --comment, in-review)"
+
+# The text the chats read names the script, and the main chat is told to stay silent on heartbeats.
+for f in .apm/skills/pstack-on-claude-code/SKILL.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do
+  grep -q wait-worker-events "$pkg/$f" || fail "$f does not point at wait-worker-events"
+done
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("heartbeat")' >/dev/null ||
+  fail "dispatch-by-topic does not tell the main chat to stay silent on heartbeats"
+
 # japanese-guard is vendored from minorun365/claude-code-japanese-guard at
 # e68864a (docs/japanese-guard.md): script and test are upstream's bytes.
 jg="$scripts/japanese-guard.py"
