@@ -67,7 +67,7 @@ fi
 # home-k8s's per-topic token dashboard keys off this name (coordinator-chat-<topic>); don't rename.
 created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup skip --no-parent)"
 # Orca names the worktree by id, "<repoId>::<path>"; older builds also gave a path.
-path="$(printf '%s' "$created" | jq -r '.result.worktree | (.path // (.id | split("::") | .[1:] | join("::"))) // empty')"
+path="$(printf '%s' "$created" | jq -r '(.result.worktree // {}) | (.path // ((.id // "") | split("::") | .[1:] | join("::"))) | select(. != "")')"
 [ -n "$path" ] || { echo "open-topic-chat: no worktree path in: $created" >&2; exit 1; }
 
 # .claude/ and apm_modules/ are gitignored, so a fresh worktree has no harness.
