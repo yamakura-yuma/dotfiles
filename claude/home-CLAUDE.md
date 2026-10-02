@@ -5,13 +5,15 @@
 
 ```
 ~/dotfiles/pstack-claude/.apm/skills/pstack-on-claude-code/scripts/open-topic-chat \
-  [--run <run_id>] [--repo <selector>] --said "<ユーザーの原文>" \
+  [--run <run_id>] [--repo <selector>] [--agent-cmd "<起動コマンド>"] --said "<ユーザーの原文>" \
   [--known "<わかっていること>"] [--guess "<推測（要確認）>"] <topic>
 ```
 
 上のスクリプトが、coordinator の repo id を `orca worktree list` から引き、worktree
 `chat-<topic>` の作成（`--setup skip --no-parent`）、そこでの `apm install`、
-Opus（`--model claude-opus-5-5`）の話題チャットの起動（plan モード）までを行う。`~` は repo ではないので
+Opus（`--model claude-opus-5-5`）の話題チャットの起動（plan モード）までを行う。起動コマンドは
+worktree と一緒に開く最初のシェルに打つ（ターミナルは 1 つ）。待機中のシェルと確かめられないときは
+別に `terminal create` する。コマンドは `--agent-cmd` で差し替えられる（引き継ぎ文は最後の引数に付く）。`~` は repo ではないので
 `--repo id:<coordinatorRepoId>` を渡す（repo id は `orca worktree list --json` の id の `::` より前）。
 引き継ぎ文は原文（`--said`）・わかっていること（`--known`）・推測（`--guess`）の 3 つに分ける。
 掘り下げは話題チャットの仕事で、ここではしない。
