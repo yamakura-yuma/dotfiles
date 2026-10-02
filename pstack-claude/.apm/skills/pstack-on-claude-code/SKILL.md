@@ -332,14 +332,20 @@ topics in, and one **topic chat** per topic sees that topic through.
   the target repo is unclear; put it under `--guess`.
 - **Close a finished topic.** The topic chat's hand-off message ("Hand a
   finished topic to the main chat", below) is the trigger; do not ask the human.
-  Close only if all three hold, each read from the worktree `<path>` the message
-  names: `worker-list --run <run_id> --terminal-state active` is empty; `git -C
-  <path> status --porcelain` is empty and `git -C <path> log HEAD --not --remotes
-  --oneline` shows no commit; nothing mounts the worktree ("Check for mounts
-  before removing"). Then `orca terminal close --worktree path:<path> --all` and
-  `orca worktree rm --worktree path:<path>`. If a check fails, ask the human with
-  the failing output. If `terminal close` returns `terminal_stop_unverifiable`,
-  proceed as "When release is retained" says. `worktree rm` also drops the local
+  Close only if all four hold, each read from the worktree `<path>` the message
+  names:
+  1. `worker-list --run <run_id> --terminal-state active` is empty.
+  2. No worker worktree of the Run is left: no `worktreeId` in `worker-list
+     --run <run_id> --json` other than `<path>` still shows in `orca worktree
+     list`.
+  3. `git -C <path> status --porcelain` is empty and `git -C <path> log HEAD
+     --not --remotes --oneline` shows no commit.
+  4. Nothing mounts the worktree ("Check for mounts before removing").
+
+  Then `orca terminal close --worktree path:<path> --all` and `orca worktree rm
+  --worktree path:<path>`. If a check fails, ask the human with the failing
+  output. If `terminal close` returns `terminal_stop_unverifiable`, proceed as
+  "When release is retained" says. `worktree rm` also drops the local
   `chat-<topic>` branch unless Orca cannot prove it merged; report a retained
   branch to the human. Report in one line: topic, worktree removed.
 
@@ -374,6 +380,16 @@ topics in, and one **topic chat** per topic sees that topic through.
   Report in one line: worker name, repo, model, zone.
   The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
+- **Fix coordinator-specific changes in dotfiles.** `pstack-claude` is the
+  source of the coordinator's skills and instructions, so change them there.
+  Start a worker in the coordinator repo only for what cannot live in dotfiles,
+  such as the `apm.yml` version bump.
+- **Remove a worker's worktree when you release it.** `worker-release` closes
+  only the worker's terminal, not its worktree. Once the worker's PR is merged
+  or closed and its report is read, release it, then `orca worktree rm
+  --worktree path:<worker worktree>` (the path is `worktreeId` after `::` in
+  `worker-list`; "Check for mounts before removing" first). Report a retained
+  branch to the human.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
@@ -438,12 +454,13 @@ topics in, and one **topic chat** per topic sees that topic through.
   these hold, or when the human says it is over: every PR of the topic is merged
   or closed; `worker-list --run <run_id> --terminal-state active` is empty;
   `orca orchestration check --peek` shows no unacked delivery; every problem the
-  reports left is an Issue. Write the final report first, then do this as the
-  last action of the chat, since the main chat closes this terminal:
-  `orca worktree list --json` gives the coordinator's original checkout (the row
-  with `isMainWorktree` and the same `repoId` as this worktree; skip rows with
-  a null one); `orca terminal list --worktree path:<that path>` gives the main
-  chat's handle; `orca terminal send --terminal <handle> --text "Topic finished: <topic>. worktree: <path>. run:
+  reports left is an Issue; every worker's worktree is removed. Write the final
+  report first, then do this as the last action of the chat, since the main
+  chat closes this terminal: `orca worktree list --json` gives the coordinator's
+  original checkout (the row with `isMainWorktree` and the same `repoId` as this
+  worktree; skip rows with a null one); `orca terminal list --worktree
+  path:<that path>` gives the main chat's handle; `orca terminal send
+  --terminal <handle> --text "Topic finished: <topic>. worktree: <path>. run:
   <run_id>. Close it as 'Close a finished topic' says." --enter`. Then stop.
 - **Check for mounts before removing.** A dev container or other process that
   mounts the worker's worktree blocks cleanup; recreate it on the original
