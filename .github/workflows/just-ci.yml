@@ -1,0 +1,37 @@
+# 各リポジトリの PR ゲートが呼ぶ再利用可能 workflow。中身は `just ci` を走らせるだけ。
+# 何を検査するかは呼ぶ側の justfile が決め、ここはそのための just（と必要なら nix）を
+# 用意するだけにする。ローカルで打つコマンドと Actions が走らせるコマンドを 1 つに保つため。
+# 型と呼び方は docs/gates.md に。
+name: just ci
+
+on:
+  workflow_call:
+    inputs:
+      install-nix:
+        description: "`just ci` が `nix develop` などで flake のツールを使うなら true"
+        type: boolean
+        default: false
+      just-version:
+        description: "入れる just の版"
+        type: string
+        default: "1.45.0"
+
+permissions:
+  contents: read
+
+jobs:
+  just-ci:
+    name: just ci
+    # 標準 runner だけ。public リポジトリでは無料（docs/gates.md）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: ${{ inputs.just-version }}
+      - if: inputs.install-nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - run: just ci
