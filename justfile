@@ -4,10 +4,6 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-[private]
-default:
-    just --list
-
 # PR のゲートと同じ検査（lint とテスト）。中身は `make ci`
 ci:
     make ci
