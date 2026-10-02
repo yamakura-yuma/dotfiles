@@ -257,19 +257,28 @@ topics in, and one **topic chat** per topic sees that topic through.
 | Does | Intake, status across topics, closing finished topics | Grounds the request with the human in plan mode, then owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
 | Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
-- **Reply shape.** Every reply of either chat ends with two blocks. Write
-  nothing at all, no acknowledgement and no checklist, when all a background
-  return brought was heartbeats or an empty wait: reply only when a topic's
-  state changed (`worker_done`, `escalation`, `question`, a `status`, a report file or a
-  PR appeared, or the human wrote).
-  1. A checklist, one line per topic (main chat) or per worker (topic chat):
-     state symbol (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌
-     failed), name, repo, one line of current state, PR link (「—」 until there
-     is one). Take it from `worker-list` (the projection) and the Task list,
-     never from memory. Add the chat's own remaining steps (merge, release,
-     cleanup) as items.
-  2. 「次にあなたがすること」: what needs the human's approval or decision,
-     numbered; 「なし（待機中）」 when nothing does.
+- **Reply shape.** Reply in this order. Write nothing at all when all a
+  background return brought was heartbeats or an empty wait: reply only when a
+  topic's state changed (`worker_done`, `escalation`, `question`, a `status`, a
+  report file or a PR appeared, or the human wrote).
+  1. The conclusion in one or two lines: what changed, and whether the human
+     is needed. Give the reasoning and history only when asked.
+  2. A section per topic, every reply, whatever changed (main chat: every
+     topic; topic chat: its own, with its workers as rows): a heading
+     `### <symbol> <name> — <state in a few words>` (✅ done, 🔄 working, ⏸
+     waiting on human, ⬜ not started, ❌ failed), then a checklist of the
+     whole path, `- [x]` done and `- [ ]` not yet: the done criteria, workers,
+     PRs, Issues, then cleanup. Link every PR and Issue by URL, not by number.
+     Take it from `worker-list` (the projection) and the Task list, never from
+     memory. Order: ⏸ needs the human, then changed this reply,
+     then 🔄 unchanged. A finished topic stays, every item `[x]`, until it is
+     cleaned up; leave it out of the reply after cleanup.
+  3. 「次にあなたがすること」: only what the human does themself (merge, log
+     in, check locally), numbered; 「なし（待機中）」 when nothing does.
+  - Ask the human for a decision with `AskUserQuestion` choices, so they pick
+    rather than type, and keep it out of 3. Load it with `ToolSearch`
+    (`select:AskUserQuestion`); under the headroom proxy that finds nothing,
+    so `tool_search_tool_regex`, as `grounding.md`'s "Question tool" says.
 - The ledger is Orca's Task list. Keep no topic file of your own.
 
 ### Main chat
@@ -330,12 +339,24 @@ topics in, and one **topic chat** per topic sees that topic through.
   message is a new topic or which topic it continues. Everything about the
   work itself (target, goal, means, terms) goes to the topic chat, even when
   the target repo is unclear; put it under `--guess`.
-- **Close a finished topic.** When the topic chat reports done, confirm
-  `worker-list --run <run_id> --terminal-state active` is empty, then `orca
-  terminal close --worktree path:<path> --all` and `orca worktree rm
-  --worktree path:<path>` (the checks in "Check for mounts before removing"
-  first). `worktree rm` also drops the local `chat-<topic>` branch unless Orca
-  cannot prove it merged; report a retained branch to the human.
+- **Close a finished topic.** The topic chat's hand-off message ("Hand a
+  finished topic to the main chat", below) is the trigger; do not ask the human.
+  Close only if all four hold, each read from the worktree `<path>` the message
+  names:
+  1. `worker-list --run <run_id> --terminal-state active` is empty.
+  2. No worker worktree of the Run is left: no path (`worktreeId` after `::`) in
+     `worker-list --run <run_id> --json` other than `<path>` still shows in
+     `orca worktree list`.
+  3. `git -C <path> status --porcelain` is empty and `git -C <path> log HEAD
+     --not --remotes --oneline` shows no commit.
+  4. Nothing mounts the worktree ("Check for mounts before removing").
+
+  Then `orca terminal close --worktree path:<path> --all` and `orca worktree rm
+  --worktree path:<path>`. If a check fails, ask the human with the failing
+  output. If `terminal close` returns `terminal_stop_unverifiable`, proceed as
+  "When release is retained" says. `worktree rm` also drops the local
+  `chat-<topic>` branch unless Orca cannot prove it merged; report a retained
+  branch to the human. Report in one line: topic, worktree removed.
 
 ### Topic chat
 
@@ -371,6 +392,18 @@ topics in, and one **topic chat** per topic sees that topic through.
   Report in one line: worker name, repo, model, zone.
   The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
+- **Fix coordinator-specific changes in dotfiles.** `pstack-claude` is the
+  source of the coordinator's skills and instructions, so change them there.
+  Start a worker in the coordinator repo only for what cannot live in dotfiles,
+  such as the `apm.yml` version bump.
+- **Remove a worker's worktree when you release it.** `worker-release` closes
+  only the worker's terminal, not its worktree. Once the worker's PR is merged
+  or closed and its report is read, release it, then `orca worktree rm
+  --worktree path:<worker worktree>` (the path is `worktreeId` after `::` in
+  `worker-list`; "Check for mounts before removing" first). `worktree rm`
+  keeps the branch only when Orca cannot prove it merged (a squash-merged PR
+  often counts): report a kept branch to the human, and delete it only if
+  they say so.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
@@ -380,9 +413,10 @@ topics in, and one **topic chat** per topic sees that topic through.
 - **Triage is a report, not a worker.** A message with `type=status` and a
   `[triage]` subject comes from the scheduled PR/Issue triage. Read the report
   file named in its body (`~/.claude/worker-reports/triage/YYYY-MM-DD.md`) and
-  put every item that needs approval (merge, close, start a worker, a human
-  decision) under 「次にあなたがすること」; the merge, close or `worker-start`
-  happens after the human approves it. It is sent to `@worktree:`, so every Run
+  ask for every item that needs approval (close, start a worker, a human
+  decision) with `AskUserQuestion`; the close or `worker-start` happens after
+  the human picks it. Under 「次にあなたがすること」 put only what the human
+  does themself, such as a merge. It is sent to `@worktree:`, so every Run
   with a coordinator terminal in that worktree gets a copy with the same
   `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
   copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events`
@@ -431,6 +465,18 @@ topics in, and one **topic chat** per topic sees that topic through.
   <selector> --all`; if that returns `terminal_stop_unverifiable`, remove the
   worktree only after `orca terminal list --worktree <selector>` shows none and
   no OS process uses the worktree path.
+- **Hand a finished topic to the main chat.** The topic is finished when all of
+  these hold, or when the human says it is over: every PR of the topic is merged
+  or closed; `worker-list --run <run_id> --terminal-state active` is empty;
+  `orca orchestration check --peek` shows no unacked delivery; every problem the
+  reports left is an Issue; every worker's worktree is removed. Write the final
+  report first, then do this as the last action of the chat, since the main
+  chat closes this terminal: `orca worktree list --json` gives the coordinator's
+  original checkout (the row with `isMainWorktree` and the same `repoId` as this
+  worktree; skip rows with a null one); `orca terminal list --worktree
+  path:<that path>` gives the main chat's handle; `orca terminal send
+  --terminal <handle> --text "Topic finished: <topic>. worktree: <path>. run:
+  <run_id>. Close it as 'Close a finished topic' says." --enter`. Then stop.
 - **Check for mounts before removing.** A dev container or other process that
   mounts the worker's worktree blocks cleanup; recreate it on the original
   checkout first, then remove the worktree.
