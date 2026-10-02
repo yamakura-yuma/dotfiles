@@ -102,7 +102,7 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md does not mention $w"
 done
-for h in 'Hand a finished topic to the main chat' 'Close a finished topic'; do
+for h in 'Hand a finished topic to the main chat' 'Close a finished topic' 'Fix coordinator-specific changes in dotfiles' "Remove a worker's worktree when you release it"; do
   grep -qF -- "**$h.**" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code lost the bullet \"$h\", which the topic chat and main chat point at each other"
 done

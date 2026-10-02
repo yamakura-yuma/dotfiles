@@ -335,9 +335,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   Close only if all four hold, each read from the worktree `<path>` the message
   names:
   1. `worker-list --run <run_id> --terminal-state active` is empty.
-  2. No worker worktree of the Run is left: no `worktreeId` in `worker-list
-     --run <run_id> --json` other than `<path>` still shows in `orca worktree
-     list`.
+  2. No worker worktree of the Run is left: no path (`worktreeId` after `::`) in
+     `worker-list --run <run_id> --json` other than `<path>` still shows in
+     `orca worktree list`.
   3. `git -C <path> status --porcelain` is empty and `git -C <path> log HEAD
      --not --remotes --oneline` shows no commit.
   4. Nothing mounts the worktree ("Check for mounts before removing").
