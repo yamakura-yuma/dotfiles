@@ -11,8 +11,14 @@ dependencies:
   apm:
   - git: https://github.com/yamakura-yuma/dotfiles.git
     path: pstack-claude
-    ref: <commit>
+    ref: main
 ```
+
+Follow `main` for your own packages and pin only third-party ones to a commit.
+Orca's worktrees start without the gitignored `.claude/`, so the repo's `orca.yaml`
+setup runs `apm install`, `apm update pstack-claude --yes` and `git checkout -- apm.lock.yaml`,
+with `setupAgentStartupPolicy: wait-for-setup`; the same block is in
+[`core-principal`'s README](../core-principal/README.md#installing-it-in-another-repo).
 
 Then `/poteto-mode <task>` in Claude Code, or `/p-mode <task>` for the same
 with this harness's own skills and Orca workers slotted in ([`p-mode`](.apm/skills/p-mode/SKILL.md)).
@@ -57,7 +63,7 @@ whole upgrade:
 | `pstack-claude` rule | Always loaded: reply in Japanese, read the overlay before pstack, the coordinator norm, index tools via `core-tools` |
 | `guard-coordinator-edit` hook | Refuses file edits in a coordinator workspace. The decision (`lib/coordinator-workspace.sh`) is a byte-for-byte copy of core-principal's, checked by `tests/check.sh` |
 | `dispatch-by-topic` hook (UserPromptSubmit) | In the coordinator workspace, attaches the rule that opens a topic chat (a `chat-<topic>` worktree with its own session) per topic without asking with the hand-off split into said, known and guessed, never a worker, and that every reply ends with a per-topic checklist and what the human does next (`pstack-on-claude-code`, "Supervising Orca workers"). Silent elsewhere. Replaces the `dispatch-in-coordinator` hook of core-principal, whose text points at core-dispatch |
-| `open-topic-chat` script (`pstack-on-claude-code/scripts/`) | Opens a topic chat in one call: worktree `chat-<topic>` of the coordinator repo, `apm install` in it, a `claude --model claude-opus-5-5 --permission-mode plan` session (replace the command with `--agent-cmd`) typed into the worktree's startup shell, falling back to `terminal create` when that shell is not alone at a prompt, on a hand-off in three parts (`--said` the human's words, required; `--known`; `--guess`), optionally told to bind an existing Run (`--run`). The old two-positional form is refused. The topic chat then grounds the request before its first worker (`pstack-on-claude-code/grounding.md`). Tested against stub `orca` and `apm` in `tests/check.sh` |
+| `open-topic-chat` script (`pstack-on-claude-code/scripts/`) | Opens a topic chat in one call: worktree `chat-<topic>` of the coordinator repo (`--setup inherit`: its `orca.yaml` setup installs the harness, so the script runs no `apm install`), a `claude --model claude-opus-5-5 --permission-mode plan` session (replace the command with `--agent-cmd`) typed into the worktree's startup shell, falling back to `terminal create` when that shell is not alone at a prompt, on a hand-off in three parts (`--said` the human's words, required; `--known`; `--guess`), optionally told to bind an existing Run (`--run`). The old two-positional form is refused. The topic chat then grounds the request before its first worker (`pstack-on-claude-code/grounding.md`). Tested against a stub `orca` in `tests/check.sh`, which also fails if the script calls `apm` |
 | `routing-facts` script (`pstack-on-claude-code/scripts/`) | Prints the usage numbers a chat needs to pick a model, as one JSON (`source`, `age_s`, `claude.*_pct`, `agents[]`, `zone`): Orca's cached rate limits first, then `~/.claude.json`, never the network; a reading older than `ROUTING_FACTS_MAX_AGE` (default 1800 s) is `unknown`. It decides nothing; the rule is "Models" in `pstack-on-claude-code`'s SKILL.md. `tests/check.sh` runs it against a stub `orca` and a temp `~/.claude.json` |
 | `japanese-guard` hook | Sends an English final answer back to be rewritten in Japanese. Vendored unedited from [minorun365/claude-code-japanese-guard](https://github.com/minorun365/claude-code-japanese-guard) (Apache-2.0), which has no manifest to depend on; pin, thresholds and how to turn it off in [`docs/japanese-guard.md`](docs/japanese-guard.md) |
 

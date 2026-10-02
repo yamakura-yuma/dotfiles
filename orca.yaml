@@ -1,0 +1,5 @@
+# core-principal はローカルパス（./core-principal）なので、この worktree の版がそのまま入る。
+scripts:
+  setup: |
+    apm install
+setupAgentStartupPolicy: wait-for-setup

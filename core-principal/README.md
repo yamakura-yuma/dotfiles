@@ -127,7 +127,8 @@ nothing noticed until an agent ran it.
 
 ## Installing it in another repo
 
-Add the dependency to that repo's `apm.yml` and run `apm install` there:
+Add the dependency to that repo's `apm.yml` and run `apm install` there. This is
+your own package, so follow `main`; pin only third-party packages to a commit:
 
 ```yaml
 targets:
@@ -136,14 +137,14 @@ dependencies:
   apm:
   - git: https://github.com/yamakura-yuma/dotfiles.git
     path: core-principal
-    ref: <commit>          # no tags upstream; bump with `apm update`
+    ref: main              # no tags upstream; `apm update core-principal` moves it
     alias: core-principal
 ```
 
 In a repo with no `apm.yml` yet, one command writes it for you:
 
 ```bash
-apm install 'https://github.com/yamakura-yuma/dotfiles.git#<commit>' --target claude
+apm install 'https://github.com/yamakura-yuma/dotfiles.git#main' --target claude
 ```
 
 `--target claude` is not optional — without it apm scans for harness markers
@@ -153,6 +154,19 @@ A local path (`- path: /home/you/k8s-workspace/dotfiles/core-principal`) works
 too and picks up edits without a push, which is convenient while changing
 something here. It bakes this host's checkout path into that repo's `apm.yml`,
 though, so prefer the git form for anything you commit.
+
+`.claude/` and `apm_modules/` are gitignored, so a worktree Orca creates for a
+worker starts without them. Put an `orca.yaml` in the consuming repo and Orca's
+setup deploys the harness there before the agent starts:
+
+```yaml
+scripts:
+  setup: |
+    apm install
+    apm update core-principal --yes   # `apm install` alone stays on the locked commit
+    git checkout -- apm.lock.yaml     # keep the lock bump out of the worker's PR
+setupAgentStartupPolicy: wait-for-setup
+```
 
 Everything deploys into the consuming repo's own `./.claude/`, never into
 `~/.claude/`. Those files are generated, so gitignore `.claude/` and
