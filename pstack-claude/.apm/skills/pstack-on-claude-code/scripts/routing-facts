@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Print the numbers a chat needs to pick a model, as one JSON. It decides nothing:
+# the rule that reads it is in SKILL.md ("Models").
+#
+#   routing-facts
+#
+#   {"source":"orca|claude-json|none", "age_s":120,
+#    "claude":{"session_pct":2,"weekly_pct":65,"fable_weekly_pct":0,
+#              "session_resets_at":1790990399,"weekly_resets_at":1791032399},
+#    "agents":[{"id":"claude","installed":true,"signed_in":true,"error":null}, ...],
+#    "zone":"green|yellow|orange|red|unknown"}
+#
+# Usage comes from the first source that has it: Orca's cached rate limits
+# (`orca account list --json`, a local call; Orca fetched them from Anthropic, this
+# script does not), then the snapshot Claude Code keeps in ~/.claude.json
+# (CLAUDE_CONFIG_FILE overrides the path). A reading older than
+# ROUTING_FACTS_MAX_AGE seconds (default 1800) is not a number anymore: its
+# percentages are null and zone is "unknown". zone is the worse of session and
+# weekly, cut like the status line (>=90 red, >=75 orange, >=50 yellow).
+# fable_weekly_pct is a window of its own; Opus and Sonnet share the weekly one.
+#
+# agents[].signed_in is Orca's status for that provider (null when Orca did not
+# answer); error is Orca's reason when it is not ok. Claude on API-key billing is
+# signed_in false with that reason: no usage numbers, but it still runs.
+#
+# This must stay a local read. Nothing below may touch the network.
+set -uo pipefail
+
+max_age="${ROUTING_FACTS_MAX_AGE:-1800}"
+case "$max_age" in ''|*[!0-9]*) echo "routing-facts: ROUTING_FACTS_MAX_AGE must be seconds" >&2; exit 2 ;; esac
+command -v jq >/dev/null 2>&1 || { echo "routing-facts: jq not found" >&2; exit 1; }
+
+# Orca puts its CLI on PATH inside its terminals; a remote one may only have it
+# under ORCA_REMOTE_CLI_BIN_DIR.
+if ! command -v orca >/dev/null 2>&1 && [ -x "${ORCA_REMOTE_CLI_BIN_DIR:-}/orca" ]; then
+  PATH="$ORCA_REMOTE_CLI_BIN_DIR:$PATH"
+fi
+
+now="$(date +%s)"
+
+# A: Orca. Its relay prints a handshake line on stderr; stdout is the JSON. A hung
+# relay must not stall a chat, so the call is bounded.
+orca_out=null
+if command -v orca >/dev/null 2>&1; then
+  out="$(timeout 15 orca account list --json 2>/dev/null)" &&
+    jq -e '.ok == true' <<<"$out" >/dev/null 2>&1 && orca_out="$out"
+fi
+claude="$(jq -c --argjson now "$now" --argjson max "$max_age" '
+  .result.rateLimits.claude as $c
+  | select($c.status == "ok" and $c.session.usedPercent != null and $c.weekly.usedPercent != null
+           and $c.updatedAt != null and $now - ($c.updatedAt / 1000 | floor) <= $max)
+  | { source: "orca",
+      age_s: ($now - ($c.updatedAt / 1000 | floor)),
+      session_pct: ($c.session.usedPercent | floor),
+      weekly_pct: ($c.weekly.usedPercent | floor),
+      fable_weekly_pct: (if $c.fableWeekly.usedPercent != null then $c.fableWeekly.usedPercent | floor else null end),
+      session_resets_at: (if $c.session.resetsAt then $c.session.resetsAt / 1000 | floor else null end),
+      weekly_resets_at: (if $c.weekly.resetsAt then $c.weekly.resetsAt / 1000 | floor else null end) }
+' <<<"$orca_out" 2>/dev/null)"
+
+# B: the snapshot in ~/.claude.json, also when Orca's reading is older than the limit
+# (Claude Code may have refreshed its own since). limits[] is read as the status line reads it,
+# with the named objects as the older shape.
+if [ -z "$claude" ]; then
+  cfg="${CLAUDE_CONFIG_FILE:-$HOME/.claude.json}"
+  [ -r "$cfg" ] && claude="$(jq -c --argjson now "$now" '
+    def epoch: try (sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601) catch null;
+    (.cachedUsageUtilization // {}) as $c
+    | ($c.utilization // {}) as $u
+    | ($u.limits // []) as $l
+    | ($l | map(select(.group == "session")) | max_by(.percent)) as $s
+    | ($l | map(select(.kind == "weekly_all")) | first) as $w
+    | ($l | map(select(.kind == "weekly_scoped" and .scope.model.display_name == "Fable")) | first) as $f
+    | (($c.fetchedAtMs // 0) / 1000 | floor) as $at
+    | ($s.percent // $u.five_hour.utilization) as $sp
+    | ($w.percent // $u.seven_day.utilization) as $wp
+    | select($sp != null and $wp != null)
+    | { source: "claude-json",
+        age_s: (if $at > 0 then $now - $at else null end),
+        session_pct: ($sp | floor),
+        weekly_pct: ($wp | floor),
+        fable_weekly_pct: (if $f.percent != null then $f.percent | floor else null end),
+        session_resets_at: (($s.resets_at // $u.five_hour.resets_at) | epoch),
+        weekly_resets_at: (($w.resets_at // $u.seven_day.resets_at) | epoch) }
+  ' "$cfg" 2>/dev/null)"
+fi
+[ -n "$claude" ] ||
+  claude='{"source":"none","age_s":null,"session_pct":null,"weekly_pct":null,"fable_weekly_pct":null,"session_resets_at":null,"weekly_resets_at":null}'
+
+# Agents Orca can start, as the CLI each one runs; cursor's is not its id.
+rows=""
+for id in claude codex cursor antigravity muse zcode opencode opencode2; do
+  cli="$id"; [ "$id" = cursor ] && cli=cursor-agent
+  command -v "$cli" >/dev/null 2>&1 && inst=true || inst=false
+  rows+="$id $inst"$'\n'
+done
+
+jq -n -c --argjson c "$claude" --argjson orca "$orca_out" --argjson max "$max_age" --arg rows "$rows" '
+  { claude: "claude", codex: "codex", cursor: "cursor", antigravity: "antigravity", zcode: "zcode" } as $key
+  | ($c.age_s != null and $c.age_s <= $max) as $fresh
+  | (if $fresh then $c else $c | .session_pct = null | .weekly_pct = null | .fable_weekly_pct = null end) as $r
+  | ([$r.session_pct, $r.weekly_pct] | map(select(. != null)) | max) as $worst
+  | { source: $c.source,
+      age_s: $c.age_s,
+      claude: ($r | del(.source, .age_s)),
+      agents: [ $rows | split("\n")[] | select(. != "") | split(" ")
+                | { id: .[0], installed: (.[1] == "true") } as $a
+                | ($orca.result.rateLimits[$key[$a.id] // ""] // null) as $o
+                | $a + { signed_in: (if ($o | type) == "object" then $o.status == "ok" else null end),
+                         error: (if ($o | type) == "object" then $o.error else null end) } ],
+      zone: (if $worst == null then "unknown"
+             elif $worst >= 90 then "red"
+             elif $worst >= 75 then "orange"
+             elif $worst >= 50 then "yellow"
+             else "green" end) }'

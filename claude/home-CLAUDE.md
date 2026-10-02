@@ -17,6 +17,9 @@ worktree と一緒に開く最初のシェルに打つ（ターミナルは 1 �
 `--repo id:<coordinatorRepoId>` を渡す（repo id は `orca worktree list --json` の id の `::` より前）。
 引き継ぎ文は原文（`--said`）・わかっていること（`--known`）・推測（`--guess`）の 3 つに分ける。
 掘り下げは話題チャットの仕事で、ここではしない。
+開く前に `~/dotfiles/pstack-claude/.apm/skills/pstack-on-claude-code/scripts/routing-facts` を流す。
+`zone` が red（使用量が 90% 以上）のときだけ、ユーザーに聞いてから
+`--agent-cmd "claude --model claude-sonnet-5-5 --effort high --permission-mode plan"` を渡す。
 
 `~` と `~/coordinator` の元 checkout は **main chat**。話題の受付と全話題の状況の
 まとめだけをして、`worker-start` も `run-create` もしない（main chat は Sonnet:

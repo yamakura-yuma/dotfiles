@@ -46,6 +46,8 @@ Main chat に従う。
   （`chat-<topic>` worktree の作成・`apm install`・Opus の話題チャットの起動（plan モード）までを行う）。
   ここでは掘り下げない。原文は言い換えずに `--said` に入れ、補った対象・基準・手段はすべて `--guess` に入れる。
   新しいセッションは人に開かせず Orca で開く。起動したら一行で報告する（話題名・worktree・リポジトリ）
+  開く前に `.claude/skills/pstack-on-claude-code/scripts/routing-facts` を流す。`zone` が red のときだけ、
+  ユーザーに聞いてから `--agent-cmd "claude --model claude-sonnet-5-5 --effort high --permission-mode plan"` を渡す
 - 既存話題の続き → `orca terminal list --worktree` で話題チャットを引き、`orca terminal send` で届ける
 - 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、outcome / evidence / unresolved blocker
 - 制御（止める・閉じる）→ 同節の該当項目。話題が終わったら話題チャットの worktree を片付ける
