@@ -360,9 +360,12 @@ topics in, and one **topic chat** per topic sees that topic through.
   purpose, rebound with `run-use`, hides every other Run's `worker_done`.
 - **Dispatch within the brief, without asking.** Once the brief is approved,
   every worker for the topic goes through
-  `worker-start` into the Run (`--task-title` = unit, `--name` = kebab worker
-  name); the Models table picks the worker: implementation change, design
-  research, design documents, light work. Run `routing-facts` first and follow
+  `worker-start --timeout-ms 180000` into the Run (`--task-title` = unit,
+  `--name` = kebab worker name). The repo's setup holds the agent launch
+  (wait-for-setup), so `worker-start`'s 60 s default can run out; measured
+  17-25 s alone, 49-56 s with three in parallel. The Models table picks the
+  worker: implementation change, design research, design documents, light work.
+  Run `routing-facts` first and follow
   the zone rule under "Models"; check `worker-show` for `launch.effective` after
   the start. A worker that falls outside the brief needs the brief changed first.
   Report in one line: worker name, repo, model, zone.
