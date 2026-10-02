@@ -236,7 +236,7 @@ n=$(( $(cat "$WEV_LOG.n" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$WEV_LOG.n"
 echo '{"_keepalive":true}' >&2
 hb='{"type":"heartbeat","from":"w1","subject":"alive","payload":"{\"phase\":\"working\"}"}'
 done_='{"type":"worker_done","from":"w1","subject":"finished","payload":"{}"}'
-status_='{"type":"status","from":"w1","subject":"[triage] report","payload":"{}"}'
+status_='{"type":"status","from":"w1","subject":"progress","payload":"{}"}'
 case "$WEV_MODE/$n" in
   hb_done/1) echo "{\"deliveryId\":\"d1\",\"messages\":[$hb],\"count\":1}" ;;
   hb_done/*) echo "{\"deliveryId\":\"d2\",\"messages\":[$hb,$done_],\"count\":2}" ;;
