@@ -74,14 +74,15 @@ statusline と `starship.toml` は `reload` が自動でリンクします。MCP
 
 ## 他のリポジトリでこのハーネスを使う
 
-そのリポジトリの `apm.yml` に足して `apm install` します。
+そのリポジトリの `apm.yml` に足して `apm install` します。このハーネスは自分のパッケージ
+なので `ref: main` で最新を追い、外部のパッケージだけを commit で固定します。
 
 ```yaml
 dependencies:
   apm:
   - git: https://github.com/yamakura-yuma/dotfiles.git
     path: core-principal
-    ref: <commit>
+    ref: main
     alias: core-principal
 ```
 
@@ -91,8 +92,21 @@ dependencies:
 [`core-principal/README.md`](../core-principal/README.md) に書いてあります。
 
 `apm` はフックのコマンドを `${CLAUDE_PROJECT_DIR}/.claude/hooks/...` に書き換え、これは
-セッションを開始したディレクトリに解決されます。つまりこのリポジトリの worktree は、
-フックを持ち回るために自前の `apm install` が要ります。
+セッションを開始したディレクトリに解決されます。つまりフックは worktree ごとの
+`.claude/` から読まれます。`.claude/` と `apm_modules/` は gitignore されているので、
+Orca が作る worktree には、ルートの `orca.yaml` の `setup` が `apm install` を走らせて
+展開します（`setupAgentStartupPolicy: wait-for-setup` で、終わるまでエージェントは
+起動しません）。このリポジトリの `orca.yaml` はローカルパスの `./core-principal` をそのまま
+入れるだけです。使う側のリポジトリも同じ `orca.yaml` を置きます。
+
+```yaml
+scripts:
+  setup: |
+    apm install
+    apm update core-principal --yes   # main の最新に上げる（lock は ref: main でも古い commit を指す）
+    git checkout -- apm.lock.yaml     # lock の差分はワーカーの PR に混ぜない
+setupAgentStartupPolicy: wait-for-setup
+```
 
 ## シェルの activate が要らない理由
 

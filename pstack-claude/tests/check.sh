@@ -111,6 +111,13 @@ done
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch-by-topic.sh")' \
   "$pkg/.apm/hooks/dispatch-by-topic.json" >/dev/null || fail "dispatch-by-topic.json does not run the script on UserPromptSubmit"
 
+# The worktrees Orca makes for workers have no .claude/ (gitignored), so the
+# harness comes from this repo's orca.yaml: install in the setup, and hold the
+# agent until the setup is done.
+grep -q '^    apm install$' "$repo/orca.yaml" || fail "orca.yaml setup does not run apm install"
+grep -q '^setupAgentStartupPolicy: wait-for-setup$' "$repo/orca.yaml" ||
+  fail "orca.yaml does not make the agent wait for setup"
+
 # open-topic-chat, against stub orca and apm: nothing real is created. The orca
 # stub answers with the JSON shapes `orca ... --json` returns, logs each call,
 # and runs the command it is given (`terminal create --command`, or the text of
@@ -150,9 +157,9 @@ otc_run() {
     STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=2 "$otc" "$@" 2>&1)
 }
 out="$(otc_run --said 'the request, "quoted"' --guess 'guessed target' demo)"
-grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup skip --no-parent --json$" "$tmp/stub.log" ||
-  fail "open-topic-chat did not create chat-<topic> from the repo id read from worktree list, with --setup skip --no-parent"
-grep -q "^apm install in $tmp/chat-demo$" "$tmp/stub.log" || fail "open-topic-chat did not run apm install in the new worktree"
+grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup inherit --no-parent --json$" "$tmp/stub.log" ||
+  fail "open-topic-chat did not create chat-<topic> from the repo id read from worktree list, with --setup inherit --no-parent"
+grep -q "^apm " "$tmp/stub.log" && fail "open-topic-chat ran apm itself; the repo's orca.yaml setup installs the harness"
 grep -q "^orca terminal send --terminal term_shell1 --text claude --model claude-opus-5-5 --permission-mode plan " "$tmp/stub.log" ||
   fail "open-topic-chat did not type the topic chat's command, on claude-opus-5-5, into the worktree's startup shell"
 grep -q "^orca terminal create" "$tmp/stub.log" && fail "open-topic-chat opened a second terminal although the startup shell was waiting"

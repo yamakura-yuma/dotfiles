@@ -43,7 +43,7 @@ Main chat に従う。
 
 - 新しい話題 → 確認せず話題チャットを開く。kebab の話題名 `<topic>` で
   `.claude/skills/pstack-on-claude-code/scripts/open-topic-chat [--run <run_id>] --said "<ユーザーの原文>" [--known "<わかっていること>"] [--guess "<推測（要確認）>"] <topic>`
-  （`chat-<topic>` worktree の作成・`apm install`・Opus の話題チャットの起動（plan モード）までを行う）。
+  （`chat-<topic>` worktree の作成（ハーネスは repo の `orca.yaml` の setup が入れる）・Opus の話題チャットの起動（plan モード）までを行う）。
   ここでは掘り下げない。原文は言い換えずに `--said` に入れ、補った対象・基準・手段はすべて `--guess` に入れる。
   新しいセッションは人に開かせず Orca で開く。起動したら一行で報告する（話題名・worktree・リポジトリ）
   開く前に `.claude/skills/pstack-on-claude-code/scripts/routing-facts` を流す。`zone` が red のときだけ、

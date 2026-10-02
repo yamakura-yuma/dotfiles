@@ -79,8 +79,10 @@ apm install
 ## worktree で作業するとき
 
 `.claude/` と `apm_modules/` は gitignore されているので、新しい worktree にはありません。
-`make ci` の `test-harness` が `apm compile` で落ちたら、先に `apm install` を1回走らせて
-ください。フックも同じ理由で、worktree ごとに自前の `apm install` が要ります。
+Orca が作る worktree では、ルートの `orca.yaml` の `setup`（`apm install`）が展開します。
+エージェントは `wait-for-setup` で、setup が終わるまで起動しません。Orca を通さず
+`git worktree add` で作った worktree には走らないので、`make ci` の `test-harness` が
+`apm compile` で落ちたら、先に `apm install` を1回走らせてください。
 
 索引も同じです。`graphify-out/` や `.codegraph/` は worktree に引き継がれません。必要なら
 その場で作ってください。

@@ -10,7 +10,7 @@
 ```
 
 上のスクリプトが、coordinator の repo id を `orca worktree list` から引き、worktree
-`chat-<topic>` の作成（`--setup skip --no-parent`）、そこでの `apm install`、
+`chat-<topic>` の作成（`--setup inherit --no-parent`。ハーネスは repo の `orca.yaml` の setup が入れ、起動は setup の完了を待つ）、
 Opus（`--model claude-opus-5-5`）の話題チャットの起動（plan モード）までを行う。起動コマンドは
 worktree と一緒に開く最初のシェルに打つ（ターミナルは 1 つ）。待機中のシェルと確かめられないときは
 別に `terminal create` する。コマンドは `--agent-cmd` で差し替えられる（引き継ぎ文は最後の引数に付く）。`~` は repo ではないので

@@ -65,7 +65,7 @@
    apm.yml:                          apm.yml:
      - path: ./core-principal          - git:  .../dotfiles.git
                                          path: core-principal
-                                         ref:  <commit>
+                                         ref:  main
         │                                    │
         └────── apm install ─────────────────┘
                      ↓

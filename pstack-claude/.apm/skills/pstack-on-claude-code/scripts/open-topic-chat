@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Open a topic chat: a worktree `chat-<topic>` of the coordinator repo, the
-# harness installed in it, and a claude session started there on the hand-off.
+# harness installed in it (by the repo's orca.yaml setup), and a claude session
+# started there on the hand-off.
 #
 #   open-topic-chat [--run <run_id>] [--repo <selector>] [--agent-cmd <command>]
 #                   --said <words> [--known <facts>] [--guess <guesses>] <topic>
@@ -64,14 +65,13 @@ if [ -z "$repo" ]; then
   repo="id:$id"
 fi
 
+# --setup inherit: .claude/ and apm_modules/ are gitignored, so the harness comes from the
+# setup in the repo's orca.yaml, which Orca runs before the agent starts (wait-for-setup).
 # home-k8s's per-topic token dashboard keys off this name (coordinator-chat-<topic>); don't rename.
-created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup skip --no-parent)"
+created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup inherit --no-parent)"
 # Orca names the worktree by id, "<repoId>::<path>"; older builds also gave a path.
 path="$(printf '%s' "$created" | jq -r '(.result.worktree // {}) | (.path // ((.id // "") | split("::") | .[1:] | join("::"))) | select(. != "")')"
 [ -n "$path" ] || { echo "open-topic-chat: no worktree path in: $created" >&2; exit 1; }
-
-# .claude/ and apm_modules/ are gitignored, so a fresh worktree has no harness.
-(cd "$path" && apm install)
 
 role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat. Wait with its \`wait-worker-events\`, and write nothing for heartbeats or empty waits."
 if [ -n "$run" ]; then

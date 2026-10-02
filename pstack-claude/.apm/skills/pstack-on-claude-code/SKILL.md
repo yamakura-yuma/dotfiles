@@ -281,9 +281,10 @@ topics in, and one **topic chat** per topic sees that topic through.
   [--run <run_id>] [--agent-cmd "<command>"] --said "<words>" [--known "<facts>"]
   [--guess "<guesses>"] <topic>`. It creates the worktree
   `chat-<topic>` of the coordinator repo (repo id read from `orca worktree
-  list`, or `--repo <selector>`; `--setup skip --no-parent` so unrelated topics
-  do not nest), runs `apm install` there (`.claude/` and `apm_modules/` are
-  gitignored, so a fresh worktree has no harness), and starts the chat on the hand-off by typing
+  list`, or `--repo <selector>`; `--no-parent` so unrelated topics
+  do not nest). `--setup inherit` because `.claude/` and `apm_modules/` are gitignored, so
+  a fresh worktree has no harness: the repo's `orca.yaml` setup installs it and the agent
+  waits for that (`wait-for-setup`), so the script runs no `apm install` of its own. It starts the chat on the hand-off by typing
   `claude --model claude-opus-5-5 --permission-mode plan "<hand-off>"` into the
   one terminal Orca opened with the worktree, so the worktree has one terminal.
   It types only after `terminal list` shows that terminal alone and `terminal
