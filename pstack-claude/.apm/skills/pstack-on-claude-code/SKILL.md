@@ -263,21 +263,21 @@ topics in, and one **topic chat** per topic sees that topic through.
   report file or a PR appeared, or the human wrote).
   1. The conclusion in one or two lines: what changed, and whether the human
      is needed. Give the reasoning and history only when asked.
-  2. A section per topic (main chat) or per worker (topic chat), every reply,
-     whatever changed: a heading `### <symbol> <name> — <state in a few words>`
-     (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌ failed), then
-     a checklist of the whole path, `- [x]` done and `- [ ]` not yet: the
-     workers, PRs, Issues, then cleanup. Link every PR and Issue by URL, not
-     by number. Take it from `worker-list` (the projection) and the Task list,
+  2. A section per topic, every reply, whatever changed (main chat: every
+     topic; topic chat: its own, with its workers as rows): a heading
+     `### <symbol> <name> — <state in a few words>` (✅ done, 🔄 working, ⏸
+     waiting on human, ⬜ not started, ❌ failed), then a checklist of the
+     whole path, `- [x]` done and `- [ ]` not yet: the workers, PRs, Issues,
+     then cleanup. Link every PR and Issue by URL, not by number. Take it from `worker-list` (the projection) and the Task list,
      never from memory. Order: ⏸ needs the human, then changed this reply,
      then 🔄 unchanged. A finished topic stays, every item `[x]`, until it is
-     cleaned up; omit it from the next reply.
+     cleaned up; leave it out of the reply after cleanup.
   3. 「次にあなたがすること」: only what the human does themself (merge, log
      in, check locally), numbered; 「なし（待機中）」 when nothing does.
-  - Ask the human for a decision with `AskUserQuestion` choices, never as text
-    to answer, and keep it out of 3. Load it with `ToolSearch`
-    (`select:AskUserQuestion`), else `tool_search_tool_regex`; `grounding.md`'s
-    "Question tool" covers when neither finds it.
+  - Ask the human for a decision with `AskUserQuestion` choices, so they pick
+    rather than type, and keep it out of 3. Load it with `ToolSearch`
+    (`select:AskUserQuestion`); under the headroom proxy that finds nothing,
+    so `tool_search_tool_regex`, as `grounding.md`'s "Question tool" says.
 - The ledger is Orca's Task list. Keep no topic file of your own.
 
 ### Main chat
