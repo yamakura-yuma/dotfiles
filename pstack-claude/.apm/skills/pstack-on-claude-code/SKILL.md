@@ -441,9 +441,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   reports left is an Issue. Write the final report first, then do this as the
   last action of the chat, since the main chat closes this terminal:
   `orca worktree list --json` gives the coordinator's original checkout (the row
-  with `isMainWorktree` and the same `repoId` as this worktree; skip rows with a null one); `orca terminal list
-  --worktree path:<that path>` gives the main chat's handle; `orca terminal send
-  --terminal <handle> --text "Topic finished: <topic>. worktree: <path>. run:
+  with `isMainWorktree` and the same `repoId` as this worktree; skip rows with
+  a null one); `orca terminal list --worktree path:<that path>` gives the main
+  chat's handle; `orca terminal send --terminal <handle> --text "Topic finished: <topic>. worktree: <path>. run:
   <run_id>. Close it as 'Close a finished topic' says." --enter`. Then stop.
 - **Check for mounts before removing.** A dev container or other process that
   mounts the worker's worktree blocks cleanup; recreate it on the original
