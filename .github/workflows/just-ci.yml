@@ -1,6 +1,7 @@
 # 各リポジトリの PR ゲートが呼ぶ再利用可能 workflow。中身は `just ci` を走らせるだけ。
 # 何を検査するかは呼ぶ側の justfile が決め、ここはそのための just（と必要なら nix）を
 # 用意するだけにする。ローカルで打つコマンドと Actions が走らせるコマンドを 1 つに保つため。
+# もう 1 つの job `stage-c` は、PR が CODEOWNERS のパス（段階 C）に触れば落ちる。
 # 型と呼び方は docs/gates.md に。
 name: just ci
 
@@ -35,3 +36,45 @@ jobs:
       - if: inputs.install-nix
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       - run: just ci
+
+  # 段階 C の PR を止める。CODEOWNERS の code owner review は、作者＝code owner の
+  # 1 人のリポジトリでは止まらない（docs/gates.md）ので、変更ファイルが CODEOWNERS の
+  # パスに当たれば落ちる job を別に持つ。`just ci` とは別の必須チェックにする。
+  # CODEOWNERS は PR の head ではなく base から読む。head から読むと、CODEOWNERS を
+  # 弱める PR が自分自身の判定を弱められてしまう。
+  stage-c:
+    name: stage C paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # job ごと skip すると必須チェックが「成功」でなく「skipped」と出るので、step で分ける。
+      - name: Not a pull_request
+        if: github.event_name != 'pull_request'
+        run: echo "pull_request ではないので、段階 C の検査はしない"
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # 照合のスクリプトはこの workflow と同じ版を使う。呼ぶ側の checkout には無い。
+      - if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .gate-tools
+          sparse-checkout: bin/gate-stage-c.sh
+          persist-credentials: false
+      - if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # base が取れていない（fetch の失敗など）ときに、CODEOWNERS が無い場合と取り違えて通さない。
+          git cat-file -e "$BASE_SHA^{commit}"
+          if ! git show "$BASE_SHA:.github/CODEOWNERS" >"$RUNNER_TEMP/CODEOWNERS" 2>/dev/null; then
+            echo "::notice::base に .github/CODEOWNERS が無いので、段階 C の検査はしない"
+            exit 0
+          fi
+          git diff --name-only -z --no-renames "$BASE_SHA...$HEAD_SHA" |
+            .gate-tools/bin/gate-stage-c.sh "$RUNNER_TEMP/CODEOWNERS"

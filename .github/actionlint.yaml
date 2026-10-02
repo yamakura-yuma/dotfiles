@@ -1,0 +1,7 @@
+# actionlint の `job` コンテキストの型は古く、`job.workflow_repository` と
+# `job.workflow_sha`（再利用 workflow 自身のリポジトリと commit SHA。GitHub の
+# contexts のドキュメントにある）を知らない。この 2 つだけを、この workflow に限って許す。
+paths:
+  .github/workflows/just-ci.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'
