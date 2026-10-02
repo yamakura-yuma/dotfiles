@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) guardrail: refuse the handful of git commands that throw away
 # work which exists nowhere else -- uncommitted changes and already-pushed
-# history. Registered by ../guard-destructive-git.json, which `apm install`
+# history -- plus `gh pr merge --admin`, which throws away the merge gate rather
+# than work. Registered by ../guard-destructive-git.json, which `apm install`
 # merges into the consuming repo's .claude/settings.json.
 #
 # Contract is the same as guard-default-branch.sh: exit 2 blocks the tool call
@@ -50,6 +51,12 @@ git_prefix='(^|[;&|(]|[[:space:]])git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]
 # words in between rather than pinning the flag to one position.
 args='([^;&|]*[[:space:]])?'
 end='([[:space:]]|$|[;&|])'
+
+# Same shape for gh, whose global flags (-R owner/repo) come after the subcommand
+# rather than before it, so only the command word itself has to start a word.
+# --admin may be written --admin=true, hence = in the terminator.
+gh_prefix='(^|[;&|(]|[[:space:]])gh[[:space:]]+'
+flag_end='([[:space:]=]|$|[;&|])'
 
 matches() {
   printf '%s' "$cmd" | grep -qE "$1"
@@ -102,6 +109,19 @@ if matches "${git_prefix}push[[:space:]]+${args}(--force|-f)${end}"; then
   refuse "\`git push --force\` overwrites remote history, including commits pushed by someone else." \
 "Use the spelling that checks the remote first:
   git push --force-with-lease"
+fi
+
+# Not lost work but a skipped gate: --admin merges a PR even when its required
+# checks are red, and GitHub cannot refuse it (enforce_admins is off), so this
+# is the only place the agent gets stopped. `--auto --squash` and the other
+# merge flags are untouched. The flag may sit before or after the PR number, and
+# `--admin=true` counts as the flag.
+if matches "${gh_prefix}pr[[:space:]]+merge[[:space:]]+${args}--admin${flag_end}"; then
+  refuse "\`gh pr merge --admin\` merges past the required checks, which silently skips the gate." \
+"Leave the PR open and say so in the report. A human merges it as an
+administrator; the agent never does. Once the checks pass and the coordinator
+says so, the agent-safe spelling is:
+  gh pr merge <n> --auto --squash"
 fi
 
 exit 0
