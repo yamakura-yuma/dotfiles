@@ -97,6 +97,11 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
   fail "dispatch-by-topic does not name the chat-<topic> worktree"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
   fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
+  fail "dispatch-by-topic does not tell the main chat to run routing-facts and change --agent-cmd at red"
+for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md does not mention $w"
+done
 for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat'; do
   grep -q "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code lost \"$h\", which the dispatch-by-topic text points at"
@@ -297,6 +302,87 @@ PATH="$tmp/wev-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/none" "$(command -v bash)" "$w
 grep -q 'worktree set' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
   grep -q -- '--workspace-status in-review' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
   fail "pstack-on-claude-code lost the worker spec line that updates the card (worktree set --comment, in-review)"
+
+# routing-facts, against a stub orca and a temp ~/.claude.json: no real usage is
+# read. The stub answers as RF_MODE says and writes a handshake line to stderr as
+# the real relay does, so stdout has to stay clean JSON.
+rf="$pkg/.apm/skills/pstack-on-claude-code/scripts/routing-facts"
+[ -x "$rf" ] || fail "routing-facts is not executable"
+bash -n "$rf" || fail "routing-facts does not parse"
+grep -q 'curl\|wget' "$rf" && fail "routing-facts calls the network (curl or wget)"
+mkdir -p "$tmp/rf-stub" "$tmp/rf-min"
+cat > "$tmp/rf-stub/orca" <<'STUB'
+#!/usr/bin/env bash
+echo "orca $*" >> "$RF_LOG"
+echo '[relay-connect] Handshake OK' >&2
+now_ms=$(( $(date +%s) * 1000 ))
+case "$RF_MODE" in
+  ok) printf '{"ok":true,"result":{"rateLimits":{"claude":{"status":"ok","error":null,"updatedAt":%s,"session":{"usedPercent":2,"resetsAt":1790990399846},"weekly":{"usedPercent":%s,"resetsAt":1791032399846},"fableWeekly":{"usedPercent":0}},"codex":{"status":"unavailable","error":"Codex not signed in"},"flag":true}}}' "$(( now_ms - 120000 ))" "${RF_WEEKLY:-65}" ;;
+  stale) printf '{"ok":true,"result":{"rateLimits":{"claude":{"status":"ok","error":null,"updatedAt":%s,"session":{"usedPercent":2},"weekly":{"usedPercent":65}}}}}' "$(( now_ms - 7200000 ))" ;;
+  billing) printf '{"ok":true,"result":{"rateLimits":{"claude":{"status":"unavailable","error":"No subscription plan — API key billing","session":null,"weekly":null}}}}' ;;
+  garbage) echo boom ;;
+  fail) exit 1 ;;
+esac
+STUB
+chmod +x "$tmp/rf-stub/orca"
+# A PATH with the tools the script needs and no orca.
+for b in bash env jq date timeout; do ln -sf "$(command -v "$b")" "$tmp/rf-min/$b"; done
+# A ~/.claude.json snapshot fetched $1 seconds ago, in the shape the status line reads.
+rf_cfg() {
+  local at=$(( ($(date +%s) - $1) * 1000 ))
+  cat > "$tmp/rf-claude.json" <<EOF
+{"cachedUsageUtilization":{"fetchedAtMs":$at,"utilization":{"limits":[
+{"kind":"session","group":"session","percent":$2,"resets_at":"2026-09-30T20:39:59.949979+00:00"},
+{"kind":"weekly_all","group":"weekly","percent":$3,"resets_at":"2026-10-03T12:59:59.950006+00:00"},
+{"kind":"weekly_scoped","group":"weekly","percent":4,"resets_at":"2026-10-03T13:00:00+00:00","scope":{"model":{"display_name":"Fable"}}}]}}}
+EOF
+}
+# rf_run <orca mode | none> [VAR=value ...]: stdout of routing-facts, stderr to a file.
+rf_run() {
+  local mode="$1"; shift
+  local path="$tmp/rf-stub:$PATH"; [ "$mode" = none ] && path="$tmp/rf-min"
+  : > "$tmp/rf.log"
+  env -u ORCA_REMOTE_CLI_BIN_DIR PATH="$path" RF_MODE="$mode" RF_LOG="$tmp/rf.log" CLAUDE_CONFIG_FILE="$tmp/rf-claude.json" "$@" \
+    "$(command -v bash)" "$rf" 2>"$tmp/rf.err"
+}
+rf_cfg 60 10 20
+out="$(rf_run ok)"
+printf '%s' "$out" | jq -e '.source == "orca" and .claude.session_pct == 2 and .claude.weekly_pct == 65 and .claude.fable_weekly_pct == 0
+    and .claude.weekly_resets_at == 1791032399 and (.age_s | . >= 100 and . < 200) and .zone == "yellow"' >/dev/null ||
+  fail "routing-facts did not read Orca's numbers (source orca, 2/65/0, age in seconds, zone yellow): $out"
+printf '%s' "$out" | jq -e '(.agents | map(select(.id == "codex")) | .[0] | .signed_in == false and .error == "Codex not signed in")
+    and (.agents | map(select(.id == "claude")) | .[0] | .signed_in == true and .error == null)' >/dev/null ||
+  fail "routing-facts agents[] did not carry Orca's status and error"
+[ "$(rf_run ok RF_WEEKLY=75 | jq -r .zone)" = orange ] && [ "$(rf_run ok RF_WEEKLY=90 | jq -r .zone)" = red ] &&
+  [ "$(rf_run ok RF_WEEKLY=49 | jq -r .zone)" = green ] || fail "routing-facts zone is not cut at 50/75/90 on the larger of session and weekly"
+# Orca not usable: stale, API-key billing, garbage, a failing call, or no orca at all
+# -> ~/.claude.json.
+for m in stale billing garbage fail none; do
+  out="$(rf_run "$m")"
+  printf '%s' "$out" | jq -e '.source == "claude-json" and .claude.session_pct == 10 and .claude.weekly_pct == 20 and .claude.fable_weekly_pct == 4
+      and .claude.session_resets_at == 1790800799 and .zone == "green"' >/dev/null ||
+    fail "routing-facts did not fall back to ~/.claude.json when Orca was: $m ($out)"
+done
+grep -q 'account list' "$tmp/rf.log" && fail "routing-facts called orca although orca was not on PATH"
+# orca off PATH: found under ORCA_REMOTE_CLI_BIN_DIR.
+out="$(env PATH="$tmp/rf-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/rf-stub" RF_MODE=ok RF_LOG="$tmp/rf.log" CLAUDE_CONFIG_FILE="$tmp/rf-claude.json" \
+  "$(command -v bash)" "$rf" 2>/dev/null)"
+printf '%s' "$out" | jq -e '.source == "orca"' >/dev/null || fail "routing-facts did not fall back to ORCA_REMOTE_CLI_BIN_DIR/orca"
+# An old reading is not a number: percentages null, zone unknown, age still shown.
+# ROUTING_FACTS_MAX_AGE moves the line.
+rf_cfg 7200 10 20
+out="$(rf_run none)"
+printf '%s' "$out" | jq -e '.source == "claude-json" and .age_s >= 7200 and .claude.session_pct == null and .claude.weekly_pct == null
+    and .claude.fable_weekly_pct == null and .zone == "unknown"' >/dev/null ||
+  fail "routing-facts did not turn a 2-hour-old ~/.claude.json into unknown: $out"
+rf_run stale | jq -e '.claude.weekly_pct == null and .zone == "unknown"' >/dev/null || fail "routing-facts took a stale Orca reading as a number"
+rf_run none ROUTING_FACTS_MAX_AGE=86400 | jq -e '.zone == "green" and .claude.weekly_pct == 20' >/dev/null ||
+  fail "routing-facts ignored ROUTING_FACTS_MAX_AGE"
+# Neither source: none, unknown, still valid JSON.
+rm -f "$tmp/rf-claude.json"
+rf_run none | jq -e '.source == "none" and .age_s == null and .zone == "unknown" and (.agents | length) > 0' >/dev/null ||
+  fail "routing-facts did not report source none and zone unknown with no usage anywhere"
+[ -s "$tmp/rf.err" ] && fail "routing-facts wrote to stderr in a normal run: $(cat "$tmp/rf.err")"
 
 # The text the chats read names the script, and the main chat is told to stay silent on heartbeats.
 for f in .apm/skills/pstack-on-claude-code/SKILL.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do

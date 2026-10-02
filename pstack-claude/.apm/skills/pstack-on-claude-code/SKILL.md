@@ -73,14 +73,54 @@ worker-start`, and name the model in one line when reporting the dispatch.
 | Coordinator (this session) | Opus 5.5 | — | — |
 | Design worker: deciding the approach, research, root-causing, a setup across components | `claude-opus-5-5`; `claude-fable-5-1` when the user asks | omit (`high` if needed) | No |
 | Implementation worker: a change whose approach is settled | `claude-sonnet-5-5` | `high` (`xhigh` if long or easy to get lost in) | Yes |
+| Light work: a wording fix, a version bump, cleanup | `claude-sonnet-5-5` | `medium` | Yes |
 | Review | Opus 5.5, as the `completion-reviewer` subagent | — | — |
 | Advisor (every session, on trial) | Fable, a host setting (dotfiles `docs/configuration.md`, "advisor") | — | — |
 
-**Always pass `--effort high` to an implementation worker.** Per the official
+**Pass `--effort high` to an implementation worker, `medium` to light work.** Per the official
 model-config page, Sonnet 5.5 defaults to `medium`; `high` is for "work where
 verification matters or edge cases are likely", and higher levels test more
 edge cases and verify more before answering. Tests and verification are what
 Sonnet alone dropped on dotfiles#19. Not `max`: the docs warn it overthinks.
+Light work (a wording fix, a version bump, cleanup: no logic to get wrong) stays
+on Sonnet's own default: pass `--effort medium`. It still gets the review before the PR.
+
+**Usage changes the table only at red.** Before picking a launch, run
+`.claude/skills/pstack-on-claude-code/scripts/routing-facts` and read `zone`
+(it prints numbers and decides nothing).
+
+| `zone` | Launch |
+|---|---|
+| green, yellow, orange | The table above, unchanged |
+| red (session or weekly at 90% or more) | Everything on `claude-sonnet-5-5`: the topic chat (`--agent-cmd "claude --model claude-sonnet-5-5 --effort high --permission-mode plan"`) and design workers too. Do not start a new worker or topic chat before asking the human, with the zone and the launch you would use |
+| unknown (no reading, or older than 30 minutes) | The table above, and ask the advisor first if the work is a design worker on Opus |
+
+Opus and Sonnet share one weekly window, so a downgrade saves less than the
+percentage suggests; only Fable has a window of its own, and the table does not
+move work there on its own. Roles that assume Opus (the topic chat, the
+`completion-reviewer`) drop to Sonnet only at red, and only after asking the
+human; say in the report that they did.
+
+**Ask the advisor in these cases, and only these.** Every other launch is
+decided by the zone and the table.
+
+1. `zone` is unknown and you are about to launch a design worker on Opus.
+2. `zone` is orange or red and you cannot say in one line whether the work is
+   design or implementation.
+3. The launch names an agent that is not available (`agents[]` says
+   `installed: false` or `signed_in: false`, with its `error`).
+4. A downgrade would put an Opus role (topic chat, `completion-reviewer`) on
+   Sonnet.
+5. After `worker-start`, `worker-show` has `launch.effective` different from
+   `launch.requested`; do not name the model from `requested` alone.
+
+**Where the numbers come from.** `routing-facts` reads Orca's cached rate limits
+(`orca account list --json`, a local call; Orca fetched them from Anthropic with
+its own sign-in), then the snapshot Claude Code keeps in `~/.claude.json`, and
+never the network. A reading older than `ROUTING_FACTS_MAX_AGE` seconds (default
+1800) becomes `unknown`. `agents[].error` says why an agent is not `signed_in`:
+Claude on API-key billing has no usage numbers, which is not the same as being
+signed out.
 
 **Keep live-state work off implementation workers.** Shell profiles,
 clusters, systemd, `~/.claude/settings.json`: anything hard to undo is a design
@@ -259,8 +299,11 @@ topics in, and one **topic chat** per topic sees that topic through.
   repository shows (the target repo included), `--guess` everything you
   inferred, for the topic chat to confirm. It prints the worktree path and the
   terminal handle.
-  Opening the session is yours, not the human's. Report in one line: topic,
-  chat worktree, repo.
+  Opening the session is yours, not the human's. Before the script, run
+  `.claude/skills/pstack-on-claude-code/scripts/routing-facts`; only at `zone`
+  red does the chat's launch change: ask the human, then pass `--agent-cmd` with
+  `claude --model claude-sonnet-5-5 --effort high --permission-mode plan` ("Models",
+  above). Report in one line: topic, chat worktree, repo.
 - **Session models.** `--model` outranks every `model` setting, so the script pins the
   topic chat to Opus and it stays Opus even where project settings name another
   model. The main chat is Sonnet: the human starts it with `claude --model
@@ -318,8 +361,10 @@ topics in, and one **topic chat** per topic sees that topic through.
   every worker for the topic goes through
   `worker-start` into the Run (`--task-title` = unit, `--name` = kebab worker
   name); the Models table picks the worker: implementation change, design
-  research, design documents. A worker that falls outside the brief needs the
-  brief changed first. Report in one line: worker name, repo, model.
+  research, design documents, light work. Run `routing-facts` first and follow
+  the zone rule under "Models"; check `worker-show` for `launch.effective` after
+  the start. A worker that falls outside the brief needs the brief changed first.
+  Report in one line: worker name, repo, model, zone.
   The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
