@@ -267,9 +267,10 @@ topics in, and one **topic chat** per topic sees that topic through.
      topic; topic chat: its own, with its workers as rows): a heading
      `### <symbol> <name> — <state in a few words>` (✅ done, 🔄 working, ⏸
      waiting on human, ⬜ not started, ❌ failed), then a checklist of the
-     whole path, `- [x]` done and `- [ ]` not yet: the workers, PRs, Issues,
-     then cleanup. Link every PR and Issue by URL, not by number. Take it from `worker-list` (the projection) and the Task list,
-     never from memory. Order: ⏸ needs the human, then changed this reply,
+     whole path, `- [x]` done and `- [ ]` not yet: the done criteria, workers,
+     PRs, Issues, then cleanup. Link every PR and Issue by URL, not by number.
+     Take it from `worker-list` (the projection) and the Task list, never from
+     memory. Order: ⏸ needs the human, then changed this reply,
      then 🔄 unchanged. A finished topic stays, every item `[x]`, until it is
      cleaned up; leave it out of the reply after cleanup.
   3. 「次にあなたがすること」: only what the human does themself (merge, log
@@ -397,8 +398,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   or closed and its report is read, release it, then `orca worktree rm
   --worktree path:<worker worktree>` (the path is `worktreeId` after `::` in
   `worker-list`; "Check for mounts before removing" first). `worktree rm`
-  leaves the branch: report it to the human, and delete it only if the human
-  says so.
+  keeps the branch only when Orca cannot prove it merged (a squash-merged PR
+  often counts): report a kept branch to the human, and delete it only if
+  they say so.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
@@ -408,9 +410,10 @@ topics in, and one **topic chat** per topic sees that topic through.
 - **Triage is a report, not a worker.** A message with `type=status` and a
   `[triage]` subject comes from the scheduled PR/Issue triage. Read the report
   file named in its body (`~/.claude/worker-reports/triage/YYYY-MM-DD.md`) and
-  put every item that needs approval (merge, close, start a worker, a human
-  decision) under 「次にあなたがすること」; the merge, close or `worker-start`
-  happens after the human approves it. It is sent to `@worktree:`, so every Run
+  ask for every item that needs approval (close, start a worker, a human
+  decision) with `AskUserQuestion`; the close or `worker-start` happens after
+  the human picks it. Under 「次にあなたがすること」 put only what the human
+  does themself, such as a merge. It is sent to `@worktree:`, so every Run
   with a coordinator terminal in that worktree gets a copy with the same
   `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
   copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events`
