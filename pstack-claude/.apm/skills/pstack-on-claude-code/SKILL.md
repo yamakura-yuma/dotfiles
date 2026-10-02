@@ -410,17 +410,15 @@ topics in, and one **topic chat** per topic sees that topic through.
   restart the wait with `wait-worker-events --ack <delivery_id>` (below),
   which acks and keeps waiting in one call.
   An un-acked Delivery keeps returning and queues newer ones behind it.
-- **Triage is a report, not a worker.** A message with `type=status` and a
-  `[triage]` subject comes from the scheduled PR/Issue triage. Read the report
-  file named in its body (`~/.claude/worker-reports/triage/YYYY-MM-DD.md`) and
-  ask for every item that needs approval (close, start a worker, a human
-  decision) with `AskUserQuestion`; the close or `worker-start` happens after
-  the human picks it. Under 「次にあなたがすること」 put only what the human
-  does themself, such as a merge. It is sent to `@worktree:`, so every Run
-  with a coordinator terminal in that worktree gets a copy with the same
-  `thread_id`: handle each `thread_id` once, then ack every copy (other Runs'
-  copies with `check --run <run_id> --ack <delivery_id>`). `wait-worker-events`
-  wakes on `status` too, so it returns with the message.
+- **Triage is a label, not a message.** The scheduled PR/Issue triage only puts
+  `triage:*` labels on PRs and Issues in the four repos (dotfiles, home-k8s,
+  knowledge-base, temporal-workflow-kit); nothing reaches the coordinator. To
+  pick triaged items up, search GitHub with `gh` (for example
+  `gh search prs --label triage:merge-ready --state open`, or `gh pr list` /
+  `gh issue list --label triage:needs-decision` per repo). Labels are
+  `triage:merge-ready`, `triage:pending`, `triage:needs-fix`,
+  `triage:needs-decision`, `triage:worker-ready` and `triage:close-candidate`.
+  Close or `worker-start` only after the human picks it with `AskUserQuestion`.
 - **Wait with `wait-worker-events`.** Run
   `.claude/skills/pstack-on-claude-code/scripts/wait-worker-events [--ack
   <delivery_id>]` with Bash `run_in_background`, and never a bare `check
