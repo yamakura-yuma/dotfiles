@@ -1,6 +1,7 @@
 # 各リポジトリの PR ゲートが呼ぶ再利用可能 workflow。中身は `just ci` を走らせるだけ。
 # 何を検査するかは呼ぶ側の justfile が決め、ここはそのための just（と必要なら nix）を
 # 用意するだけにする。ローカルで打つコマンドと Actions が走らせるコマンドを 1 つに保つため。
+# もう 1 つの job `stage-c` は、PR が CODEOWNERS のパス（段階 C）に触れば落ちる。
 # 型と呼び方は docs/gates.md に。
 name: just ci
 
@@ -69,6 +70,8 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # base が取れていない（fetch の失敗など）ときに、CODEOWNERS が無い場合と取り違えて通さない。
+          git cat-file -e "$BASE_SHA^{commit}"
           if ! git show "$BASE_SHA:.github/CODEOWNERS" >"$RUNNER_TEMP/CODEOWNERS" 2>/dev/null; then
             echo "::notice::base に .github/CODEOWNERS が無いので、段階 C の検査はしない"
             exit 0

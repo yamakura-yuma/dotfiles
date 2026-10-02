@@ -119,7 +119,7 @@ owner も `yamakura-yuma` だけのリポジトリでは、作者が自分の PR
 | base に `.github/CODEOWNERS` が無い | 何もせず成功し、`notice` を出す。`CODEOWNERS` を足す最初の PR はこの扱いになる |
 
 - `CODEOWNERS` は PR の head ではなく **base** から読みます。head から読むと、`CODEOWNERS` を
-  弱める PR が自分自身の判定を弱められます。base なら、その PR が `/.github/` に触る以上、必ず落ちます。
+  弱める PR が自分自身の判定を弱められます。base なら、base の `CODEOWNERS` が `/.github/` を持つ限り（この型の「すべて」の行）、その PR は必ず落ちます。
 - 変更ファイルは `git diff --name-only --no-renames <base>...<head>` です。リネームは
   元のパスも新しいパスも数えます。
 - 照合の処理は `bin/gate-stage-c.sh` で、再利用 workflow と同じ版を checkout して使います。
