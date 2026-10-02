@@ -238,13 +238,20 @@ topics in, and one **topic chat** per topic sees that topic through.
   into a new topic, a continuation, a status question or a control (stop,
   close). A new topic never starts a worker here. Pick a kebab `<topic>` and
   run `.claude/skills/pstack-on-claude-code/scripts/open-topic-chat
-  [--run <run_id>] --said "<words>" [--known "<facts>"] [--guess "<guesses>"]
-  <topic>`. It creates the worktree
+  [--run <run_id>] [--agent-cmd "<command>"] --said "<words>" [--known "<facts>"]
+  [--guess "<guesses>"] <topic>`. It creates the worktree
   `chat-<topic>` of the coordinator repo (repo id read from `orca worktree
   list`, or `--repo <selector>`; `--setup skip --no-parent` so unrelated topics
   do not nest), runs `apm install` there (`.claude/` and `apm_modules/` are
-  gitignored, so a fresh worktree has no harness), and opens `claude --model
-  claude-opus-5-5 --permission-mode plan` on the hand-off. It adds the topic chat's role (the hook and
+  gitignored, so a fresh worktree has no harness), and starts the chat on the hand-off by typing
+  `claude --model claude-opus-5-5 --permission-mode plan "<hand-off>"` into the
+  one terminal Orca opened with the worktree, so the worktree has one terminal.
+  It types only after `terminal list` shows that terminal alone and `terminal
+  read` shows a shell prompt that has stopped moving; otherwise it opens a
+  terminal of its own, as before (`terminal wait --for tui-idle` is for agent
+  TUIs and times out on a shell, so it is not the check). `--agent-cmd` replaces
+  that command; the hand-off is appended to it as the last argument. Whatever
+  chooses the agent and model passes it there. It adds the topic chat's role (the hook and
   the edit guard stay silent in a child worktree, so that text is the only place
   the chat is told) and, with `--run`, the instruction to bind that Run. The
   hand-off has three parts, and the main chat does not ground: `--said` is the

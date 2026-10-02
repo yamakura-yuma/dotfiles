@@ -108,22 +108,29 @@ jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch
 
 # open-topic-chat, against stub orca and apm: nothing real is created. The orca
 # stub answers with the JSON shapes `orca ... --json` returns, logs each call,
-# and runs the --command it is given with `claude` replaced by a function that
-# records its arguments, so the quoting is exercised as well.
+# and runs the command it is given (`terminal create --command`, or the text of
+# `terminal send`) with `claude` replaced by a function that records its
+# arguments, so the quoting is exercised as well. STUB_TERMINALS sets how many
+# terminals the new worktree opened with and STUB_PROMPT what its last line is.
 otc="$pkg/.apm/skills/pstack-on-claude-code/scripts/open-topic-chat"
 [ -x "$otc" ] || fail "open-topic-chat is not executable"
 mkdir -p "$tmp/stub" "$tmp/chat-demo"
 cat > "$tmp/stub/orca" <<'STUB'
 #!/usr/bin/env bash
 echo "orca $*" >> "$STUB_LOG"
+run_cmd() { claude() { printf '%s\n' "$@" > "$STUB_LOG.claude"; }; eval "$1"; }
+args=("$@")
+arg() { local i; for i in "${!args[@]}"; do [ "${args[$i]}" = "$1" ] && { printf '%s' "${args[$((i + 1))]}"; return; }; done; }
 case "$1 $2" in
   "worktree list") printf '{"ok":true,"result":{"worktrees":[{"repoId":"R1","path":"%s"}]}}' "$STUB_REPO" ;;
-  "worktree create") printf '{"ok":true,"result":{"worktree":{"path":"%s"}}}' "$STUB_CHAT" ;;
-  "terminal create")
-    while [ $# -gt 0 ]; do [ "$1" = --command ] && cmd="$2"; shift; done
-    claude() { printf '%s\n' "$@" > "$STUB_LOG.claude"; }
-    eval "$cmd"
-    printf '{"ok":true,"result":{"handle":"term_stub"}}' ;;
+  "worktree create") printf '{"ok":true,"result":{"worktree":{"id":"R1::%s"}}}' "$STUB_CHAT" ;;
+  "terminal list")
+    n="${STUB_TERMINALS:-1}"
+    printf '{"ok":true,"result":{"terminals":[%s]}}' "$(for ((i = 1; i <= n; i++)); do printf '{"handle":"term_shell%s"},' "$i"; done | sed 's/,$//')" ;;
+  "terminal read") printf '{"ok":true,"result":{"terminal":{"latestCursor":"2","tail":["","%s"]}}}' "${STUB_PROMPT:-❯}" ;;
+  "terminal send") run_cmd "$(arg --text)"; printf '{"ok":true,"result":{"send":{"handle":"%s"}}}' "$(arg --terminal)" ;;
+  "terminal rename") printf '{"ok":true,"result":{}}' ;;
+  "terminal create") run_cmd "$(arg --command)"; printf '{"ok":true,"result":{"handle":"term_stub"}}' ;;
   *) printf '{"ok":false,"error":"unexpected"}' ;;
 esac
 STUB
@@ -135,14 +142,15 @@ chmod +x "$tmp/stub/orca" "$tmp/stub/apm"
 otc_run() {
   : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude"
   (cd "$tmp/origin-repo" && PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
-    STUB_CHAT="$tmp/chat-demo" "$otc" "$@" 2>&1)
+    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=2 "$otc" "$@" 2>&1)
 }
 out="$(otc_run --said 'the request, "quoted"' --guess 'guessed target' demo)"
 grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup skip --no-parent --json$" "$tmp/stub.log" ||
   fail "open-topic-chat did not create chat-<topic> from the repo id read from worktree list, with --setup skip --no-parent"
 grep -q "^apm install in $tmp/chat-demo$" "$tmp/stub.log" || fail "open-topic-chat did not run apm install in the new worktree"
-grep -q "^orca terminal create --worktree path:$tmp/chat-demo --title demo --command claude --model claude-opus-5-5 " "$tmp/stub.log" ||
-  fail "open-topic-chat did not open the topic chat in the new worktree on claude-opus-5-5"
+grep -q "^orca terminal send --terminal term_shell1 --text claude --model claude-opus-5-5 --permission-mode plan " "$tmp/stub.log" ||
+  fail "open-topic-chat did not type the topic chat's command, on claude-opus-5-5, into the worktree's startup shell"
+grep -q "^orca terminal create" "$tmp/stub.log" && fail "open-topic-chat opened a second terminal although the startup shell was waiting"
 [ "$(sed -n 1,2p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--model\nclaude-opus-5-5')" ] || fail "open-topic-chat passed claude something other than --model claude-opus-5-5 first"
 [ "$(sed -n 3,4p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--permission-mode\nplan')" ] || fail "open-topic-chat did not start the topic chat in plan mode"
 grep -q 'the request, "quoted"' "$tmp/stub.log.claude" || fail "open-topic-chat lost the hand-off text"
@@ -153,7 +161,7 @@ grep -A1 '^## 推測（要確認）$' "$tmp/stub.log.claude" | grep -q '^guessed
 grep -q 'plan mode' "$tmp/stub.log.claude" && grep -q 'grounding.md' "$tmp/stub.log.claude" || fail "open-topic-chat's role does not point the chat at plan mode and grounding.md"
 grep -q 'topic chat for `demo`' "$tmp/stub.log.claude" || fail "open-topic-chat did not state the topic chat's role"
 grep -q 'run-use' "$tmp/stub.log.claude" && fail "open-topic-chat mentioned run-use without --run"
-case "$out" in *"terminal: term_stub"*) ;; *) fail "open-topic-chat did not print the terminal handle" ;; esac
+case "$out" in *"terminal: term_shell1"*) ;; *) fail "open-topic-chat did not print the startup shell's handle" ;; esac
 otc_run --said x --known 'a fact' demo > /dev/null
 grep -A1 '^## わかっていること$' "$tmp/stub.log.claude" | grep -q '^a fact$' || fail "open-topic-chat did not put --known under 「わかっていること」"
 otc_run --run run_42 --said x demo > /dev/null
@@ -161,6 +169,23 @@ grep -q 'run-use --id run_42' "$tmp/stub.log.claude" || fail "open-topic-chat --
 otc_run --repo id:R9 --said x demo > /dev/null
 grep -q -- "--repo id:R9 --name chat-demo" "$tmp/stub.log" || fail "open-topic-chat ignored --repo"
 grep -q "worktree list" "$tmp/stub.log" && fail "open-topic-chat read worktree list although --repo was given"
+# --agent-cmd replaces the command; the hand-off is still its last argument.
+otc_run --agent-cmd 'claude --model claude-sonnet-5-5' --said x demo > /dev/null
+grep -q "^orca terminal send --terminal term_shell1 --text claude --model claude-sonnet-5-5 " "$tmp/stub.log" || fail "open-topic-chat ignored --agent-cmd"
+[ "$(sed -n 1,2p "$tmp/stub.log.claude")" = "$(printf -- '--model\nclaude-sonnet-5-5')" ] && [ "$(grep -c '^## ユーザーの原文$' "$tmp/stub.log.claude")" = 1 ] ||
+  fail "open-topic-chat --agent-cmd did not append the hand-off as the last argument"
+# Fall back to a terminal of our own when the startup shell cannot be used: more
+# than one terminal (a configured default layout), or no prompt to type at.
+for stub in "STUB_TERMINALS=2" "STUB_TERMINALS=0" "STUB_PROMPT=Running-a-build..."; do
+  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude"
+  out="$(cd "$tmp/origin-repo" && env "$stub" PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
+    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=1 "$otc" --said x demo 2>&1)"
+  grep -q "^orca terminal create --worktree path:$tmp/chat-demo --title demo --command claude --model claude-opus-5-5 " "$tmp/stub.log" ||
+    fail "open-topic-chat did not fall back to terminal create ($stub)"
+  grep -q "^orca terminal send" "$tmp/stub.log" && fail "open-topic-chat typed into a shell it could not verify ($stub)"
+  [ -f "$tmp/stub.log.claude" ] || fail "open-topic-chat's fallback did not start the chat ($stub)"
+  case "$out" in *"terminal: term_stub"*) ;; *) fail "open-topic-chat's fallback did not print the new terminal's handle ($stub)" ;; esac
+done
 otc_run --said x 'Bad Topic' > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
 case "$(otc_run --said x 'Bad Topic')" in *kebab-case*) ;; *) fail "open-topic-chat refused a bad topic for a reason other than kebab-case" ;; esac
 # The old two-positional form and a missing --said stop at usage: no worktree is created.
