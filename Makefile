@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c
 
 lint-shell:
 	@echo "== shell syntax"
@@ -128,6 +128,12 @@ test-github-settings:
 test-techdocs:
 	@echo "== techdocs"
 	@./tests/techdocs.sh
+
+# bin/gate-stage-c.sh, the matcher the reusable workflow's "stage C paths" job
+# runs against CODEOWNERS. Offline: git only.
+test-gate-stage-c:
+	@echo "== gate-stage-c"
+	@./tests/gate-stage-c.sh
 
 # Reads ~/.claude/projects, so its output is this machine's history rather than
 # a check -- not part of ci. `make metrics ARGS=--json` for the machine form.

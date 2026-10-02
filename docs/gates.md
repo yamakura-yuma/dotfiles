@@ -8,7 +8,7 @@ AI が書いた PR を、人の手を介さずに auto merge するための型�
                                                     │
                GitHub Actions（ubuntu-latest）: just ci ──> 必須チェック
                                                     │
-      段階 A・B: チェックが通れば auto merge     段階 C: CODEOWNERS で止まり、人がマージ
+      段階 A・B: チェックが通れば auto merge     段階 C: `stage C paths` が落ち、人がマージ
 ```
 
 ## 段階
@@ -23,7 +23,9 @@ AI が書いた PR を、人の手を介さずに auto merge するための型�
 
 ゲート自身を C にするのは、AI がゲートを弱める変更を自分で通せないようにするためです。
 
-C は `CODEOWNERS` で表します。B の「AI レビュー 1 回」は CI では見ません（毎回 API を呼ぶと
+C は `CODEOWNERS` で表し、`CODEOWNERS` に当たる変更を必須チェック `stage C paths`
+で落として止めます（「段階 C を止めるチェック」）。code owner の review では止まりません。
+B の「AI レビュー 1 回」は CI では見ません（毎回 API を呼ぶと
 コストがかかるため）。ワーカーの手順として PR 前に回します。A と B の違いは手順の側にだけあり、
 GitHub の設定は同じです。
 
@@ -90,6 +92,67 @@ jobs:
 呼ぶ側の `env` は呼ばれる側に渡りません（下の公式の記述）。`just ci` が環境変数に頼るなら、
 justfile の中で決めてください。
 
+この workflow は job を 2 つ持ちます。呼ぶ側の job id が `ci` なら、必須チェックは次の 2 つです。
+
+| 必須チェック | job | 見るもの |
+| --- | --- | --- |
+| `ci / just ci` | `just-ci` | `just ci` が `0` で終わること |
+| `ci / stage C paths` | `stage-c` | 段階 C のパスに触っていないこと |
+
+## 段階 C を止めるチェック
+
+`CODEOWNERS` の code owner review は、段階 C を止めません。2026-10-03 に knowledge-base で
+確かめました。C のパス（`/justfile`）に触る PR #22 が、`ci / just ci` が通っただけで
+`mergeStateStatus: CLEAN` になり、`reviewDecision` も `reviewRequests` も空でした。作者も code
+owner も `yamakura-yuma` だけのリポジトリでは、作者が自分の PR を承認できないはずなのに、
+承認待ちになりません。そこで `CODEOWNERS` を C の一覧の正本としたまま、止める役を必須チェックに
+持たせます。
+
+`stage-c` job（`bin/gate-stage-c.sh`）は、PR の変更ファイルが `CODEOWNERS` のパスに 1 つでも
+当たれば失敗します。当たったパスは job のログに出ます。
+
+| 場面 | 結果 |
+| --- | --- |
+| `pull_request` で、変更ファイルが `CODEOWNERS` に当たる | 失敗 |
+| `pull_request` で、当たらない | 成功 |
+| `pull_request` 以外（push など） | 何もせず成功。job ごと skip すると必須チェックが `skipped` と出るので、step で分けている |
+| base に `.github/CODEOWNERS` が無い | 何もせず成功し、`notice` を出す。`CODEOWNERS` を足す最初の PR はこの扱いになる |
+
+- `CODEOWNERS` は PR の head ではなく **base** から読みます。head から読むと、`CODEOWNERS` を
+  弱める PR が自分自身の判定を弱められます。base なら、その PR が `/.github/` に触る以上、必ず落ちます。
+- 変更ファイルは `git diff --name-only --no-renames <base>...<head>` です。リネームは
+  元のパスも新しいパスも数えます。
+- 照合の処理は `bin/gate-stage-c.sh` で、再利用 workflow と同じ版を checkout して使います。
+  パターンは git の gitignore の照合（`git check-ignore`）に任せています。GitHub は
+  `CODEOWNERS` を gitignore 風と書いているので、ディレクトリ指定（`/x/`）、`*`（`/` を越えない）、
+  先頭の `/` による固定は同じに動きます。テストは `tests/gate-stage-c.sh`（`make ci` に入っています）。
+
+### GitHub の `CODEOWNERS` と合わない点
+
+| 点 | GitHub | このチェック |
+| --- | --- | --- |
+| 所有者の無い行（`/x/` だけ） | そのパスの所有者を外す | 読み飛ばす。C にならない |
+| 後ろの行が前の行を上書きする | 最後に当たった行が効く | 当たる行が 1 つでもあれば C。所有者を外す行は無視するので、C は増える側にだけ動く |
+| `!` の否定 | 使えない | 読み飛ばす |
+| `[...]` | 使えない（文字そのもの） | 文字クラスとして扱う |
+| 大文字小文字 | 区別する | 区別する |
+| 置き場 | `.github/`、ルート、`docs/` の順 | `.github/CODEOWNERS` だけを読む |
+
+### 管理者のマージ
+
+C の PR は、人が管理者としてマージします。`enforce_admins` を外してあるので、`ci / stage C paths`
+が落ちていても、管理者は `gh pr merge --admin` か UI で飛ばせます。**エージェントは
+`gh pr merge --admin` を使いません**（`--auto` も C の PR では打ちません）。GitHub の設定では
+エージェントを防げないので、手順で禁じます（dotfiles#53）。エージェント用の別 ID は今は作りません。
+
+### 呼ぶ側が SHA を上げるとき
+
+`stage-c` を足した版は、`ci.yml` の `@<SHA>` を上げて取り込みます。上げる PR は `.github/` に
+触るので、段階 C です（上のとおり、`stage C paths` が落ち、人が管理者としてマージします）。
+上げたあと、branch protection の `checks` に `ci / stage C paths` を足します（後述の更新コマンド）。
+**足す前に、必ず PR を 1 本出して `gh pr checks <番号>` で名前を読んでください。** 名前が違うと、
+必須チェックが永遠に `Pending` のままになり、すべての PR が止まります。
+
 ## GitHub の仕様（Free プランの public リポジトリ）
 
 2026-10-03 に公式ドキュメントで確かめました。対象の 4 リポジトリはどれも個人アカウント
@@ -120,24 +183,35 @@ justfile の中で決めてください。
 まとめると、必須チェック・auto merge・CODEOWNERS・ruleset は、どれも Free の public
 リポジトリで使えると公式に書いてあります。費用は標準 runner なら 0 です。
 
+### 確かめた（2026-10-03、knowledge-base の試しの PR 3 本。マージはしていない）
+
+- **必須チェックの名前**は `<呼ぶ側の job id> / <呼ばれる側の job name>`。`ci / just ci` は
+  `gh pr checks` でその名前で出て、必須チェックとして効き、`just ci` を落とす PR（#21）は
+  `BLOCKED` になりました。名前の規則を書いた公式の記述は見つけられていません。`ci / stage C paths`
+  も同じ規則から導いた名前なので、設定する前に PR を 1 本出して `gh pr checks <番号>` で読んでください。
+- **code owner の review は、段階 C を止めない。** 作者 = code owner = admin の構成で、
+  `require_code_owner_reviews: true`、`required_approving_review_count: 0` のとき、C のパスに
+  触る PR #22 は `CLEAN` でした。原因は、作者が唯一の code owner だから免除されたのか、
+  承認数 0 だと code owner review が強制されないのか、切り分けられていません（別アカウントの
+  試しが要る）。どちらにしても、1 人のリポジトリでは `CODEOWNERS` だけでは止まらないので、
+  上の `stage C paths` で止めます。
+
 ### 推測（公式の記述が見つからない。各チケットで確かめる）
 
-- **必須チェックの名前**は `<呼ぶ側の job id> / <呼ばれる側の job name>`、つまり上の例なら
-  `ci / just ci` になるはず。名前の規則を書いた公式の記述は見つけられませんでした。設定する前に、
-  PR を 1 本出して `gh pr checks <番号>` で実際の名前を読んでください。
-- **段階 C は人が管理者としてマージする**ことになるはず。PR の作者は（ワーカーも人と同じ `gh`
-  のログインを使うので）`yamakura-yuma` で、code owner も `yamakura-yuma` だけです。作者は自分の PR を
-  承認できないので、C の PR は承認を満たせず、auto merge でも通常のマージでも止まります。人は
-  `enforce_admins` を外したままにして、管理者として要件を飛ばしてマージします。
+- **C の PR は、管理者がマージできる**はず。`enforce_admins` を外したままなら、公式のとおり
+  管理者には branch protection の制限が既定で掛からないので、必須チェックが落ちたままでも
+  管理者はマージできるはずです。各チケットで、C のパスに触る PR を人が管理者としてマージできることも
+  確かめてください（マージする PR は、その場で本物にしてかまいません）。
+- **`stage-c` job の `job.workflow_repository` と `job.workflow_sha` は、呼ばれた再利用 workflow
+  自身のリポジトリと SHA になる**はず。GitHub の contexts のドキュメントに `job` コンテキストの
+  項目としてありますが、まだ実際の呼び出しでは動かしていません。値が違うと checkout が失敗して
+  `stage C paths` が落ちるので、黙って通ることはありません。最初に取り込むリポジトリの PR で
+  `stage C paths` が走ることを確かめてください。
 - **auto merge は管理者の飛ばしを使わない**はず。auto merge の条件は "after all required reviews
   and status checks pass" とあり、管理者が有効にしても C の PR は止まったままのはずです。各チケットで
   C のパスに触る PR を 1 本出して確かめてください。
-- **`required_approving_review_count: 0` と `require_code_owner_reviews: true` の組み合わせ**で、
-  A・B は承認なし、C は code owner の承認ありになるはず。API の説明は 0 を「レビューを要求しない」
-  としているので、code owner のレビューまで外れるかどうかは書かれていません。外れるなら 1 にし、
-  A・B が通らなくなる代わりに ruleset で同じことを試します。
 - **`enforce_admins` を外していると、エージェントも `gh pr merge --admin` で飛ばせる。**
-  GitHub の設定では防げないので、ワーカーの手順で禁じます。
+  GitHub の設定では防げないので、ワーカーの手順で禁じます（上の「管理者のマージ」）。
 
 ## 各リポジトリでの設定手順（後続チケット用）
 
@@ -148,25 +222,29 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
 1. `justfile` に `ci` レシピを作り、ローカルで `just ci` が `0` で終わることを確かめる。わざと
    壊して `0` 以外になることも確かめる。
 2. 上の `.github/workflows/ci.yml` と、C のパスを書いた `.github/CODEOWNERS` を足す PR を出す。
-   `CODEOWNERS` の先頭は `* ` で全体を持たない（持つと A・B も承認が要る）。例:
+   `CODEOWNERS` に `*` で全体を書かない（書くと A・B の PR も `stage C paths` で落ちる）。例:
 
    ```text
    /.github/   @yamakura-yuma
    /justfile   @yamakura-yuma
    ```
 
-3. その PR の上で必須チェックの名前を読む。
+3. その PR の上で必須チェックの名前を 2 つ読む（`ci / just ci` と `ci / stage C paths` のはず）。
+   この PR は base に `CODEOWNERS` が無いので、`stage C paths` は何もせず成功する。
 
    ```bash
    gh pr checks <PR 番号> -R yamakura-yuma/<repo>
    ```
 
-4. branch protection を入れる（読んだ名前を `context` に）。
+4. branch protection を入れる（読んだ名前を `context` に。2 つとも入れる）。
 
    ```bash
    gh api -X PUT repos/yamakura-yuma/<repo>/branches/main/protection --input - <<'EOF'
    {
-     "required_status_checks": { "strict": false, "checks": [{ "context": "ci / just ci" }] },
+     "required_status_checks": {
+       "strict": false,
+       "checks": [{ "context": "ci / just ci" }, { "context": "ci / stage C paths" }]
+     },
      "enforce_admins": false,
      "required_pull_request_reviews": {
        "required_approving_review_count": 0,
@@ -180,8 +258,23 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
 
    `strict` は `false` にします。`true` だと main が進むたびに PR の更新が要り、auto merge が
    止まりやすくなるためです。
+
+   既に `ci / just ci` だけを必須にしているリポジトリは、`stage-c` を足した版に SHA を上げて
+   から、必須チェックの更新だけを行う。公式は `checks` が置き換えか追加かを書いていないので、
+   既存の名前も含めて 2 つとも書き、読み戻して 2 つあることを確かめる。
+
+   ```bash
+   gh api -X PATCH repos/yamakura-yuma/<repo>/branches/main/protection/required_status_checks --input - <<'EOF'
+   { "strict": false, "checks": [{ "context": "ci / just ci" }, { "context": "ci / stage C paths" }] }
+   EOF
+   gh api repos/yamakura-yuma/<repo>/branches/main/protection/required_status_checks --jq '.checks[].context'
+   ```
+
+   `require_code_owner_reviews: true` は残してかまいません。止める役は `stage C paths` で、
+   これは当てにしません（1 人の構成では効かない。上の「確かめた」）。
 5. 確かめる。`just ci` を落とす PR と、C のパスに触る PR を 1 本ずつ出し、どちらも
-   `gh pr view <番号> --json mergeStateStatus` が `BLOCKED` になることを見る。見たら閉じる。
+   `gh pr view <番号> --json mergeStateStatus` が `BLOCKED` になることを見る。後者は
+   `just ci` が通っても `ci / stage C paths` が `FAILURE` になっているはず。見たら閉じる。
 6. ここまで確かめてから auto merge を有効にする。
 
    ```bash
@@ -189,7 +282,7 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
    ```
 
 7. A・B の PR では、ワーカーが `gh pr merge <番号> --auto --squash` を打つ。C の PR では打たず、
-   人がマージする。
+   人が管理者としてマージする。エージェントは `gh pr merge --admin` を使わない。
 
 設定を外すときは `gh api -X DELETE repos/yamakura-yuma/<repo>/branches/main/protection` と
 `gh repo edit yamakura-yuma/<repo> --disable-auto-merge` です。
