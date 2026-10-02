@@ -236,13 +236,17 @@ done
 # rather than guess. HOME has to move too, not just PATH: the hooks repair PATH
 # by prepending $HOME/.nix-profile/bin, which is exactly where jq lives here --
 # so pointing PATH at a jq-less directory alone would not simulate anything.
+# PATH holds only what the hooks need before they look for jq (not /usr/bin:/bin,
+# which has a jq on hosts that install one, e.g. the GitHub Actions runner).
 nohome="$(mktemp -d)"
+mkdir "$nohome/bin"
+ln -s "$(command -v cat)" "$nohome/bin/cat"
 for s in $g $b $p $d; do
   printf '%s' '{"tool_input":{"command":"git reset --hard"}}' |
-    env -i HOME="$nohome" PATH=/usr/bin:/bin bash "$scripts/$s" >/dev/null 2>&1
+    env -i HOME="$nohome" PATH="$nohome/bin" "$(command -v bash)" "$scripts/$s" >/dev/null 2>&1
   [ $? = 0 ] || { echo "FAIL $s should ignore a missing jq" >&2; failures=$((failures + 1)); }
 done
-rmdir "$nohome"
+rm -rf "$nohome"
 
 if [ "$failures" != 0 ]; then
   printf '\n%s guard test(s) failed\n' "$failures" >&2
