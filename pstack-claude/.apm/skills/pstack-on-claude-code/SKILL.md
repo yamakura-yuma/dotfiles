@@ -257,19 +257,27 @@ topics in, and one **topic chat** per topic sees that topic through.
 | Does | Intake, status across topics, closing finished topics | Grounds the request with the human in plan mode, then owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
 | Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
-- **Reply shape.** Every reply of either chat ends with two blocks. Write
-  nothing at all, no acknowledgement and no checklist, when all a background
-  return brought was heartbeats or an empty wait: reply only when a topic's
-  state changed (`worker_done`, `escalation`, `question`, a `status`, a report file or a
-  PR appeared, or the human wrote).
-  1. A checklist, one line per topic (main chat) or per worker (topic chat):
-     state symbol (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌
-     failed), name, repo, one line of current state, PR link (「—」 until there
-     is one). Take it from `worker-list` (the projection) and the Task list,
-     never from memory. Add the chat's own remaining steps (merge, release,
-     cleanup) as items.
-  2. 「次にあなたがすること」: what needs the human's approval or decision,
-     numbered; 「なし（待機中）」 when nothing does.
+- **Reply shape.** Reply in this order. Write nothing at all when all a
+  background return brought was heartbeats or an empty wait: reply only when a
+  topic's state changed (`worker_done`, `escalation`, `question`, a `status`, a
+  report file or a PR appeared, or the human wrote).
+  1. The conclusion in one or two lines: what changed, and whether the human
+     is needed. Give the reasoning and history only when asked.
+  2. A section per topic (main chat) or per worker (topic chat), every reply,
+     whatever changed: a heading `### <symbol> <name> — <state in a few words>`
+     (✅ done, 🔄 working, ⏸ waiting on human, ⬜ not started, ❌ failed), then
+     a checklist of the whole path, `- [x]` done and `- [ ]` not yet: the
+     workers, PRs, Issues, then cleanup. Link every PR and Issue by URL, not
+     by number. Take it from `worker-list` (the projection) and the Task list,
+     never from memory. Order: ⏸ needs the human, then changed this reply,
+     then 🔄 unchanged. A finished topic stays, every item `[x]`, until it is
+     cleaned up; omit it from the next reply.
+  3. 「次にあなたがすること」: only what the human does themself (merge, log
+     in, check locally), numbered; 「なし（待機中）」 when nothing does.
+  - Ask the human for a decision with `AskUserQuestion` choices, never as text
+    to answer, and keep it out of 3. Load it with `ToolSearch`
+    (`select:AskUserQuestion`), else `tool_search_tool_regex`; `grounding.md`'s
+    "Question tool" covers when neither finds it.
 - The ledger is Orca's Task list. Keep no topic file of your own.
 
 ### Main chat
@@ -388,8 +396,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   only the worker's terminal, not its worktree. Once the worker's PR is merged
   or closed and its report is read, release it, then `orca worktree rm
   --worktree path:<worker worktree>` (the path is `worktreeId` after `::` in
-  `worker-list`; "Check for mounts before removing" first). Report a retained
-  branch to the human.
+  `worker-list`; "Check for mounts before removing" first). `worktree rm`
+  leaves the branch: report it to the human, and delete it only if the human
+  says so.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
