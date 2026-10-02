@@ -102,7 +102,7 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md does not mention $w"
 done
-for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat'; do
+for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat' 'Hand a finished topic to the main chat' 'Close a finished topic'; do
   grep -q "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code lost \"$h\", which the dispatch-by-topic text points at"
 done
@@ -166,6 +166,8 @@ grep -q "^orca terminal create" "$tmp/stub.log" && fail "open-topic-chat opened 
 [ "$(sed -n 1,2p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--model\nclaude-opus-5-5')" ] || fail "open-topic-chat passed claude something other than --model claude-opus-5-5 first"
 [ "$(sed -n 3,4p "$tmp/stub.log.claude" 2>/dev/null)" = "$(printf -- '--permission-mode\nplan')" ] || fail "open-topic-chat did not start the topic chat in plan mode"
 grep -q 'the request, "quoted"' "$tmp/stub.log.claude" || fail "open-topic-chat lost the hand-off text"
+grep -q 'Hand a finished topic to the main chat' "$tmp/stub.log.claude" ||
+  fail "open-topic-chat's role text does not tell the topic chat to hand a finished topic to the main chat"
 grep -q -A1 '^## ユーザーの原文$' "$tmp/stub.log.claude" && grep -A1 '^## ユーザーの原文$' "$tmp/stub.log.claude" | grep -q 'the request, "quoted"' ||
   fail "open-topic-chat did not put --said under 「ユーザーの原文」"
 grep -A1 '^## わかっていること$' "$tmp/stub.log.claude" | grep -q '^（なし）$' || fail "open-topic-chat did not write （なし） for an omitted --known"
