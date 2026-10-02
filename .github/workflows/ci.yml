@@ -16,3 +16,4 @@ permissions:
 jobs:
   ci:
     uses: yamakura-yuma/dotfiles/.github/workflows/just-ci.yml@2f805acaaab554d52617fae890405a72e626fb6a
+# probe: 段階 C の確認用（マージしない）

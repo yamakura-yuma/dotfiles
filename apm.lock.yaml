@@ -1,5 +1,5 @@
 lockfile_version: '1'
-apm_version: 0.32.0
+apm_version: 0.33.0
 dependencies:
 - repo_url: _local/core-principal
   alias: core-principal
@@ -41,7 +41,7 @@ dependencies:
     .claude/rules/core-principal.md: sha256:2713980ffbde09797ae2a27f046e31255aada776cf505cde181def10463191ff
     .claude/skills/core-communication/SKILL.md: sha256:27efe3d21b868ba3a8fb3020acaa6feeafd837e954909b2c537ef283bc4dc553
     .claude/skills/core-dispatch/SKILL.md: sha256:0d652089bdb4267113292d11a60dbf68792a71e1b353431c25dbac5175f4f406
-    .claude/skills/core-dispatch/references/orca.md: sha256:69ed057ffdaf81ee012fc4d989097a4da2648d6cf4b300778624fcf20cfe9843
+    .claude/skills/core-dispatch/references/orca.md: sha256:39763bddc94c77934cd630808a15faa3144bf802ff608bd70a144d37549932e5
     .claude/skills/core-harness/SKILL.md: sha256:99c045d95e8dc280ded6ea6b097a2be74250332c29ed88d4f234484f2cfc88f0
     .claude/skills/core-retro/SKILL.md: sha256:eb696797ce02014584b939277d35552c9f02844402d480fb97f152bf56969c09
     .claude/skills/core-tools/SKILL.md: sha256:6ef187280006ff43a5fec623bbcccfcc86e53571cb156b770ddae63bf9c490cd
@@ -940,7 +940,7 @@ deployments:
   owners:
   - ./core-principal
   active_owner: ./core-principal
-  content_hash: sha256:69ed057ffdaf81ee012fc4d989097a4da2648d6cf4b300778624fcf20cfe9843
+  content_hash: sha256:39763bddc94c77934cd630808a15faa3144bf802ff608bd70a144d37549932e5
 - kind: project-relative
   target: claude
   value: .claude/skills/core-harness
