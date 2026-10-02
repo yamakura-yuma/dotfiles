@@ -9,7 +9,7 @@ set -uo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# No yq on this host; python comes from the nix profile's uv runtime.
+# No yq on host; this uses the same python3 + PyYAML that lint-yaml relies on.
 if ! python3 - "$root" <<'PY'
 import os, sys, yaml
 
@@ -23,14 +23,14 @@ def load(name):
 catalog = load("catalog-info.yaml")
 if catalog.get("kind") != "Component":
     errors.append("catalog-info.yaml: kind is not Component")
-if catalog["metadata"].get("name") != "dotfiles":
+if catalog.get("metadata", {}).get("name") != "dotfiles":
     errors.append("catalog-info.yaml: metadata.name is not dotfiles")
-ann = catalog["metadata"].get("annotations", {})
+ann = catalog.get("metadata", {}).get("annotations", {})
 if ann.get("backstage.io/techdocs-ref") != "dir:.":
     errors.append("catalog-info.yaml: backstage.io/techdocs-ref is not dir:.")
 if not ann.get("github.com/project-slug"):
     errors.append("catalog-info.yaml: github.com/project-slug is missing")
-if not catalog["spec"].get("owner"):
+if not catalog.get("spec", {}).get("owner"):
     errors.append("catalog-info.yaml: spec.owner is missing")
 
 mk = load("mkdocs.yml")
