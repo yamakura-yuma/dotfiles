@@ -38,7 +38,7 @@ GitHub の設定は同じです。
 | --- | --- |
 | すべて | `/.github/`（workflow と `CODEOWNERS`）、`/justfile`（`ci` レシピがあるため） |
 | home-k8s | `/clusters/kind/argocd/`（ArgoCD の設定）、`/clusters/kind/storage/`、Secret を作るスクリプト（`/just/grafana-secrets.sh` など）、外部公開（`/just/observe-share.sh`、`/just/*.Caddyfile`） |
-| dotfiles | `/Makefile`（`make ci` の中身。dotfiles の `just ci` はこれを呼ぶ予定） |
+| dotfiles | `/Makefile`（`make ci` の中身）、`/bin/pins.sh`（lint の pins）、`/bin/gate-stage-c.sh` と `/tests/gate-stage-c.sh`（段階 C の判定とそのテスト）。`tests/` 以下の全体は入れない |
 | knowledge-base、temporal-workflow-kit | 共通のものだけ |
 
 `CODEOWNERS` はパス単位なので、「ストレージの削除」のような変更の種類は表せません。
@@ -59,7 +59,7 @@ C にします。
 | ツールの入れ方 | `just` はローカルでは各リポジトリの flake か開発用コンテナ、Actions では再利用 workflow が入れる。それ以外のツールは `just ci` 自身が用意する（`nix develop -c`、`docker compose run` など）。Actions の runner には Docker が入っている |
 
 既に `ci` 相当のレシピがあるリポジトリ（temporal-workflow-kit）はそれを使います。dotfiles は
-`make ci` を呼ぶだけの `ci` レシピを足す予定です（dotfiles#52）。
+`make ci` を呼ぶだけの `ci` レシピを持ちます（dotfiles#52）。
 
 ## 再利用 workflow
 

@@ -1,0 +1,18 @@
+# PR のゲート。中身は justfile の `ci`（= `make ci`）で、再利用 workflow はそれを走らせるだけ。
+# 再利用 workflow は `just ci` と、段階 C のパスに触っていないかを見る `stage C paths` の 2 job。
+# 型は docs/gates.md。`paths` で絞らない（飛ばされた必須チェックは Pending のままマージを止めるため）。
+#
+# `./.github/workflows/just-ci.yml` ではなく SHA 固定で呼ぶ。`./` だと `stage-c` が取る
+# bin/gate-stage-c.sh が PR 自身のコミットのものになり、PR がそのスクリプトを書き換えて
+# 自分を検査できてしまう。SHA 固定なら、書き換えは SHA を上げる PR（`.github/` に触るので C）を経る。
+# just-ci.yml か bin/gate-stage-c.sh を変えたら、main に入れたあとで @ の SHA を上げる別 PR を出す。
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: yamakura-yuma/dotfiles/.github/workflows/just-ci.yml@2f805acaaab554d52617fae890405a72e626fb6a
