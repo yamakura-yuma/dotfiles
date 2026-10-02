@@ -83,6 +83,10 @@ expect 0 "default-branch blocked deleting a remote branch" bash_in guard-default
 expect 0 "default-branch fired on words inside a quoted argument" bash_in guard-default-branch "$tmp/origin-repo" 'orca x --spec "git push origin main"'
 expect 2 "destructive-git did not block reset --hard" bash_in guard-destructive-git "$tmp/child" "git reset --hard"
 expect 0 "destructive-git blocked reset --soft" bash_in guard-destructive-git "$tmp/child" "git reset --soft HEAD~1"
+expect 2 "destructive-git did not block gh pr merge --admin" bash_in guard-destructive-git "$tmp/child" "gh pr merge 1 --admin"
+expect 2 "destructive-git did not block --admin before the PR number" bash_in guard-destructive-git "$tmp/child" "just ci && gh pr merge --admin 1 --squash"
+expect 0 "destructive-git blocked gh pr merge --auto --squash" bash_in guard-destructive-git "$tmp/child" "gh pr merge 1 --auto --squash"
+expect 0 "destructive-git blocked a gh command without --admin" bash_in guard-destructive-git "$tmp/child" "gh pr checks 1 --required"
 
 # dispatch-by-topic: UserPromptSubmit is read for its stdout (exit 2 would cancel
 # the prompt), so check what it printed. The coordinator gets the rule; a child

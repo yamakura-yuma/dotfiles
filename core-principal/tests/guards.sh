@@ -50,6 +50,13 @@ check 2 $g 'git restore .'
 check 2 $g 'git restore --staged --worktree .'
 check 2 $g 'git push --force'
 check 2 $g 'git push -f origin main'
+check 2 $g 'gh pr merge 1 --admin'
+check 2 $g 'gh pr merge --admin 1'
+check 2 $g 'gh pr merge 1 --squash --admin --delete-branch'
+check 2 $g 'gh pr merge 1 -R yamakura-yuma/dotfiles --admin'
+check 2 $g 'gh pr merge 1 --admin=true'
+check 2 $g 'just ci && gh pr merge 1 --admin'
+check 2 $g 'gh pr merge 1 --admin && echo done'
 
 # --- guard-destructive-git: allowed -----------------------------------------
 # --force-with-lease is the recoverable spelling, so it has to keep working;
@@ -67,6 +74,17 @@ check 0 $g 'git checkout -- src/main.go'
 check 0 $g 'git status'
 check 0 $g 'echo "git reset --hard"'
 check 0 $g 'git commit -m "undo the reset --hard"'
+# --auto --squash is the spelling the coordinator uses, and --admin only counts
+# as a flag of gh pr merge, not of every gh command or a word inside an argument.
+check 0 $g 'gh pr merge 1 --auto --squash'
+check 0 $g 'gh pr merge --auto --squash --delete-branch'
+check 0 $g 'gh pr merge 1 --squash'
+check 0 $g 'gh pr merge 1 --adminx'
+check 0 $g 'gh pr view 1 --admin'
+check 0 $g 'gh pr checks 1 --required'
+check 0 $g 'gh pr create --title "x" --body "never use gh pr merge --admin"'
+check 0 $g 'echo "gh pr merge 1 --admin"'
+check 0 $g 'git commit -m "gh pr merge --admin is blocked"'
 
 # --- guard-default-branch ----------------------------------------------------
 # Commands that never reach a branch lookup. The branch-dependent cases need
