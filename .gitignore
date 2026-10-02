@@ -7,3 +7,6 @@ graphify-out/
 .claude/
 apm_modules/
 .mcp.json
+
+# TechDocs output from `mkdocs build` / `techdocs-cli generate` (see mkdocs.yml)
+site/

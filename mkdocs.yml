@@ -1,0 +1,12 @@
+site_name: dotfiles
+docs_dir: docs
+plugins:
+  - techdocs-core
+nav:
+  - ホーム: index.md
+  - インストールと更新: setup.md
+  - アーキテクチャ: architecture.md
+  - 設定リファレンス: configuration.md
+  - 開発と検証: development.md
+  - エージェントハーネス: agent-harness.md
+  - GitHub リポジトリの設定: github-settings.md
