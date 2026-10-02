@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dotfiles
+  description: 複数のホストとリポジトリで共有するエージェント環境（Claude Code の設定、ツール、シェル）を宣言的に組み立てる dotfiles
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: yamakura-yuma/dotfiles
+spec:
+  type: library
+  lifecycle: experimental
+  owner: user:yamakura-yuma
