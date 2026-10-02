@@ -41,6 +41,9 @@ GitHub の設定は同じです。
 
 `CODEOWNERS` はパス単位なので、「ストレージの削除」のような変更の種類は表せません。
 `clusters/kind/storage/` 全体を C にして近似しています。
+同じ理由で、`/justfile` を C にすると `ci` 以外のレシピの変更も C になります。dotfiles の
+`Makefile` は段階の表では B ですが、dotfiles の `just ci` が `make ci` を呼ぶのでゲート自身にあたり、
+C にします。
 
 ## `just ci` の約束
 
