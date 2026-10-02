@@ -53,7 +53,7 @@ Run が無いときだけ `run-create` し、2 本目以降は同じ Run に `wo
 ```
 orca orchestration run-current --json
 orca orchestration run-create --objective "<このセッションの作業>" --json
-orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude --comment "<一行の題>" --setup run --json
+orca orchestration worker-start --spec "<spec>" --task-title "<短い題>" --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude --comment "<一行の題>" --setup run --timeout-ms 180000 --json
 ```
 
 - `--name` がワーカー名になる。報告の識別子にも追加指示の宛先にもこれを使う。
