@@ -7,3 +7,5 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # PR のゲートと同じ検査（lint とテスト）。中身は `make ci`
 ci:
     make ci
+
+# gate-probe: C のパスに触る確認用のコメント。マージしない
