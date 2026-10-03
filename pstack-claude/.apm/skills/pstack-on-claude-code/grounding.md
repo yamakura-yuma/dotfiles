@@ -21,7 +21,7 @@ premise breaks).
    in reply text.
 5. Depth is yours to choose. A one-line topic needs one or two lines: the
    original words, the goal, the completion criterion. A topic that starts from
-   an Issue ("Run an Issue" in `SKILL.md`) whose body fills all five items of
+   an Issue ("Run an Issue" in `supervising-orca-workers.md`) whose body fills all five items of
    `issue-template.md` skips steps 3 and 4: write the brief from the Issue, and
    the human's naming of it is the original words. A missing item is grounded as
    above. Step 6 stays: the Issue's author may have been an earlier session, so

@@ -18,7 +18,7 @@ description: "pstack-claude: response language, where pstack's Cursor names are 
 
 デフォルトブランチ上の元 checkout や、どのリポジトリにも属さない場所では実装しない。
 作業は話題ごとに `chat-<topic>` worktree の話題チャットに渡し、ワーカーはそこから出す
-（`pstack-on-claude-code` の "Supervising Orca workers"）。
+（`pstack-on-claude-code` の `supervising-orca-workers.md` の "Supervising Orca workers"）。
 
 ## マージ
 
