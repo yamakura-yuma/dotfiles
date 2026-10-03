@@ -140,7 +140,13 @@ keeps the human's view current without a notification:
 **An implementation worker's spec adds these lines.** Sonnet alone on #19
 dropped them.
 
-- Completion criteria as a checklist, one `- [ ]` per condition
+- Completion criteria as JSON, one item per condition, written to
+  `~/.claude/worker-reports/<name>.criteria.json` (next to the report
+  `<name>.md`): `{"criteria":[{"id":"c1","text":"<condition>","passes":false}]}`.
+  Write a copy of the same file as `<name>.criteria.base.json`, which the
+  worker is never told to touch. Spec line: "When a criterion holds, set its
+  `passes` to true in `<name>.criteria.json`. Edit nothing but `passes`: do not
+  reword, add or delete an item."
 - "Write the root cause in the commit message and PR body" (why it broke, not
   what changed)
 - "Add tests, following the repo's existing test layout and style"
@@ -230,8 +236,9 @@ read-only) was the most reliable of the candidates. A coordinator-run loop
 coordinator is awake to pull completions, so each round waits. It also puts a
 second agent into a worktree whose implementer is still live. With a subagent,
 the review closes inside the implementer's session, and the fixer keeps its
-context. The one weakness is being skipped, so on pickup the coordinator checks
-the report for a passing round (see "Supervising Orca workers"). Design workers
+context. The one weakness is being skipped, so on pickup the coordinator runs
+`check-criteria`, which needs a passing round in the report (see "Supervising
+Orca workers"). Design workers
 (Opus, Fable) get no review.
 
 ## Paths
@@ -481,11 +488,14 @@ topics in, and one **topic chat** per topic sees that topic through.
   orchestration check --peek`), the worker's card comment (`orca worktree ps`)
   and its PR (`gh pr list --head <branch>`); a comment saying done or an open PR
   means it finished, so read its report. For an implementation worker (`claude-sonnet-5-5`), check the
-  report for a `verdict: pass` round before releasing; if there is none, send it
-  back to run the review. If the re-review still failed and the worker
+  report before releasing: `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>` exits 0 only when
+  every criterion has `passes: true`, none was deleted or reworded (against
+  `<name>.criteria.base.json`), and the report has a `verdict: pass` line. If it
+  fails, send the worker back with its output (open criteria, or the review not
+  run). If the re-review still failed and the worker
   escalated, show the remaining required findings to the human to decide.
 - **Reserve the merge at pickup.** You, not the worker, reserve the merge, after
-  the report shows a `verdict: pass` round. Read `gh pr checks <number> -R
+  `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>` exits 0. Read `gh pr checks <number> -R
   <owner/repo> --required` and wait for `ci / stage C paths` to have a result:
   - FAILURE: stage C. Do not add `--auto`. Put "merge `<PR URL>` as an admin" under
     「次にあなたがすること」; the human merges.
@@ -493,8 +503,8 @@ topics in, and one **topic chat** per topic sees that topic through.
     --squash`.
   - No `ci / stage C paths` among the required checks: the repository has no
     gate yet. Do not add `--auto`; tell the human. The one exception is the
-    coordinator repository (no CI, private, so no auto merge): once the report
-    shows a `verdict: pass` round, merge it directly with `gh pr merge <number>
+    coordinator repository (no CI, private, so no auto merge): once
+    `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>` exits 0, merge it directly with `gh pr merge <number>
     --squash`. Anything that would be stage C lives in dotfiles, not there.
   Never run `gh pr merge --admin`, for any stage. Admin merges are the human's
   (`docs/gates.md`, "管理者のマージ").
