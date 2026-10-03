@@ -140,6 +140,13 @@ keeps the human's view current without a notification:
 **An implementation worker's spec adds these lines.** Sonnet alone on #19
 dropped them.
 
+- Before starting: read `git log -5`, and the report file
+  `~/.claude/worker-reports/<name>.md` if it exists
+- Before starting: run the repo's verification entry point (`just ci`, else
+  `make ci`) once to confirm the baseline is green. If there is no entry point,
+  skip it and write one line saying so in the report file
+- If the baseline is red, do not start; return `question` to the coordinator.
+  Do not blame a red that was already there on your own change
 - Completion criteria as JSON, one item per condition, written to
   `~/.claude/worker-reports/<name>.criteria.json` (next to the report
   `<name>.md`): `{"criteria":[{"id":"c1","text":"<condition>","passes":false}]}`.
