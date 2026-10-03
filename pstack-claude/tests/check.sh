@@ -85,6 +85,14 @@ expect 2 "destructive-git did not block reset --hard" bash_in guard-destructive-
 expect 0 "destructive-git blocked reset --soft" bash_in guard-destructive-git "$tmp/child" "git reset --soft HEAD~1"
 expect 2 "destructive-git did not block gh pr merge --admin" bash_in guard-destructive-git "$tmp/child" "gh pr merge 1 --admin"
 expect 2 "destructive-git did not block --admin before the PR number" bash_in guard-destructive-git "$tmp/child" "just ci && gh pr merge --admin 1 --squash"
+expect 2 "destructive-git did not block --admin on a continuation line" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1 \\\n  --admin'
+expect 2 "destructive-git did not block --admin=true on a continuation line" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1 \\\n  --admin=true'
+expect 2 "destructive-git did not block --admin before PR number on a continuation line" bash_in guard-destructive-git "$tmp/child" $'gh pr merge \\\n  --admin 1'
+expect 2 "destructive-git did not block reset --hard on a continuation line" bash_in guard-destructive-git "$tmp/child" $'git reset \\\n  --hard'
+expect 2 "destructive-git did not block --admin after two continuation lines" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1 \\\n  --squash \\\n  --admin'
+expect 0 "destructive-git blocked --admin on a separate command line" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1\n--admin'
+expect 0 "destructive-git blocked --admin after an escaped backslash" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1 \\\\\n--admin'
+expect 0 "destructive-git blocked a continued command without --admin" bash_in guard-destructive-git "$tmp/child" $'gh pr merge 1 \\\n  --auto --squash'
 expect 0 "destructive-git blocked gh pr merge --auto --squash" bash_in guard-destructive-git "$tmp/child" "gh pr merge 1 --auto --squash"
 expect 0 "destructive-git blocked a gh command without --admin" bash_in guard-destructive-git "$tmp/child" "gh pr checks 1 --required"
 

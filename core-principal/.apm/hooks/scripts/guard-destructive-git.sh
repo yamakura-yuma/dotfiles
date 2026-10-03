@@ -58,8 +58,27 @@ end='([[:space:]]|$|[;&|])'
 gh_prefix='(^|[;&|(]|[[:space:]])gh[[:space:]]+'
 flag_end='([[:space:]=]|$|[;&|])'
 
+# grep reads one line at a time, so `gh pr merge 1 \` + newline + `--admin` would
+# hide the flag on a line of its own. The shell deletes a backslash-newline pair
+# before it splits words; do the same here, once, ahead of every match below. A
+# newline with no backslash is a separate command and stays a line break. The
+# backslash only counts when an odd number of them end the line: `\\` is an
+# escaped backslash, so the newline after it still ends the command.
+joined=''
+carry=''
+while IFS= read -r line || [ -n "$line" ]; do
+  tail_bs="${line##*[!\\]}"
+  if [ $(( ${#tail_bs} % 2 )) -eq 1 ]; then
+    carry="$carry${line%\\}"
+  else
+    joined="$joined$carry$line"$'\n'
+    carry=''
+  fi
+done <<<"$cmd"
+joined="$joined$carry"
+
 matches() {
-  printf '%s' "$cmd" | grep -qE "$1"
+  printf '%s' "$joined" | grep -qE "$1"
 }
 
 refuse() {
