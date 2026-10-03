@@ -120,7 +120,7 @@ for w in '`- [x]` done' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool
 done
 for w in 'predates the worktree' 'stays too' 'conclusion first' '(choices, not text)'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
-    fail "pstack-on-claude-code lost \"$w\" (a branch older than the worktree is kept)"
+    fail "pstack-on-claude-code lost \"$w\" (kept-branch rule or AskUserQuestion rule)"
 done
 for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat' 'Hand a finished topic to the main chat' 'Close a finished topic'; do
   grep -qF -- "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
