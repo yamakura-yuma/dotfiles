@@ -1,0 +1,7 @@
+{
+ "type": "result",
+ "subtype": "success",
+ "is_error": false,
+ "total_cost_usd": 0.21,
+ "result": "```json\n{\n \"report\": \"# dotfiles\\n\\n所見（手元用）\\n\",\n \"candidates\": [\n  {\n   \"kind\": \"stale-doc\",\n   \"target\": \"docs/gates.md\",\n   \"summary\": \"gates.md が workflow の名前とずれている\",\n   \"proposal\": \"docs/gates.md の検査名を .github/workflows の job 名に合わせる（1 か所）\",\n   \"done_when\": \"docs/gates.md の検査名が workflow の job 名と一致する\"\n  },\n  {\n   \"kind\": \"missing-target\",\n   \"target\": \"docs/missing.md\",\n   \"summary\": \"存在しない docs/missing.md を読みに行く\",\n   \"proposal\": \"docs/gates.md から docs/missing.md への参照を今のファイル名に直す\",\n   \"done_when\": \"docs/gates.md に存在しないパスへの参照が無い\",\n   \"fix_in\": \"docs/gates.md\"\n  },\n  {\n   \"kind\": \"reread\",\n   \"target\": \"docs/gates.md\",\n   \"summary\": \"leaks a home path\",\n   \"proposal\": \"read /home/yyamakura/secret/notes.md first\",\n   \"done_when\": \"done\"\n  },\n  {\n   \"kind\": \"reread\",\n   \"target\": \"docs/gates.md\",\n   \"summary\": \"fourth candidate\",\n   \"proposal\": \"the fourth is over the limit of three\",\n   \"done_when\": \"done\"\n  }\n ]\n}\n```"
+}

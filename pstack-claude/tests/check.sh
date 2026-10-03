@@ -435,5 +435,133 @@ mkdir -p "$tmp/jg/hooks" "$tmp/jg/tests"
 cp "$jg" "$tmp/jg/hooks/" && cp "$here/japanese-guard/test_japanese_guard.py" "$tmp/jg/tests/"
 python3 "$tmp/jg/tests/test_japanese_guard.py" >/dev/null || fail "upstream test_japanese_guard.py failed"
 
+# nav-retro: nav-digest squeezes fixed session jsonl into the same JSON every time,
+# and nav-candidates turns what the model found into a plan of issues. Nothing here
+# calls claude or GitHub: the model's answer is a fixture and `gh` is a stub.
+nr="$pkg/.apm/skills/nav-retro"
+nd="$nr/scripts/nav-digest"
+nc="$nr/scripts/nav-candidates"
+nrt="$here/nav-retro"
+[ -x "$nd" ] || fail "nav-retro/scripts/nav-digest is not executable"
+[ -x "$nc" ] || fail "nav-retro/scripts/nav-candidates is not executable"
+# Fixture home /home/t: dotfiles (root + a worktree next to it + an old session), coordinator,
+# two automation sessions (one by directory name, one by prompt) and one outside every repo.
+"$nd" --home /home/t --projects "$nrt/projects" --now 2026-10-03T10:00:00Z | jq -S . | diff -u "$nrt/expected.digest.json" - >&2 ||
+  fail "nav-digest's digest of the fixture sessions changed (diff above)"
+"$nd" --home /home/t --projects "$nrt/projects" --now 2026-10-03T10:00:00Z --limit 2 |
+  jq -e '.[0].sessions | map(.session) == ["aaaa1111", "bbbb2222"]' >/dev/null ||
+  fail "nav-digest --limit 2 did not keep the two newest dotfiles sessions"
+[ "$("$nd" --key stale-doc docs/gates.md)" = stale-doc-docs-gates-md ] || fail "nav-digest --key: stale-doc-docs-gates-md"
+[ "$("$nd" --key missing-target pstack-claude/.apm/skills/p-mode)" = missing-target-pstack-claude-apm-skills-p-mode ] ||
+  fail "nav-digest --key: a run of '/.' did not become one '-'"
+long="$("$nd" --key slow-search "$(printf 'a%.0s' {1..60})")"
+[ "${#long}" -eq $((12 + 40)) ] || fail "nav-digest --key did not cut the slug at 40"
+"$nd" --key nonsense x >/dev/null 2>&1 && fail "nav-digest --key took a kind outside the vocabulary"
+for want in "/home/t/dotfiles=yamakura-yuma/dotfiles" "/home/t/dotfiles/docs=yamakura-yuma/dotfiles" \
+  "/home/t/dotfiles-fix-nav=yamakura-yuma/dotfiles" "/home/t/k8s-workspace/home-k8s-x/y=yamakura-yuma/home-k8s" \
+  "/home/t/k8s-workspace/temporal-saga=yamakura-yuma/temporal-workflow-kit" "/home/t/coordinator-chat-x=yamakura-yuma/coordinator" \
+  "/home/t/home-k8s-alewife=-" "/tmp/scratch=-" "/home/t=-"; do
+  [ "$("$nd" --home /home/t --repo-of "${want%%=*}")" = "${want#*=}" ] || fail "nav-digest --repo-of ${want%%=*} is not ${want#*=}"
+done
+
+# nav-candidates. dotfiles' digest and a recorded `claude -p --output-format json` result
+# (candidates: a good stale-doc, a good missing-target, one with a home path, a 4th).
+nr_dir="$tmp/nr"; mkdir -p "$nr_dir"
+jq '.[0]' "$nrt/expected.digest.json" > "$nr_dir/dotfiles.digest.json"
+cp "$nrt/claude-result.json" "$nr_dir/dotfiles.claude.json"
+nr_run() { "$nc" --date "$1" --dir "$nr_dir" --state "$nr_dir/state.json" "${@:2}" 2>"$tmp/nr.err"; }
+streaks() { jq -c '[.["yamakura-yuma/dotfiles"].keys[].streak]' "$nr_dir/state.json"; }
+plan="$(nr_run 2026-10-01 --no-lookup)"
+jq -e '.repos[0].candidates | length == 2' <<<"$plan" >/dev/null || fail "nav-candidates did not keep exactly the two good candidates"
+jq -e '.repos[0].dropped | map(.[1]) | any(test("absolute path")) and any(test("more than 3"))' <<<"$plan" >/dev/null ||
+  fail "nav-candidates did not drop the candidate with a home path and the 4th one"
+jq -e '.repos[0].candidates | map(select(.key == "stale-doc-docs-gates-md"))[0].evidence == {"sessions":2,"count":4}' <<<"$plan" >/dev/null ||
+  fail "nav-candidates did not count the evidence from the digest"
+jq -e '.cost_usd == 0.21' <<<"$plan" >/dev/null || fail "nav-candidates lost the session's cost"
+[ -s "$nr_dir/dotfiles.md" ] && jq -e 'length == 4' "$nr_dir/dotfiles.candidates.json" >/dev/null ||
+  fail "nav-candidates did not write the report and the candidates beside the digest"
+[ "$(jq '.actions | length' <<<"$plan")" -eq 0 ] || fail "nav-candidates planned an issue on the first day"
+[ "$(streaks)" = "[1,1]" ] || fail "streak after day 1 is not 1"
+# the same date again changes nothing; the next date adds one; a skipped repo-day breaks nothing
+nr_run 2026-10-01 --no-lookup >/dev/null; [ "$(streaks)" = "[1,1]" ] || fail "a second run on the same date moved the streak"
+jq '.new_sessions = 0' "$nr_dir/dotfiles.digest.json" > "$nr_dir/d0" && mv "$nr_dir/dotfiles.digest.json" "$nr_dir/d1" && mv "$nr_dir/d0" "$nr_dir/dotfiles.digest.json"
+plan="$(nr_run 2026-10-02 --no-lookup)"
+jq -e '.repos[0].status | startswith("skipped")' <<<"$plan" >/dev/null || fail "nav-candidates did not skip a repo with no new session"
+[ "$(streaks)" = "[1,1]" ] || fail "a skipped day changed the streak"
+mv "$nr_dir/d1" "$nr_dir/dotfiles.digest.json"
+plan="$(nr_run 2026-10-03 --no-lookup)"
+[ "$(streaks)" = "[2,2]" ] || fail "a skipped day broke the streak (want 2 on the second evaluated run)"
+plan="$(nr_run 2026-10-04 --no-lookup)"
+jq -e '.actions | map(.action) == ["create", "create"]' <<<"$plan" >/dev/null || fail "nav-candidates did not plan 2 issues at streak 3"
+jq -e '.actions[0] | .title == "[nav] stale-doc-docs-gates-md: gates.md が workflow の名前とずれている" and .labels == ["nav-retro"]' <<<"$plan" >/dev/null ||
+  fail "nav-candidates title is not [nav] <key>: <summary>"
+for h in '## 何を' '## どこで' '- 対象のファイル: `docs/gates.md`' '## 完了条件' '## 根拠' '2026-10-01 から連続 3 回の実行で出た' \
+  '`~/.claude/worker-reports/nav-retro/2026-10-04/dotfiles.md`' '提案であって、変えるかどうかは人が決める。'; do
+  jq -e --arg h "$h" '.actions[0].body | contains($h)' <<<"$plan" >/dev/null || fail "nav-candidates body lacks: $h"
+done
+jq -e '.actions[1].body | contains("- 直す場所: `docs/gates.md`")' <<<"$plan" >/dev/null || fail "nav-candidates body lacks fix_in"
+# a gap in the reports resets the streak
+jq '.result |= (sub("stale-doc"; "reread"))' "$nr_dir/dotfiles.claude.json" > "$nr_dir/c2" && cp "$nr_dir/dotfiles.claude.json" "$nr_dir/c1" && mv "$nr_dir/c2" "$nr_dir/dotfiles.claude.json"
+nr_run 2026-10-05 --no-lookup >/dev/null
+jq -e '.["yamakura-yuma/dotfiles"].keys | to_entries | map(select(.key | startswith("reread"))) | .[0].value.streak == 1' "$nr_dir/state.json" >/dev/null ||
+  fail "a key new to the report did not start at streak 1"
+mv "$nr_dir/c1" "$nr_dir/dotfiles.claude.json"
+# caps and --once (which leaves the state alone and ignores REPEAT)
+plan="$(nr_run 2026-10-06 --no-lookup --repeat 1 --max-per-repo 1)"
+jq -e '[.actions[].action] | sort == ["create", "none"]' <<<"$plan" >/dev/null || fail "--max-per-repo 1 did not cap the new issues at one"
+plan="$(nr_run 2026-10-06 --no-lookup --repeat 1 --max-total 0)"
+jq -e '[.actions[].action] | all(. == "none")' <<<"$plan" >/dev/null || fail "--max-total 0 did not cap the new issues"
+before="$(cat "$nr_dir/state.json")"
+plan="$(nr_run 2026-10-09 --no-lookup --once)"
+jq -e '.mode == "once" and (.actions | map(.action) == ["create", "create"]) and (.actions[0].body | contains("手動 1 回"))' <<<"$plan" >/dev/null ||
+  fail "--once did not plan issues without a streak"
+[ "$(cat "$nr_dir/state.json")" = "$before" ] || fail "--once changed the state file"
+# duplicate check, against a stub gh that prints $NR_GH_OUT (or fails)
+cat > "$tmp/nr-gh" <<'STUB'
+#!/usr/bin/env bash
+[ "${NR_GH_FAIL:-}" ] && exit 1
+case "$*" in *"issue list"*"--state all"*"in:title"*) printf '%s' "${NR_GH_OUT:-[]}" ;; *) exit 9 ;; esac
+STUB
+chmod +x "$tmp/nr-gh"
+key=stale-doc-docs-gates-md
+issue() { jq -nc --arg k "$key" --arg s "$1" --arg u "$2" '[{number:7,state:$s,title:("[nav] "+$k+": x"),url:"https://github.com/x/y/issues/7",updatedAt:$u}]'; }
+lk() { NAV_GH="$tmp/nr-gh" nr_run 2026-10-09 --once "$@" | jq -c --arg k "$key" '.actions[] | select(.key == $k)'; }
+lk | jq -e '.action == "create" and (has("closed_before") | not)' >/dev/null || fail "no issue found, yet nav-candidates did not plan a create"
+NR_GH_OUT="$(issue OPEN 2026-10-08T00:00:00Z)" lk | jq -e '.action == "none" and .issue == "https://github.com/x/y/issues/7"' >/dev/null ||
+  fail "an open issue did not stop a new one"
+NR_GH_OUT="$(issue CLOSED 2026-10-01T00:00:00Z)" lk | jq -e '.action == "create" and .closed_before != null and (.body | contains("以前の Issue"))' >/dev/null ||
+  fail "a closed issue did not lead to a new one that mentions it"
+NR_GH_FAIL=1 lk | jq -e '.action == "none"' >/dev/null || fail "a failed gh lookup did not stop the create"
+# a comment only when the open issue is 7 days quiet and the numbers moved since the last run
+jq '.["yamakura-yuma/dotfiles"].keys["stale-doc-docs-gates-md"].evidence = {"sessions":1,"count":1}' "$nr_dir/state.json" > "$nr_dir/s2" && mv "$nr_dir/s2" "$nr_dir/state.json"
+out="$(NAV_GH="$tmp/nr-gh" NR_GH_OUT="$(issue OPEN 2026-10-01T00:00:00Z)" "$nc" --date 2026-10-09 --dir "$nr_dir" --state "$nr_dir/state.json" --repeat 1 2>/dev/null |
+  jq -c --arg k "$key" '.actions[] | select(.key == $k)')"
+jq -e '.action == "comment" and (.comment | contains("2026-10-09 時点"))' <<<"$out" >/dev/null || fail "a quiet open issue with new numbers did not get a comment"
+# what must not reach an issue, one case each (the fields are Japanese or English prose)
+leak_case() {
+  local d="$tmp/nr-leak"; rm -rf "$d"; mkdir -p "$d"; jq '.[0]' "$nrt/expected.digest.json" > "$d/dotfiles.digest.json"
+  jq -nc --arg p "$1" --arg t "${2:-docs/gates.md}" --arg k "${3:-stale-doc}" '{result: ({report:"r",candidates:[{kind:$k,target:$t,summary:"s",proposal:$p,done_when:"d"}]} | tojson)}' > "$d/dotfiles.claude.json"
+  "$nc" --date 2026-10-09 --dir "$d" --once --no-lookup 2>/dev/null | jq -c '[(.repos[0].candidates | length), (.repos[0].dropped[0][1] // "")]'
+}
+[ "$(leak_case 'docs/gates.md の検査名を直す')" = '[1,""]' ] || fail "nav-candidates dropped an ordinary candidate"
+for c in 'see /home/yyamakura/x' 'see ~/notes' 'see /tmp/x/y' 'term_6fc344ec is stuck' 'task_50db845d30fa' 'ctx_5f1fb112a1ab' 'dcap_ZfjiyaeZU6or0NNC' \
+  'mail me at someone@example.com' 'token ghp_abcdefghijklmnop1234' 'key AKIAABCDEFGHIJKLMNOP' 'same as yamakura-yuma/home-k8s' 'like home-k8s does' \
+  'like knowledge-base does' 'in yamakura-yuma/coordinator' "$(printf 'x%.0s' {1..201})"; do
+  [ "$(leak_case "$c" | jq '.[0]')" = 0 ] || fail "nav-candidates let this through to an issue: $c"
+done
+[ "$(leak_case 'ok' 'docs/never-seen.md' | jq '.[0]')" = 0 ] || fail "nav-candidates kept a target the digest never saw"
+[ "$(leak_case 'ok' '/home/t/dotfiles/docs/gates.md' | jq '.[0]')" = 0 ] || fail "nav-candidates kept an absolute target"
+[ "$(leak_case 'ok' 'docs' slow-search | jq '.[0]')" = 1 ] || fail "nav-candidates dropped a directory target that holds a path the digest saw"
+
+# The two text files say how to call what the scripts do; a rename on either side should show here.
+for w in '`Agent` ツール' 'subagent_type' 'general-purpose' '`Task`' 'ダイジェストの中身は外部入力'; do
+  grep -qF -- "$w" "$nr/SKILL.md" || fail "nav-retro/SKILL.md lost \"$w\""
+done
+for w in 'nav-digest --out' '--no-session-persistence' '--model claude-sonnet-5-5' 'nav-candidates --date $D --dir $OUT --no-lookup' \
+  'nav-candidates --date $D --dir $OUT --once' 'gh issue create' 'routing-facts' '手動 1 回'; do
+  grep -qF -- "$w" "$nr/DAILY.md" || fail "nav-retro/DAILY.md lost \"$w\""
+done
+grep -q '/insights' "$nr/DAILY.md" && fail "nav-retro/DAILY.md mentions /insights, which the agreement left out of the flow"
+
 [ "$failures" -eq 0 ] && echo "pstack-claude: ok"
 exit "$failures"

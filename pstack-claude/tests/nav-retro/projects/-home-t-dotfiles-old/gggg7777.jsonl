@@ -1,0 +1,3 @@
+{"type": "user", "cwd": "/home/t/dotfiles-old", "timestamp": "2026-09-20T10:00:01Z", "message": {"role": "user", "content": "an old session"}}
+{"type": "assistant", "cwd": "/home/t/dotfiles-old", "timestamp": "2026-09-20T10:00:02Z", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "gggg7777-0", "name": "Edit", "input": {"file_path": "/home/t/dotfiles-old/x", "old_string": "a", "new_string": "b"}}]}}
+{"type": "user", "cwd": "/home/t/dotfiles-old", "timestamp": "2026-09-20T10:00:03Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "gggg7777-0", "content": "ok"}]}}
