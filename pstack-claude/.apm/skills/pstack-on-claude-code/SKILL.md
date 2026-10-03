@@ -289,22 +289,26 @@ topics in, and one **topic chat** per topic sees that topic through.
   background return brought was heartbeats or an empty wait: reply only when a
   topic's state changed (`worker_done`, `escalation`, `question`, a `status`, a
   report file or a PR appeared, or the human wrote).
-  1. The conclusion in one or two lines: what changed, and whether the human
+  1. `**結論**:` and one or two lines: what changed, and whether the human
      is needed. Give the reasoning and history only when asked.
-  2. A section per topic, every reply, whatever changed (main chat: every
-     topic; topic chat: its own, with its workers as rows): a heading
-     `### <symbol> <name> — <state in a few words>` (✅ done, 🔄 working, ⏸
-     waiting on human, ⬜ not started, ❌ failed), then a checklist of the
-     whole path, `- [x]` done and `- [ ]` not yet: the done criteria, workers,
-     PRs, Issues, then cleanup. Link every PR and Issue by URL, not by number.
+  2. `#### 確認結果`: a table of 項目｜結果, one row per thing checked (the
+     checks before closing, the points not yet confirmed), each 結果 starting
+     with ✅ passed, ⚠️ unconfirmed or ❌ failed. Leave the heading out of a
+     reply that checked nothing.
+  3. `#### 話題`: a table of 状態記号｜話題｜段階｜次, every reply, whatever
+     changed (main chat: every topic; topic chat: its own, with its workers
+     as rows). 状態記号 is ✅ done, 🔄 working, ⏸ waiting on human, ⬜ not
+     started or ❌ failed; 段階 is where the whole path stands (done
+     criteria, workers, PRs, Issues, then cleanup); 次 is who moves next:
+     あなた, 話題チャット or —. Link every PR and Issue by URL, not by number.
      Take it from `worker-list` (the projection) and the Task list, never from
      memory. Order: ⏸ needs the human, then changed this reply,
-     then 🔄 unchanged. A finished topic stays, every item `[x]`, until it is
+     then 🔄 unchanged. A finished topic stays, as ✅, until it is
      cleaned up; leave it out of the reply after cleanup.
-  3. 「次にあなたがすること」: only what the human does themself (merge, log
-     in, check locally), numbered; 「なし（待機中）」 when nothing does.
+  4. `#### 次にあなたがすること`: only what the human does themself (merge, log
+     in, check locally), as a numbered list; 「なし（待機中）」 when nothing does.
   - Ask the human for a decision with `AskUserQuestion` choices, so they pick
-    rather than type, and keep it out of 3. Load it with `ToolSearch`
+    rather than type, and keep it out of 4. Load it with `ToolSearch`
     (`select:AskUserQuestion`); under the headroom proxy that finds nothing,
     so `tool_search_tool_regex`, as `grounding.md`'s "Question tool" says.
 - The ledger is Orca's Task list. Keep no topic file of your own.

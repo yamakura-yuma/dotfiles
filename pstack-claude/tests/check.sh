@@ -100,7 +100,9 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("chat-<topic>")' >/dev/null ||
   fail "dispatch-by-topic does not name the chat-<topic> worktree"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
-  fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
+  fail "dispatch-by-topic does not point at the reply shape (tables and next steps)"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("**結論**:") and contains("確認結果") and contains("話題の表")' >/dev/null ||
+  fail "dispatch-by-topic does not lead with 結論 and name the 確認結果 and 話題 tables"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("結論を先頭") and contains("AskUserQuestion") and contains("Reply shape")' >/dev/null ||
   fail "dispatch-by-topic lost the conclusion-first and AskUserQuestion rules or the pointer to Reply shape"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
@@ -112,9 +114,9 @@ for h in 'Hand a finished topic to the main chat' 'Close a finished topic' 'Fix 
   grep -qF -- "**$h.**" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code lost the bullet \"$h\", which the topic chat and main chat point at each other"
 done
-# The reply shape's checklist headings and the choice question are what the
+# The reply shape's table headings and the choice question are what the
 # human reads each reply, so the markers the bullet states must stay.
-for w in '`- [x]` done' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool_regex'; do
+for w in '`**結論**:`' '`#### 確認結果`' '`#### 話題`' '`#### 次にあなたがすること`' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool_regex'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\""
 done
