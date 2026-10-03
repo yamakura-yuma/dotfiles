@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Say whether a worker may be released: every completion criterion passes, and
+# its report has a review round that passed. A check, not a reading; the model
+# is not asked to judge it.
+#
+#   check-criteria <name>
+#
+# Reads, from ~/.claude/worker-reports (WORKER_REPORTS_DIR overrides the dir):
+#   <name>.criteria.json       {"criteria":[{"id":"c1","text":"...","passes":false}]}
+#                              the worker rewrites `passes` and nothing else
+#   <name>.criteria.base.json  the topic chat's copy of that file as written into
+#                              the spec; criteria.json must equal it once `passes`
+#                              is dropped, so an item cannot be deleted or reworded
+#   <name>.md                  the report; needs a line that is exactly
+#                              `verdict: pass` (completion-reviewer's reply, pasted)
+#
+# Exit 0 when released; otherwise 1 with one reason per line on stderr.
+set -uo pipefail
+
+usage() { echo "usage: check-criteria <name>" >&2; exit 2; }
+[ $# -eq 1 ] || usage
+name="$1"
+case "$name" in ''|*/*|.*) echo "check-criteria: <name> is a file stem, not a path" >&2; exit 2 ;; esac
+command -v jq >/dev/null 2>&1 || { echo "check-criteria: jq not found" >&2; exit 1; }
+
+dir="${WORKER_REPORTS_DIR:-$HOME/.claude/worker-reports}"
+criteria="$dir/$name.criteria.json" base="$dir/$name.criteria.base.json" report="$dir/$name.md"
+
+bad=0
+no() { echo "check-criteria: $1" >&2; bad=1; }
+
+# `passes` is the only thing the worker may edit.
+shape='def sealed: del(.criteria[]?.passes);'
+if ! jq -e '.criteria | type == "array" and length > 0 and all(.[]; (.id | type == "string") and (.text | type == "string") and (.passes | type == "boolean"))' "$criteria" >/dev/null 2>&1; then
+  no "$criteria is missing, not JSON, or an item lacks id/text/boolean passes"
+elif [ ! -r "$base" ] || ! jq -e . "$base" >/dev/null 2>&1; then
+  no "$base is missing or not JSON (the topic chat writes it with the spec)"
+else
+  jq -e -n --slurpfile a "$criteria" --slurpfile b "$base" "$shape"' $a[0] | sealed == ($b[0] | sealed)' >/dev/null ||
+    no "criteria changed beyond passes (an item was deleted, added or reworded) versus $base"
+  open="$(jq -r '.criteria[] | select(.passes != true) | .id' "$criteria")"
+  [ -z "$open" ] || no "criteria not passing: $(echo $open)"
+fi
+
+if [ ! -r "$report" ]; then
+  no "$report is missing"
+else
+  grep -qx 'verdict: pass' "$report" || no "$report has no 'verdict: pass' line"
+fi
+
+exit "$bad"

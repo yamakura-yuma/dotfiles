@@ -101,6 +101,8 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
   fail "dispatch-by-topic does not name the chat-<topic> worktree"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
   fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("結論を先頭") and contains("AskUserQuestion") and contains("Reply shape")' >/dev/null ||
+  fail "dispatch-by-topic lost the conclusion-first and AskUserQuestion rules or the pointer to Reply shape"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
   fail "dispatch-by-topic does not tell the main chat to run routing-facts and change --agent-cmd at red"
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
@@ -115,6 +117,10 @@ done
 for w in '`- [x]` done' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool_regex'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\""
+done
+for w in 'predates the worktree' 'stays too' 'conclusion first' '(choices, not text)'; do
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+    fail "pstack-on-claude-code lost \"$w\" (kept-branch rule or AskUserQuestion rule)"
 done
 for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat' 'Hand a finished topic to the main chat' 'Close a finished topic'; do
   grep -qF -- "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
@@ -325,6 +331,54 @@ PATH="$tmp/wev-min" ORCA_REMOTE_CLI_BIN_DIR="$tmp/none" "$(command -v bash)" "$w
 grep -q 'worktree set' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
   grep -q -- '--workspace-status in-review' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
   fail "pstack-on-claude-code lost the worker spec line that updates the card (worktree set --comment, in-review)"
+
+# check-criteria: released only when every criterion passes, none was deleted or
+# reworded against the base copy, and the report has a `verdict: pass` line.
+# Runs on a temp WORKER_REPORTS_DIR; the real ~/.claude is not read.
+cc="$pkg/.apm/skills/pstack-on-claude-code/scripts/check-criteria"
+[ -x "$cc" ] || fail "check-criteria is not executable"
+bash -n "$cc" || fail "check-criteria does not parse"
+ccd="$tmp/cc"; mkdir -p "$ccd"
+cc_base='{"criteria":[{"id":"c1","text":"a","passes":false},{"id":"c2","text":"b","passes":false}]}'
+cc_all='{"criteria":[{"id":"c1","text":"a","passes":true},{"id":"c2","text":"b","passes":true}]}'
+# cc_run <criteria json|-> <report text|-> [base json]: write the three files, run.
+cc_run() {
+  rm -f "$ccd"/w.*
+  [ "$1" = - ] || printf '%s\n' "$1" > "$ccd/w.criteria.json"
+  [ "$2" = - ] || printf '%s\n' "$2" > "$ccd/w.md"
+  printf '%s\n' "${3-$cc_base}" > "$ccd/w.criteria.base.json"
+  WORKER_REPORTS_DIR="$ccd" "$cc" w 2>"$ccd/err"
+}
+cc_expect() { local want="$1" what="$2"; shift 2; cc_run "$@"; [ $? -eq "$want" ] || fail "check-criteria: $what"; }
+cc_pass=$'round: 1\nverdict: fail\nround: 2\nverdict: pass\nrequired:\n- none'
+cc_expect 0 "all passes and a verdict: pass round did not exit 0" "$cc_all" "$cc_pass"
+cc_expect 1 "an item with passes false still exited 0" '{"criteria":[{"id":"c1","text":"a","passes":true},{"id":"c2","text":"b","passes":false}]}' "$cc_pass"
+grep -q 'c2' "$ccd/err" || fail "check-criteria did not name the criterion that is not passing"
+cc_expect 1 "an item without passes exited 0" '{"criteria":[{"id":"c1","text":"a","passes":true},{"id":"c2","text":"b"}]}' "$cc_pass"
+cc_expect 1 "passes as a string exited 0" '{"criteria":[{"id":"c1","text":"a","passes":"true"},{"id":"c2","text":"b","passes":true}]}' "$cc_pass"
+cc_expect 1 "a deleted item exited 0" '{"criteria":[{"id":"c1","text":"a","passes":true}]}' "$cc_pass"
+grep -q 'deleted' "$ccd/err" || fail "check-criteria did not say criteria were changed beyond passes"
+cc_expect 1 "a reworded item exited 0" '{"criteria":[{"id":"c1","text":"a","passes":true},{"id":"c2","text":"weaker","passes":true}]}' "$cc_pass"
+cc_expect 1 "an empty criteria list exited 0" '{"criteria":[]}' "$cc_pass" '{"criteria":[]}'
+cc_expect 1 "criteria that are not JSON exited 0" 'not json' "$cc_pass"
+cc_expect 1 "a missing criteria file exited 0" - "$cc_pass"
+cc_expect 1 "a base copy that is not JSON exited 0" "$cc_all" "$cc_pass" 'not json'
+cc_run "$cc_all" "$cc_pass" >/dev/null; rm "$ccd/w.criteria.base.json"
+WORKER_REPORTS_DIR="$ccd" "$cc" w 2>/dev/null && fail "check-criteria: a missing base copy exited 0"
+cc_expect 1 "verdict: fail only exited 0" "$cc_all" $'round: 1\nverdict: fail\nrequired:\n- x'
+cc_expect 1 "no verdict line exited 0" "$cc_all" $'implemented it\nall tests pass'
+cc_expect 1 "the reviewer's template line 'verdict: pass | fail' exited 0" "$cc_all" 'verdict: pass | fail'
+cc_expect 1 "a verdict: pass that is only part of a line exited 0" "$cc_all" 'was verdict: pass last time'
+cc_expect 1 "a missing report exited 0" "$cc_all" -
+# Every reason is reported, not just the first.
+cc_run '{"criteria":[{"id":"c1","text":"a","passes":false},{"id":"c2","text":"b","passes":false}]}' 'verdict: fail' >/dev/null
+[ "$(wc -l < "$ccd/err")" -eq 2 ] || fail "check-criteria did not print one reason per failure"
+[ "$(WORKER_REPORTS_DIR="$ccd" "$cc" ../w 2>/dev/null; echo $?)" = 2 ] || fail "check-criteria accepted a path as <name>"
+for w in 'check-criteria <name>' '.criteria.json' '.criteria.base.json' 'Edit nothing but `passes`'; do
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md lost \"$w\""
+done
+grep -q '^- Completion criteria as a checklist' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
+  fail "pstack-on-claude-code/SKILL.md went back to a Markdown checklist for completion criteria"
 
 # routing-facts, against a stub orca and a temp ~/.claude.json: no real usage is
 # read. The stub answers as RF_MODE says and writes a handshake line to stderr as
