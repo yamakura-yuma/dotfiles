@@ -111,6 +111,10 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
   fail "dispatch-by-topic brings back the outcome / evidence / unresolved blocker status shape"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("状態記号｜話題｜段階｜次") and contains("番号付きリスト")' >/dev/null ||
   fail "dispatch-by-topic does not fix the 話題 columns (状態記号｜話題｜段階｜次) or the numbered 次にあなたがすること"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("各「結果」の先頭に ✅/⚠️/❌ を付ける")' >/dev/null ||
+  fail "dispatch-by-topic does not put ✅/⚠️/❌ at the start of each 結果"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("⏸（あなたの番）を先頭、次にこの返信で変わった話題、変わらない 🔄、✅ の順")' >/dev/null ||
+  fail "dispatch-by-topic does not order 話題 rows ⏸ first, then changed, then unchanged 🔄, then ✅"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
   fail "dispatch-by-topic does not tell the main chat to run routing-facts and change --agent-cmd at red"
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
