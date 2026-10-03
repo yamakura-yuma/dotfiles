@@ -57,6 +57,11 @@ check 2 $g 'gh pr merge 1 -R yamakura-yuma/dotfiles --admin'
 check 2 $g 'gh pr merge 1 --admin=true'
 check 2 $g 'just ci && gh pr merge 1 --admin'
 check 2 $g 'gh pr merge 1 --admin && echo done'
+check 2 $g $'gh pr merge 1 \\\n  --admin'
+check 2 $g $'gh pr merge 1 \\\n  --admin=true'
+check 2 $g $'gh pr merge \\\n  --admin 1'
+check 2 $g $'git reset \\\n  --hard'
+check 2 $g $'gh pr merge 1 \\\n  --squash \\\n  --admin'
 
 # --- guard-destructive-git: allowed -----------------------------------------
 # --force-with-lease is the recoverable spelling, so it has to keep working;
@@ -85,6 +90,10 @@ check 0 $g 'gh pr checks 1 --required'
 check 0 $g 'gh pr create --title "x" --body "never use gh pr merge --admin"'
 check 0 $g 'echo "gh pr merge 1 --admin"'
 check 0 $g 'git commit -m "gh pr merge --admin is blocked"'
+# a newline without a backslash starts a new command; `\\` is an escaped backslash, so it does not continue the line
+check 0 $g $'gh pr merge 1\n--admin'
+check 0 $g $'gh pr merge 1 \\\\\n--admin'
+check 0 $g $'gh pr merge 1 \\\n  --auto --squash'
 
 # --- guard-default-branch ----------------------------------------------------
 # Commands that never reach a branch lookup. The branch-dependent cases need
