@@ -18,6 +18,11 @@ coordinator（デフォルトブランチ上の元 checkout、または `~` の�
 リポジトリにも属さない場所）では実装しない。作業は worktree のワーカーに出す。
 手順は `core-dispatch` スキル、状況確認と取りこぼしの回収は `/workers`。
 
+## マージ
+
+エージェントは `gh pr merge --admin` を使わない。ワーカーは `gh pr merge` を打たない。
+予約は coordinator が回収時に行う（`core-dispatch` スキル）。
+
 ## コードを探す・理解する
 
 まず索引を引く。`Read` / `Grep` / `Glob` は、索引が無いとき、索引で当たらなかった

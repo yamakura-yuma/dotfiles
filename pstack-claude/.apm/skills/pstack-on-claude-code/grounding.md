@@ -20,7 +20,12 @@ premise breaks).
    as the first option marked "(Recommended)". Never list questions or options
    in reply text.
 5. Depth is yours to choose. A one-line topic needs one or two lines: the
-   original words, the goal, the completion criterion.
+   original words, the goal, the completion criterion. A topic that starts from
+   an Issue ("Run an Issue" in `SKILL.md`) whose body fills all five items of
+   `issue-template.md` skips steps 3 and 4: write the brief from the Issue, and
+   the human's naming of it is the original words. A missing item is grounded as
+   above. Step 6 stays: the Issue's author may have been an earlier session, so
+   the human approves the brief once.
 6. Check the checklist below, then write the brief (template below) as the
    plan and call `ExitPlanMode`. That approval is the brief's approval; do not
    ask "is this plan ready?" with `AskUserQuestion`.
