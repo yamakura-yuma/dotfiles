@@ -36,7 +36,8 @@ skip() {
 # fresh checkout or CI has nothing to compile. The root has no .apm/ of its
 # own, so compiling the package's sources --local-only yields the same file
 # offline. What that gives up: whether apm.yml's compilation.exclude still
-# keeps pstack-claude/ out, which only shows once dependencies are installed.
+# keeps pstack-claude/ out, which only shows once dependencies are installed --
+# check_compile_exclude below covers that statically.
 check_agents_md() {
   command -v apm >/dev/null 2>&1 || { skip "no apm, not checking AGENTS.md"; return; }
   [ -f "$repo/AGENTS.md" ] || { skip "no AGENTS.md to check"; return; }
@@ -52,6 +53,35 @@ check_agents_md() {
     fail "apm compile --target agents --local-only did not succeed in core-principal/"
   fi
   rm -rf "$tmp"
+}
+
+# --- 1b. The root apm.yml still excludes pstack-claude/ from compilation ------
+# Without the exclude, apm compile at the root scans pstack-claude/.apm/ and
+# leaks its rule into AGENTS.md. check_agents_md cannot see that: it compiles
+# --local-only inside core-principal/, where the root apm.yml is not read, and
+# the leak only shows once dependencies are installed. Reading the key is the
+# only offline signal, so it is read, not compiled -- apm install would need
+# the network. Reads a block-style list only, as apm.yml writes it; a flow-style
+# `exclude: [...]` would be a false FAIL.
+check_compile_exclude() {
+  local yml="$repo/apm.yml"
+  [ -f "$yml" ] || { skip "no apm.yml, not checking compilation.exclude"; return; }
+  awk '
+    /^compilation:/ { in_comp = 1; next }
+    in_comp && /^[^[:space:]#]/ { in_comp = 0; in_excl = 0 }
+    in_comp && /^[[:space:]]+exclude:/ { in_excl = 1; next }
+    in_excl && /^[[:space:]]*-[[:space:]]/ {
+      item = $0
+      sub(/^[[:space:]]*-[[:space:]]+/, "", item)
+      gsub(/["\047[:space:]]/, "", item)
+      if (item == "pstack-claude/**") found = 1
+      next
+    }
+    in_excl && /^[[:space:]]*(#|$)/ { next }
+    in_excl { in_excl = 0 }
+    END { exit !found }
+  ' "$yml" ||
+    fail "apm.yml compilation.exclude does not list pstack-claude/**, so its rule would leak into AGENTS.md once dependencies are installed"
 }
 
 # --- 2. Paths the harness quotes about itself exist --------------------------
@@ -262,6 +292,7 @@ check_exempt_paths() {
 }
 
 check_agents_md
+check_compile_exclude
 check_owned_paths
 check_documented_flags
 check_deploy_parity
