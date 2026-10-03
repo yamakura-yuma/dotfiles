@@ -582,12 +582,14 @@ plan="$(nr_run 2026-10-03 --no-lookup)"
 [ "$(streaks)" = "[2,2]" ] || fail "a skipped day broke the streak (want 2 on the second evaluated run)"
 plan="$(nr_run 2026-10-04 --no-lookup)"
 jq -e '.actions | map(.action) == ["create", "create"]' <<<"$plan" >/dev/null || fail "nav-candidates did not plan 2 issues at streak 3"
-jq -e '.actions[0] | .title == "[nav] stale-doc-docs-gates-md: gates.md が workflow の名前とずれている" and .labels == ["nav-retro"]' <<<"$plan" >/dev/null ||
-  fail "nav-candidates title is not [nav] <key>: <summary>"
+jq -e '.actions[0] | .title == "[nav] stale-doc-docs-gates-md: gates.md が workflow の名前とずれている" and has("labels") == false' <<<"$plan" >/dev/null ||
+  fail "nav-candidates title is not [nav] <key>: <summary>, or the plan names labels the repo may not have"
 for h in '## 何を' '## どこで' '- 対象のファイル: `docs/gates.md`' '## 完了条件' '## 根拠' '2026-10-01 から連続 3 回の実行で出た' \
-  '`~/.claude/worker-reports/nav-retro/2026-10-04/dotfiles.md`' '提案であって、変えるかどうかは人が決める。'; do
+  '提案であって、変えるかどうかは人が決める。'; do
   jq -e --arg h "$h" '.actions[0].body | contains($h)' <<<"$plan" >/dev/null || fail "nav-candidates body lacks: $h"
 done
+# the issue is public: nothing of this machine's layout in a body
+jq -e '[.actions[].body] | all(test("worker-reports|~/|/home/") | not)' <<<"$plan" >/dev/null || fail "nav-candidates put a local path in an issue body"
 jq -e '.actions[1].body | contains("- 直す場所: `docs/gates.md`")' <<<"$plan" >/dev/null || fail "nav-candidates body lacks fix_in"
 # a gap in the reports resets the streak
 jq '.result |= (sub("stale-doc"; "reread"))' "$nr_dir/dotfiles.claude.json" > "$nr_dir/c2" && cp "$nr_dir/dotfiles.claude.json" "$nr_dir/c1" && mv "$nr_dir/c2" "$nr_dir/dotfiles.claude.json"
@@ -625,7 +627,7 @@ NR_GH_FAIL=1 lk | jq -e '.action == "none"' >/dev/null || fail "a failed gh look
 jq '.["yamakura-yuma/dotfiles"].keys["stale-doc-docs-gates-md"].evidence = {"sessions":1,"count":1}' "$nr_dir/state.json" > "$nr_dir/s2" && mv "$nr_dir/s2" "$nr_dir/state.json"
 out="$(NAV_GH="$tmp/nr-gh" NR_GH_OUT="$(issue OPEN 2026-10-01T00:00:00Z)" "$nc" --date 2026-10-09 --dir "$nr_dir" --state "$nr_dir/state.json" --repeat 1 2>/dev/null |
   jq -c --arg k "$key" '.actions[] | select(.key == $k)')"
-jq -e '.action == "comment" and (.comment | contains("2026-10-09 時点"))' <<<"$out" >/dev/null || fail "a quiet open issue with new numbers did not get a comment"
+jq -e '.action == "comment" and (.comment | contains("2026-10-09 時点")) and (.comment | test("worker-reports|~/|/home/") | not)' <<<"$out" >/dev/null || fail "a quiet open issue with new numbers did not get a comment"
 # what must not reach an issue, one case each (the fields are Japanese or English prose)
 leak_case() {
   local d="$tmp/nr-leak"; rm -rf "$d"; mkdir -p "$d"; jq '.[0]' "$nrt/expected.digest.json" > "$d/dotfiles.digest.json"
@@ -650,6 +652,9 @@ for w in 'nav-digest --out' '--no-session-persistence' '--model claude-sonnet-5-
   'nav-candidates --date $D --dir $OUT --once' 'gh issue create' 'routing-facts' '手動 1 回'; do
   grep -qF -- "$w" "$nr/DAILY.md" || fail "nav-retro/DAILY.md lost \"$w\""
 done
+# the reviewers need Bash (ls) to check paths; denying Bash outright would beat the allow
+grep -qF -- 'Bash(ls *)' "$nr/DAILY.md" || fail "nav-retro/DAILY.md does not allow Bash(ls *) for the reviewers"
+grep -E -- '--disallowedTools "' "$nr/DAILY.md" | grep -qE '\bBash\b' && fail "nav-retro/DAILY.md denies Bash, which beats the allow rule"
 grep -q '/insights' "$nr/DAILY.md" && fail "nav-retro/DAILY.md mentions /insights, which the agreement left out of the flow"
 
 [ "$failures" -eq 0 ] && echo "pstack-claude: ok"

@@ -37,10 +37,20 @@ precheck ── nav-digest ── claude -p /nav-retro（リポごと） ── 
    ```sh
    timeout 900 claude -p "/nav-retro $OUT/<name>.digest.json" \
      --no-session-persistence --model claude-sonnet-5-5 --max-budget-usd 1 \
-     --permission-mode dontAsk --allowedTools "Agent Read Grep Glob" \
-     --disallowedTools "Edit Write NotebookEdit Bash" \
+     --permission-mode dontAsk --allowedTools "Agent Read Grep Glob Bash(ls *)" \
+     --disallowedTools "Edit Write NotebookEdit" \
      --add-dir "$OUT" --add-dir "<root>" --output-format json < /dev/null > $OUT/<name>.claude.json
    ```
+
+   レビュアー（`Agent`）は親の権限を引き継ぎ、deny は allow に勝つ。だから `Bash` を
+   `--disallowedTools` に入れず、`Bash(ls *)` だけ許す（存在確認用。他は `dontAsk` が断る）。
+   根拠: <https://code.claude.com/docs/en/permissions>、<https://code.claude.com/docs/en/sub-agents>。
+   **このフラグでレビュアーが分かれることは、まだ実地で確かめていない**（1 リポ 1 回の `claude -p`
+   で `num_turns` が 1 より大きく、`Agent` が 2 回呼ばれ、存在確認の行が埋まるかを見る）。
+
+   費用の目安は 1 リポ 1 回で 0.63〜0.67 USD（上限 `--max-budget-usd 1`。5 リポで 1.78 USD）。
+   これはレビュアーが分かれなかった実行の値で、分かれると増えうる。日次に載せる前に、
+   ダイジェストの大きさか読み方を見直す。
 
    automation の作業ディレクトリ（nav-retro が入っている coordinator の checkout）から打つ。
    対象のリポは `--add-dir` で読むだけにする。`--no-session-persistence` を外さない
@@ -69,7 +79,8 @@ gh label list -R <repo> --json name -q '.[].name' | grep -qx nav-retro && label=
 gh issue create -R <repo> --title "<action.title>" --body-file $OUT/<name>.<key>.body.md $label
 ```
 
-`nav-retro` ラベルがまだ無いリポでは `--label` を付けない（作るのはこの手順の仕事ではない）。
+ラベルは計画（`plan.json`）に載せず、起票のときにこの手順が実在を確かめて付ける。`nav-retro` ラベルが
+まだ無いリポでは `--label` を付けない（作るのはこの手順の仕事ではない）。
 `comment` は `gh issue comment <action.issue> --body "<action.comment>"`。題と本文は `plan.json` の
 文字列をそのまま使い、書き足さない・言い換えない。作った Issue の URL を報告に載せる。
 
