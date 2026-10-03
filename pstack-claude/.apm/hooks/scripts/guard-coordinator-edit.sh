@@ -44,7 +44,10 @@ than doing it. Files get edited by a worker in a worktree of its own.
 
 Dispatch it through Orca (the \`orchestration\` skill), for example:
 
-  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when>"
+  orca orchestration run-current --json     # no Run yet: run-create --objective "<topic>: <goal>"
+  orca orchestration worker-start --run <run_id> --task-title "<title>" \\
+    --spec "<task, done-when, report to ~/.claude/worker-reports/<name>.md>" \\
+    --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude
 
 Planning, reading and running commands are all still fine -- only file edits
 are not. A human can export MAKURA_ALLOW_MAIN=1 before starting Claude Code

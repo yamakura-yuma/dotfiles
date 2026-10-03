@@ -265,7 +265,10 @@ not take commits or pushes directly on it.
 
 Hand the work to a worker in a worktree of its own -- see the \`core-dispatch\`
 skill:
-  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when, and: write ~/.claude/worker-reports/<name>.md>"
+  orca orchestration run-current --json     # no Run yet: run-create --objective "<topic>: <goal>"
+  orca orchestration worker-start --run <run_id> --task-title "<title>" \\
+    --spec "<task, done-when, report to ~/.claude/worker-reports/<name>.md>" \\
+    --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude
   git worktree add -b <branch> ../<dir>     # when not going through Orca
 
 The human at the terminal can export MAKURA_ALLOW_MAIN=1 before starting

@@ -61,7 +61,10 @@ rather than doing it. Files get edited by a worker in a worktree of its own.
 
 Follow the \`core-dispatch\` skill: decide the repository, then
 
-  orca worktree create --repo id:<repoId> --name <kebab-name> --agent claude --prompt "<task, done-when, and: write ~/.claude/worker-reports/<name>.md>"
+  orca orchestration run-current --json     # no Run yet: run-create --objective "<topic>: <goal>"
+  orca orchestration worker-start --run <run_id> --task-title "<title>" \\
+    --spec "<task, done-when, report to ~/.claude/worker-reports/<name>.md>" \\
+    --worktree new-top-level --name <kebab-name> --repo id:<repoId> --agent claude
 
 and read the worker's report back when it finishes. Planning, reading and
 running commands are all still fine here -- only writing files is not.
