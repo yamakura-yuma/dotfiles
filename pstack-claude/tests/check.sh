@@ -124,28 +124,37 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md does not mention $w"
 done
+# Supervising Orca workers (Main chat, Topic chat, Reply shape) lives in its own file; SKILL.md holds a table of contents that links to it.
+sow="$pkg/.apm/skills/pstack-on-claude-code/supervising-orca-workers.md"
+[ -f "$sow" ] || fail "pstack-on-claude-code/supervising-orca-workers.md is missing"
+for w in supervising-orca-workers.md grounding.md issue-template.md; do
+  grep -qF -- "]($w)" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md does not link to $w in its table of contents"
+done
+for h in "Main chat" "Topic chat" "Worker pickup and release"; do
+  grep -qF -- "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md table of contents lost \"$h\""
+done
 for h in 'Hand a finished topic to the main chat' 'Close a finished topic' 'Fix coordinator-specific changes in dotfiles' "Remove a worker's worktree when you release it"; do
-  grep -qF -- "**$h.**" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  grep -qF -- "**$h.**" "$sow" ||
     fail "pstack-on-claude-code lost the bullet \"$h\", which the topic chat and main chat point at each other"
 done
 # The reply shape's table headings and the choice question are what the
 # human reads each reply, so the markers the bullet states must stay.
 for w in '`**結論**:`' '`#### 確認結果`' '`#### 話題`' '`#### 次にあなたがすること`' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool_regex'; do
-  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  grep -qF -- "$w" "$sow" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\""
 done
 for w in '状態記号｜話題｜段階｜次' 'never 根拠, 詰まり or others' 'always one of ✅' 'never a table' 'go in 段階 and the blocker in 次'; do
-  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  grep -qF -- "$w" "$sow" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\" (fixed 話題 columns, status emoji, numbered next steps)"
 done
-! grep -qF -- 'unresolved blocker' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+! grep -qF -- 'unresolved blocker' "$sow" ||
   fail "pstack-on-claude-code brings back the outcome / evidence / unresolved blocker status shape"
 for w in 'predates the worktree' 'stays too' 'conclusion first' '(choices, not text)'; do
-  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  grep -qF -- "$w" "$sow" ||
     fail "pstack-on-claude-code lost \"$w\" (kept-branch rule or AskUserQuestion rule)"
 done
 for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat' 'Hand a finished topic to the main chat' 'Close a finished topic'; do
-  grep -qF -- "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  grep -qF -- "$h" "$sow" ||
     fail "pstack-on-claude-code lost \"$h\", which the dispatch-by-topic text points at"
 done
 [ -z "$(topic "$tmp/child")" ] || fail "dispatch-by-topic printed in a child worktree"
@@ -251,7 +260,7 @@ for bad in "demo x" "demo" "--known k demo" "--said x"; do
   grep -q 'worktree create' "$tmp/stub.log" && fail "open-topic-chat created a worktree for: $bad"
 done
 [ -f "$pkg/.apm/skills/pstack-on-claude-code/grounding.md" ] || fail "pstack-on-claude-code/grounding.md is missing"
-grep -q 'grounding.md' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code's Topic chat no longer points at grounding.md"
+grep -q 'grounding.md' "$sow" || fail "pstack-on-claude-code's Topic chat no longer points at grounding.md"
 
 # wait-worker-events, against a stub orca: no Run is touched. The stub logs
 # each call's arguments, counts its calls in a file (every call is a new
@@ -397,7 +406,7 @@ cc_run '{"criteria":[{"id":"c1","text":"a","passes":false},{"id":"c2","text":"b"
 [ "$(wc -l < "$ccd/err")" -eq 2 ] || fail "check-criteria did not print one reason per failure"
 [ "$(WORKER_REPORTS_DIR="$ccd" "$cc" ../w 2>/dev/null; echo $?)" = 2 ] || fail "check-criteria accepted a path as <name>"
 for w in 'check-criteria <name>' '.criteria.json' '.criteria.base.json' 'Edit nothing but `passes`'; do
-  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" || fail "pstack-on-claude-code/SKILL.md lost \"$w\""
+  cat "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" "$sow" | grep -qF -- "$w" || fail "pstack-on-claude-code SKILL.md or supervising-orca-workers.md lost \"$w\""
 done
 grep -q '^- Completion criteria as a checklist' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
   fail "pstack-on-claude-code/SKILL.md went back to a Markdown checklist for completion criteria"
@@ -484,7 +493,7 @@ rf_run none | jq -e '.source == "none" and .age_s == null and .zone == "unknown"
 [ -s "$tmp/rf.err" ] && fail "routing-facts wrote to stderr in a normal run: $(cat "$tmp/rf.err")"
 
 # The text the chats read names the script, and the main chat is told to stay silent on heartbeats.
-for f in .apm/skills/pstack-on-claude-code/SKILL.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do
+for f in .apm/skills/pstack-on-claude-code/supervising-orca-workers.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do
   grep -q wait-worker-events "$pkg/$f" || fail "$f does not point at wait-worker-events"
 done
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("heartbeat")' >/dev/null ||

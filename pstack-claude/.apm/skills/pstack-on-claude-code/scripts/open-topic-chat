@@ -73,7 +73,7 @@ created="$(orca_json worktree create --repo "$repo" --name "chat-$topic" --setup
 path="$(printf '%s' "$created" | jq -r '(.result.worktree // {}) | (.path // ((.id // "") | split("::") | .[1:] | join("::"))) | select(. != "")')"
 [ -n "$path" ] || { echo "open-topic-chat: no worktree path in: $created" >&2; exit 1; }
 
-role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's 'Supervising Orca workers', Topic chat. Wait with its \`wait-worker-events\`, and write nothing for heartbeats or empty waits. When the topic is finished, hand it to the main chat as that section's 'Hand a finished topic to the main chat' says."
+role="You are the topic chat for \`$topic\`. You start in plan mode: ground the hand-off with the human before the first \`worker-start\` (pstack-on-claude-code's grounding.md; ask with AskUserQuestion). Dispatch workers with \`worker-start\`; do not implement. Follow pstack-on-claude-code's supervising-orca-workers.md, 'Topic chat'. Wait with its \`wait-worker-events\`, and write nothing for heartbeats or empty waits. When the topic is finished, hand it to the main chat as that section's 'Hand a finished topic to the main chat' says."
 if [ -n "$run" ]; then
   role="$role Bind the Run this topic already has with \`orca orchestration run-use --id $run\`; do not create a new Run."
 fi

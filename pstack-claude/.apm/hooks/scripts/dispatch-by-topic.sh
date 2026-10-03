@@ -3,7 +3,7 @@
 # rule to every message. Registered by ../dispatch-by-topic.json, which
 # `apm install` merges into the consuming repo's .claude/settings.json.
 #
-# The rule itself lives in pstack-on-claude-code's "Supervising Orca workers";
+# The rule itself lives in pstack-on-claude-code's supervising-orca-workers.md ("Supervising Orca workers");
 # this only puts it in front of the message, because the failure it prevents
 # (starting the work or a worker here, or asking before opening a topic chat)
 # happens in the first tool call.
@@ -38,7 +38,7 @@ is_coordinator_workspace "$cwd" || exit 0
 context="$(cat <<'CTX'
 ここは coordinator の main chat。ここでは実装しないし、`worker-start` もしない
 （Edit / Write は hook が拒否する）。話題の受付と全話題の状況のまとめだけをする。
-このメッセージを分類し、`pstack-on-claude-code` の "Supervising Orca workers" 節、
+このメッセージを分類し、`pstack-on-claude-code` の `supervising-orca-workers.md` の "Supervising Orca workers" 節、
 Main chat に従う。
 
 - 新しい話題 → 確認せず話題チャットを開く。kebab の話題名 `<topic>` で

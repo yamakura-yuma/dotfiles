@@ -42,6 +42,8 @@ Run を同時に 2 つのチャットが消費しない）。
 
 - `~/dotfiles/pstack-claude/.apm/skills/p-mode/SKILL.md`
 - `~/dotfiles/pstack-claude/.apm/skills/pstack-on-claude-code/SKILL.md`
+  （冒頭の目次が各節の置き場を示す）
+- `~/dotfiles/pstack-claude/.apm/skills/pstack-on-claude-code/supervising-orca-workers.md`
   （main chat と話題チャットの役割、ワーカーの監督・回収・後片付け）
 
 Orca 自身の手順書は `orca skills get orca-cli` と `orca skills get orchestration` が
