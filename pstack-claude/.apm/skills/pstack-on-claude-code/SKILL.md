@@ -14,7 +14,7 @@ The user's own preferences on top of poteto-mode are the `p-mode` skill.
 
 | Section | File |
 |---|---|
-| Tools, Skills and services, Models (launch table, usage zone, advisor, review before the PR), Paths, Who runs parallel work | This file |
+| Tools, Skills and services, Models (launch table, usage zone, advisor, review before the PR), Worker permissions, Paths, Who runs parallel work | This file |
 | Supervising Orca workers: the main chat / topic chat split, Reply shape | [`supervising-orca-workers.md`](supervising-orca-workers.md) |
 | Main chat: open a topic chat, status, close a finished topic | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Main chat" |
 | Topic chat: run an Issue, dispatch, wait, hand a finished topic to the main chat | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Topic chat" |
@@ -259,6 +259,20 @@ context. The one weakness is being skipped, so on pickup the coordinator runs
 `check-criteria`, which needs a passing round in the report (see "Supervising Orca
 workers" in [`supervising-orca-workers.md`](supervising-orca-workers.md)). Design workers
 (Opus, Fable) get no review.
+
+## Worker permissions
+
+`worker-start` has no permission argument (measured: `orca orchestration worker-start --help`). A worker's launch mode comes from Orca's own `agentDefaultArgs.claude`, one value for the whole host, currently `--dangerously-skip-permissions` (bypass). So the permission mode cannot differ by role; do not look for a flag to set it.
+
+What actually stops a worker is a guard hook (exit 2) or a `permissions.deny` rule. Both hold under bypass (measured with `claude -p --dangerously-skip-permissions`). `allow` means nothing under bypass. `sandbox` stops nothing here: without `socat` it prints "Sandbox disabled" and commands run unsandboxed.
+
+The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json`. apm drops `permissions` written in a hook file but ships the file as is, so a repo's `orca.yaml` setup copies it to `.claude/settings.local.json` (see dotfiles' `orca.yaml`). A repo without that line has workers with no deny. The limit: `Edit(...)` deny stops the Edit tool, not a Bash redirect (measured: `echo probe >> <file>` ran with that file under `Edit` deny). `Read(~/.ssh/**)` did stop both the Read tool and `cat` in Bash.
+
+| Role | Mode | Fence | Difference by role |
+|---|---|---|---|
+| Every worker | bypass (Orca setting) | guard hooks + deny from `.claude/settings.local.json` | none by flag |
+| Implementation (Sonnet) | same | same; `git push`, `gh pr create`, edits in the worktree and writes to `~/.claude/worker-reports/` stay allowed | what to change goes in the spec |
+| Design (Opus) | same | same | "do not change code" goes in the spec |
 
 ## Paths
 

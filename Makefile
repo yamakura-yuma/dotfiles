@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny
 
 lint-shell:
 	@echo "== shell syntax"
@@ -96,6 +96,11 @@ test-guards:
 test-harness:
 	@echo "== harness invariants"
 	@./core-principal/tests/harness-check.sh
+
+# ワーカーの deny の正本と、それを worktree に運ぶ orca.yaml の setup。
+test-worker-deny:
+	@echo "== worker deny"
+	@./core-principal/tests/worker-deny.sh
 
 test-pstack-claude:
 	@echo "== pstack-claude"
