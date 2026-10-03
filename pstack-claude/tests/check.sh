@@ -101,6 +101,8 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
   fail "dispatch-by-topic does not name the chat-<topic> worktree"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("次にあなたがすること")' >/dev/null ||
   fail "dispatch-by-topic does not point at the reply shape (checklist and next steps)"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("結論を先頭") and contains("AskUserQuestion") and contains("Reply shape")' >/dev/null ||
+  fail "dispatch-by-topic lost the conclusion-first and AskUserQuestion rules or the pointer to Reply shape"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
   fail "dispatch-by-topic does not tell the main chat to run routing-facts and change --agent-cmd at red"
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
@@ -115,6 +117,10 @@ done
 for w in '`- [x]` done' 'by URL, not' 'select:AskUserQuestion' 'tool_search_tool_regex'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\""
+done
+for w in 'predates the worktree' 'stays too' 'conclusion first' '(choices, not text)'; do
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+    fail "pstack-on-claude-code lost \"$w\" (kept-branch rule or AskUserQuestion rule)"
 done
 for h in 'Reply shape' 'Hand over a Run' 'Main chat' 'Topic chat' 'Hand a finished topic to the main chat' 'Close a finished topic'; do
   grep -qF -- "$h" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||

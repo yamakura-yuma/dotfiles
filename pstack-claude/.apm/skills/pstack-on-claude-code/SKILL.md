@@ -348,8 +348,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   "<message>" --enter`.
 - Control: to stop a topic, `send` the topic chat the instruction; it stops and
   releases its workers. To close a finished topic, see below.
-- Status: one entry per topic, naming outcome, evidence and unresolved
-  blocker. Find the topic's Run with `orca orchestration run-list --json`
+- Status: one entry per topic, conclusion first, naming outcome, evidence and
+  unresolved blocker; ask the human to decide with `AskUserQuestion` choices
+  ("Reply shape"). Find the topic's Run with `orca orchestration run-list --json`
   (its objective starts with the topic), then read `worker-list --run <run_id>
   --json` for the workers and `orca terminal read --terminal <handle>` for
   what the chat is doing. Unbound, `worker-list` without `--run` covers every
@@ -371,11 +372,13 @@ topics in, and one **topic chat** per topic sees that topic through.
   4. Nothing mounts the worktree ("Check for mounts before removing").
 
   Then `orca terminal close --worktree path:<path> --all` and `orca worktree rm
-  --worktree path:<path>`. If a check fails, ask the human with the failing
-  output. If `terminal close` returns `terminal_stop_unverifiable`, proceed as
-  "When release is retained" says. `worktree rm` also drops the local
-  `chat-<topic>` branch unless Orca cannot prove it merged; report a retained
-  branch to the human. Report in one line: topic, worktree removed.
+  --worktree path:<path>`. If a check fails, ask the human with
+  `AskUserQuestion` (choices, not text), showing the failing output; ask the
+  same way what to do with a retained branch. If `terminal close` returns
+  `terminal_stop_unverifiable`, proceed as "When release is retained" says.
+  `worktree rm` also drops the local `chat-<topic>` branch unless Orca cannot
+  prove it merged; a branch that predates the worktree stays too. Report in
+  one line: topic, worktree removed.
 
 ### Topic chat
 
@@ -442,9 +445,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   or closed and its report is read, release it, then `orca worktree rm
   --worktree path:<worker worktree>` (the path is `worktreeId` after `::` in
   `worker-list`; "Check for mounts before removing" first). `worktree rm`
-  keeps the branch only when Orca cannot prove it merged (a squash-merged PR
-  often counts): report a kept branch to the human, and delete it only if
-  they say so.
+  keeps the branch when Orca cannot prove it merged (a squash-merged PR
+  often counts) and when it predates the worktree: report a kept branch to
+  the human, and delete it only if they say so.
 - **Ack what you have handled.** A consuming `check` replays the bound Run's
   oldest FIFO Delivery until it is acknowledged. Reply, validate the
   `worker_done` against its active Dispatch and decide the release first, then
