@@ -105,6 +105,12 @@ topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contai
   fail "dispatch-by-topic does not lead with 結論 and name the 確認結果 and 話題 tables"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("結論を先頭") and contains("AskUserQuestion") and contains("Reply shape")' >/dev/null ||
   fail "dispatch-by-topic lost the conclusion-first and AskUserQuestion rules or the pointer to Reply shape"
+# The hook once told the main chat to answer status with outcome / evidence /
+# unresolved blocker, which beat the reply shape; status goes in the 話題 table.
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("unresolved blocker") | not' >/dev/null ||
+  fail "dispatch-by-topic brings back the outcome / evidence / unresolved blocker status shape"
+topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("状態記号｜話題｜段階｜次") and contains("番号付きリスト")' >/dev/null ||
+  fail "dispatch-by-topic does not fix the 話題 columns (状態記号｜話題｜段階｜次) or the numbered 次にあなたがすること"
 topic "$tmp/origin-repo" | jq -e '.hookSpecificOutput.additionalContext | contains("routing-facts") and contains("red") and contains("--agent-cmd")' >/dev/null ||
   fail "dispatch-by-topic does not tell the main chat to run routing-facts and change --agent-cmd at red"
 for w in 'routing-facts' 'ROUTING_FACTS_MAX_AGE' '--effort medium' 'launch.effective'; do
@@ -120,6 +126,12 @@ for w in '`**結論**:`' '`#### 確認結果`' '`#### 話題`' '`#### 次にあ�
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code Reply shape lost \"$w\""
 done
+for w in '状態記号｜話題｜段階｜次' 'never 根拠, 詰まり or others' 'always one of ✅' 'never a table' 'go in 段階 and the blocker in 次'; do
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+    fail "pstack-on-claude-code Reply shape lost \"$w\" (fixed 話題 columns, status emoji, numbered next steps)"
+done
+! grep -qF -- 'unresolved blocker' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  fail "pstack-on-claude-code brings back the outcome / evidence / unresolved blocker status shape"
 for w in 'predates the worktree' 'stays too' 'conclusion first' '(choices, not text)'; do
   grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
     fail "pstack-on-claude-code lost \"$w\" (kept-branch rule or AskUserQuestion rule)"
