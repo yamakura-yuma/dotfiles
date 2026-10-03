@@ -49,13 +49,14 @@ Main chat に従う。
   開く前に `.claude/skills/pstack-on-claude-code/scripts/routing-facts` を流す。`zone` が red のときだけ、
   ユーザーに聞いてから `--agent-cmd "claude --model claude-sonnet-5-5 --effort high --permission-mode plan"` を渡す
 - 既存話題の続き → `orca terminal list --worktree` で話題チャットを引き、`orca terminal send` で届ける
-- 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、outcome / evidence / unresolved blocker
+- 状況確認 → 話題ごとに `worker-list --run <run>` と `orca terminal read` で読み、Reply shape の話題の表（列は「状態記号｜話題｜段階｜次」）で答える。outcome と evidence は「段階」、blocker は「次」の列に入れる
 - 制御（止める・閉じる）→ 同節の該当項目。話題が終わったら話題チャットの worktree を片付ける
 - この main chat が Run を握っているなら、`wait-worker-events` を止めてから引き継ぐ（同節の "Hand over a Run"。`--run` に Run id を渡す）
 - 聞いてよいのは振り分けの 1 問だけ（新しい話題か、どの話題の続きか）。`AskUserQuestion` で聞く。作業の中身の問いは話題チャットに回す
 
 応答は結論を先頭に書き、人に判断を求めるときは AskUserQuestion の選択式で尋ねる。
 結論は `**結論**:` で始め、続けて確認結果の表（確認が無い返信では省く）、話題の表、「次にあなたがすること」（無ければ「なし（待機中）」）の順に置く。
+話題の表の列名は「状態記号｜話題｜段階｜次」に固定し、状態記号（✅🔄⏸⬜❌）は全行に必ず付ける。「次にあなたがすること」は表にせず番号付きリストにする。
 ただし heartbeat だけ・空の待機だけのバックグラウンド通知には何も書かない（相づちも表も無し）。
 詳細は同節の "Reply shape" に従う。
 CTX

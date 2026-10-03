@@ -295,18 +295,20 @@ topics in, and one **topic chat** per topic sees that topic through.
      checks before closing, the points not yet confirmed), each 結果 starting
      with ✅ passed, ⚠️ unconfirmed or ❌ failed. Leave the heading out of a
      reply that checked nothing.
-  3. `#### 話題`: a table of 状態記号｜話題｜段階｜次, every reply, whatever
-     changed (main chat: every topic; topic chat: its own, with its workers
-     as rows). 状態記号 is ✅ done, 🔄 working, ⏸ waiting on human, ⬜ not
+  3. `#### 話題`: a table with exactly the columns 状態記号｜話題｜段階｜次
+     (never 根拠, 詰まり or others), every reply, whatever changed (main chat:
+     every topic; topic chat: its own, with its workers as rows). 状態記号 is
+     always one of ✅ done, 🔄 working, ⏸ waiting on human, ⬜ not
      started or ❌ failed; 段階 is where the whole path stands (done
      criteria, workers, PRs, Issues, then cleanup); 次 is who moves next:
-     あなた, 話題チャット or —. Link every PR and Issue by URL, not by number.
+     あなた, 話題チャット or —, with what blocks it if anything. Link every PR and Issue by URL, not by number.
      Take it from `worker-list` (the projection) and the Task list, never from
      memory. Order: ⏸ needs the human, then changed this reply,
      then 🔄 unchanged. A finished topic stays, as ✅, until it is
      cleaned up; leave it out of the reply after cleanup.
   4. `#### 次にあなたがすること`: only what the human does themself (merge, log
-     in, check locally), as a numbered list; 「なし（待機中）」 when nothing does.
+     in, check locally), as a numbered list, never a table; 「なし（待機中）」
+     when nothing does.
   - Ask the human for a decision with `AskUserQuestion` choices, so they pick
     rather than type, and keep it out of 4. Load it with `ToolSearch`
     (`select:AskUserQuestion`); under the headroom proxy that finds nothing,
@@ -366,9 +368,9 @@ topics in, and one **topic chat** per topic sees that topic through.
   "<message>" --enter`.
 - Control: to stop a topic, `send` the topic chat the instruction; it stops and
   releases its workers. To close a finished topic, see below.
-- Status: one entry per topic, conclusion first, naming outcome, evidence and
-  unresolved blocker; ask the human to decide with `AskUserQuestion` choices
-  ("Reply shape"). Find the topic's Run with `orca orchestration run-list --json`
+- Status: answer in the Reply shape 話題 table, one row per topic, conclusion first;
+  the outcome and evidence go in 段階 and the blocker in 次; ask the human to decide with `AskUserQuestion` choices ("Reply shape"). Find the
+  topic's Run with `orca orchestration run-list --json`
   (its objective starts with the topic), then read `worker-list --run <run_id>
   --json` for the workers and `orca terminal read --terminal <handle>` for
   what the chat is doing. Unbound, `worker-list` without `--run` covers every
