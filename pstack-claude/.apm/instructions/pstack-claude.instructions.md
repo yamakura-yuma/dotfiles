@@ -20,6 +20,11 @@ description: "pstack-claude: response language, where pstack's Cursor names are 
 作業は話題ごとに `chat-<topic>` worktree の話題チャットに渡し、ワーカーはそこから出す
 （`pstack-on-claude-code` の "Supervising Orca workers"）。
 
+## マージ
+
+エージェントは `gh pr merge --admin` を使わない。ワーカーは `gh pr merge` を打たない。
+`--auto` は話題チャットが回収時に A・B にだけ付ける（`pstack-on-claude-code`）。
+
 ## コードを探す
 
 `Read` / `Grep` より先に索引（graphify、codegraph）を引く。使い分けと索引の作り方は
