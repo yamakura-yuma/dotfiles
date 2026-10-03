@@ -178,7 +178,7 @@ def days_since(iso, date):
     return (datetime.date.fromisoformat(date) - datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).date()).days
 
 
-def body(c, repo, name, date, once):
+def body(c, repo, once):
     when = ("手動 1 回の実行で出た（連続日数の条件は外している）" if once
             else f"{c['first_seen']} から連続 {c['streak']} 回の実行で出た")
     where = [f"- リポジトリ: {repo}", f"- 対象のファイル: `{c['target']}`"]
@@ -189,7 +189,7 @@ def body(c, repo, name, date, once):
         "## 完了条件", f"- {c['done_when']}", "- そのリポの CI が通る", "",
         "## 根拠",
         f"- 直近 10 セッションのうち {c['evidence']['sessions']} セッションで{WHAT[c['kind']]}（{c['evidence']['count']} 回）。{when}",
-        f"- 手元のレポート: `~/.claude/worker-reports/nav-retro/{date}/{name}.md`", "",
+        "",
         "提案であって、変えるかどうかは人が決める。", ""])
 
 
@@ -260,7 +260,7 @@ def main():
             if not due:
                 continue
             act = {"repo": repo, "public": digest["public"], "key": c["key"], "streak": c["streak"],
-                   "title": f"[nav] {c['key']}: {c['summary']}", "labels": ["nav-retro"]}
+                   "title": f"[nav] {c['key']}: {c['summary']}"}
             found_issues = None if a.no_lookup else lookup(repo, c["key"])
             opened = [i for i in found_issues or [] if i["state"].upper() == "OPEN"]
             if not a.no_lookup and found_issues is None:
@@ -271,14 +271,13 @@ def main():
                 if days_since(i["updatedAt"], a.date) >= 7 and c["moved"]:
                     act |= {"action": "comment", "comment": (
                         f"{a.date} 時点: 直近 10 セッションのうち {c['evidence']['sessions']} セッションで"
-                        f"{WHAT[c['kind']]}（{c['evidence']['count']} 回）。連続 {c['streak']} 回の実行。\n"
-                        f"手元のレポート: `~/.claude/worker-reports/nav-retro/{a.date}/{name}.md`\n")}
+                        f"{WHAT[c['kind']]}（{c['evidence']['count']} 回）。連続 {c['streak']} 回の実行。\n")}
                 else:
                     act |= {"action": "none", "reason": "an open issue exists and nothing moved in 7 days"}
             else:
                 if found_issues:
                     act["closed_before"] = found_issues[0]["url"]
-                act |= {"action": "create", "body": body(c, repo, name, a.date, a.once)}
+                act |= {"action": "create", "body": body(c, repo, a.once)}
                 if "closed_before" in act:
                     act["body"] += f"以前の Issue（閉じている）: {act['closed_before']}\n"
                 pool.append(((-c["streak"], -c["evidence"]["count"], c["key"]), act))
