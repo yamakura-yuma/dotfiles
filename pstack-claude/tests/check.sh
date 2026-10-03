@@ -356,7 +356,9 @@ cc_expect 1 "a reworded item exited 0" '{"criteria":[{"id":"c1","text":"a","pass
 cc_expect 1 "an empty criteria list exited 0" '{"criteria":[]}' "$cc_pass" '{"criteria":[]}'
 cc_expect 1 "criteria that are not JSON exited 0" 'not json' "$cc_pass"
 cc_expect 1 "a missing criteria file exited 0" - "$cc_pass"
-cc_expect 1 "a missing base copy exited 0" "$cc_all" "$cc_pass" 'not json'
+cc_expect 1 "a base copy that is not JSON exited 0" "$cc_all" "$cc_pass" 'not json'
+cc_run "$cc_all" "$cc_pass" >/dev/null; rm "$ccd/w.criteria.base.json"
+WORKER_REPORTS_DIR="$ccd" "$cc" w 2>/dev/null && fail "check-criteria: a missing base copy exited 0"
 cc_expect 1 "verdict: fail only exited 0" "$cc_all" $'round: 1\nverdict: fail\nrequired:\n- x'
 cc_expect 1 "no verdict line exited 0" "$cc_all" $'implemented it\nall tests pass'
 cc_expect 1 "the reviewer's template line 'verdict: pass | fail' exited 0" "$cc_all" 'verdict: pass | fail'

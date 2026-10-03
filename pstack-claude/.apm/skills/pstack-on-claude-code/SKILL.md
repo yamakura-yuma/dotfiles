@@ -143,10 +143,10 @@ dropped them.
 - Completion criteria as JSON, one item per condition, written to
   `~/.claude/worker-reports/<name>.criteria.json` (next to the report
   `<name>.md`): `{"criteria":[{"id":"c1","text":"<condition>","passes":false}]}`.
-  Write a copy of the same file as `<name>.criteria.base.json`, which the
-  worker is never told to touch. Spec line: "When a criterion holds, set its
+  Write a copy of the same file as `<name>.criteria.base.json`, the topic
+  chat's file. Spec line: "When a criterion holds, set its
   `passes` to true in `<name>.criteria.json`. Edit nothing but `passes`: do not
-  reword, add or delete an item."
+  reword, add or delete an item. Do not touch `<name>.criteria.base.json`."
 - "Write the root cause in the commit message and PR body" (why it broke, not
   what changed)
 - "Add tests, following the repo's existing test layout and style"
