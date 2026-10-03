@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+"""Turn nav-retro's findings into a plan of GitHub issues. Never writes to GitHub.
+
+  nav-candidates --date YYYY-MM-DD --dir DIR [--once] [--no-lookup] [--state FILE]
+                 [--repeat 3] [--max-per-repo 2] [--max-total 3]
+
+DIR holds, per repo, what the earlier steps left: <name>.digest.json (nav-digest) and
+<name>.claude.json (the raw `claude -p --output-format json` of the /nav-retro session).
+For each repo this script
+
+  1. takes the JSON object out of the session's result: {"report": "<markdown>",
+     "candidates": [{kind, target, summary, proposal, done_when, fix_in?}]}, and writes
+     <name>.md and <name>.candidates.json beside it;
+  2. drops a candidate whose kind is not in nav-digest's vocabulary, whose target is not
+     a path the digest saw, that no session in the digest supports (the numbers are
+     counted here from the digest, never taken from the model), or whose free-text
+     fields could leak something (see leak());
+  3. builds the key (nav-digest --key) and counts how many runs in a row reported it;
+  4. keeps those at REPEAT runs or more, looks the key up among the repo's issues
+     (`gh issue list`, read-only; NAV_GH overrides gh) and decides create / comment / none;
+  5. caps new issues per repo and in total, best first.
+
+The plan goes to stdout. Titles and bodies are filled into a fixed template here: the
+model's words reach an issue only through summary, proposal, done_when and fix_in, each
+checked above. Whoever files the plan (DAILY.md) runs `gh issue create` and `gh issue
+comment` with them.
+
+A repo with no new session since the last run is skipped and its streaks stay as they
+were. --once is the manual run: no streak condition, no new-session condition, and the
+state file is not touched.
+
+State, per repo: {"last_run": date, "keys": {key: {first_seen, last_seen, streak,
+evidence}}}. Which issue a key went to is not kept: the title search finds it. A key continues its streak when it was also reported by the run
+before (the last run that looked at this repo, which is not always yesterday: runs skipped
+for usage or for lack of sessions do not break a streak).
+"""
+import argparse
+import datetime
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+
+here = os.path.dirname(os.path.abspath(__file__))
+sys.dont_write_bytecode = True  # loading nav-digest must not leave a __pycache__ in the skill
+loader = importlib.machinery.SourceFileLoader("nav_digest", os.path.join(here, "nav-digest"))
+nd = importlib.util.module_from_spec(importlib.util.spec_from_loader("nav_digest", loader))
+loader.exec_module(nd)
+
+MAX_FIELD = 200
+WHAT = {
+    "slow-search": "最初の編集まで探索が長かった",
+    "reread": "同じファイルを 3 回以上読み直した",
+    "missing-target": "存在しないパスを読もうとした",
+    "stale-doc": "読んだドキュメントが今の中身と食い違った",
+}
+ALIASES = {"yamakura-yuma/temporal-workflow-kit": ["temporal-saga"]}
+LEAKS = [
+    (r"(/home/|/tmp/|/Users/|/root/|~/)", "absolute path"),
+    (r"\b(term|task|ctx|dcap|msg)_[0-9A-Za-z]", "orchestration id"),
+    (r"[\w.+-]+@[\w-]+\.[\w.-]+", "email address"),
+    (r"\b(ghp|gho|ghs|github_pat|sk|xox[abp]|AKIA|AIza)[-_A-Za-z0-9]{10,}", "token"),
+    (r"\b[0-9a-fA-F]{32,}\b|\b[A-Za-z0-9+/=]{40,}\b", "token-like string"),
+]
+
+
+def leak(text, own):
+    """Why `text` must not reach a public issue, or None. `own` is the repo's slug."""
+    if len(text) > MAX_FIELD:
+        return f"longer than {MAX_FIELD} characters"
+    for pat, why in LEAKS:
+        if re.search(pat, text):
+            return why
+    for _, slug, _ in nd.REPOS:
+        if slug == own:
+            continue
+        names = [slug]
+        if not slug.endswith("/coordinator"):  # "coordinator" is also an ordinary word here
+            names += [slug.split("/")[1], *ALIASES.get(slug, [])]
+        for n in names:
+            if re.search(r"(?<![\w-])" + re.escape(n) + r"(?![\w-])", text):
+                return f"another repository's name ({n})"
+    return None
+
+
+def safe_path(p):
+    return (isinstance(p, str) and re.fullmatch(r"[^\s`'\"<>|;&$\\]+", p) is not None and not p.startswith(("/", "~"))
+            and ".." not in p.split("/"))
+
+
+def extract(raw):
+    """The {"report", "candidates"} object in a `claude -p --output-format json` result."""
+    try:
+        o = json.loads(raw)
+        text = o.get("result", "") if isinstance(o, dict) else ""
+        cost = o.get("total_cost_usd") if isinstance(o, dict) else None
+    except ValueError:
+        return None, None
+    a, z = text.find("{"), text.rfind("}")
+    try:
+        found = json.loads(text[a:z + 1]) if a >= 0 else None
+    except ValueError:
+        return None, cost
+    ok = isinstance(found, dict) and isinstance(found.get("report"), str) and isinstance(found.get("candidates"), list)
+    return (found if ok else None), cost
+
+
+def evidence(kind, target, sessions):
+    """(sessions, count) the digest supports for `target`, by what `kind` claims."""
+    field = {"missing-target": "missing_targets", "stale-doc": "docs_read", "reread": "reread_files"}.get(kind)
+    n = c = 0
+    for s in sessions:
+        if field:
+            hits = s[field].get(target, 0)
+        else:  # slow-search: the target is a path searched in or under
+            pools = (s["search_targets"], s["docs_read"], s["reread_files"])
+            hits = sum(v for pool in pools for k, v in pool.items() if k == target or k.startswith(target + "/"))
+            hits = hits if s["search_calls_before_first_edit"] else 0
+        n, c = n + (hits > 0), c + hits
+    return n, c
+
+
+def vet(cands, digest):
+    """-> (kept candidates with their key and evidence, [(what, why)] dropped)."""
+    kept, dropped, seen = [], [], set()
+    for i, c in enumerate(cands):
+        who = f"#{i + 1}"
+        if i >= 3:
+            dropped.append((who, "more than 3 candidates"))
+            continue
+        if not isinstance(c, dict) or c.get("kind") not in nd.KINDS:
+            dropped.append((who, "kind is not in the vocabulary"))
+            continue
+        kind, target = c["kind"], c.get("target")
+        fields = {k: c.get(k) for k in ("summary", "proposal", "done_when")}
+        if c.get("fix_in") is not None:
+            fields["fix_in"] = c["fix_in"]
+        bad = next((k for k, v in fields.items() if not isinstance(v, str) or not v.strip()), None)
+        if bad or not safe_path(target) or (c.get("fix_in") is not None and not safe_path(c["fix_in"])):
+            dropped.append((who, f"missing or malformed field ({bad or 'target/fix_in'})"))
+            continue
+        if not any(t == target or t.startswith(target + "/") for t in digest["targets"]):
+            dropped.append((who, "target is not a path the digest saw"))
+            continue
+        why = next((f"{k}: {w}" for k, v in fields.items() for w in [leak(v, digest["repo"])] if w), None)
+        if why:
+            dropped.append((who, why))
+            continue
+        n, count = evidence(kind, target, digest["sessions"])
+        if not n:
+            dropped.append((who, "no session in the digest supports it"))
+            continue
+        k = nd.key(kind, target)
+        if k in seen:
+            dropped.append((who, f"duplicate of {k}"))
+            continue
+        seen.add(k)
+        kept.append({**{f: c[f] for f in fields}, "kind": kind, "target": target, "key": k,
+                     "evidence": {"sessions": n, "count": count}})
+    return kept, dropped
+
+
+def lookup(repo, key):
+    """Issues whose title carries the key -> list of {number,state,title,url,updatedAt}, or None."""
+    cmd = [os.environ.get("NAV_GH", "gh"), "issue", "list", "-R", repo, "--state", "all", "--search",
+           f'"[nav] {key}" in:title', "--json", "number,state,title,url,updatedAt"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=True).stdout
+        return [i for i in json.loads(out) if i["title"].startswith(f"[nav] {key}:")]
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def days_since(iso, date):
+    return (datetime.date.fromisoformat(date) - datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).date()).days
+
+
+def body(c, repo, name, date, once):
+    when = ("手動 1 回の実行で出た（連続日数の条件は外している）" if once
+            else f"{c['first_seen']} から連続 {c['streak']} 回の実行で出た")
+    where = [f"- リポジトリ: {repo}", f"- 対象のファイル: `{c['target']}`"]
+    if c.get("fix_in"):
+        where.append(f"- 直す場所: `{c['fix_in']}`")
+    return "\n".join([
+        "## 何を", c["proposal"], "", "## どこで", *where, "",
+        "## 完了条件", f"- {c['done_when']}", "- そのリポの CI が通る", "",
+        "## 根拠",
+        f"- 直近 10 セッションのうち {c['evidence']['sessions']} セッションで{WHAT[c['kind']]}（{c['evidence']['count']} 回）。{when}",
+        f"- 手元のレポート: `~/.claude/worker-reports/nav-retro/{date}/{name}.md`", "",
+        "提案であって、変えるかどうかは人が決める。", ""])
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--date", required=True)
+    ap.add_argument("--dir", required=True)
+    ap.add_argument("--once", action="store_true")
+    ap.add_argument("--no-lookup", action="store_true")
+    ap.add_argument("--state", default=os.path.expanduser("~/.claude/worker-reports/nav-retro/state.json"))
+    ap.add_argument("--repeat", type=int, default=3)
+    ap.add_argument("--max-per-repo", type=int, default=2)
+    ap.add_argument("--max-total", type=int, default=3)
+    a = ap.parse_args()
+    datetime.date.fromisoformat(a.date)
+
+    state = json.load(open(a.state)) if os.path.exists(a.state) else {}
+    plan = {"date": a.date, "mode": "once" if a.once else "repeat", "repos": [], "actions": [], "cost_usd": 0.0}
+    pool = []  # creates not capped yet: (rank, action)
+    for fn in sorted(os.listdir(a.dir)):
+        if not fn.endswith(".digest.json"):
+            continue
+        name = fn[:-len(".digest.json")]
+        digest = json.load(open(os.path.join(a.dir, fn)))
+        repo = digest["repo"]
+        info = {"repo": repo, "name": name, "status": "evaluated", "candidates": [], "dropped": []}
+        plan["repos"].append(info)
+        raw_path = os.path.join(a.dir, f"{name}.claude.json")
+        if not a.once and digest["new_sessions"] == 0:
+            info["status"] = "skipped: no new session"
+            continue
+        if not os.path.exists(raw_path):
+            info["status"] = "skipped: no claude result"
+            continue
+        found, cost = extract(open(raw_path).read())
+        plan["cost_usd"] += cost or 0
+        if found is None:
+            info["status"] = "error: result has no {report, candidates} object"
+            continue
+        with open(os.path.join(a.dir, f"{name}.md"), "w") as f:
+            f.write(found["report"])
+        with open(os.path.join(a.dir, f"{name}.candidates.json"), "w") as f:
+            json.dump(found["candidates"], f, ensure_ascii=False, indent=1)
+        kept, info["dropped"] = vet(found["candidates"], digest)
+        rs = state.setdefault(repo, {"last_run": None, "keys": {}})
+        prev_run, old = rs["last_run"], rs["keys"]
+        keys = {}
+        for c in kept:
+            e = old.get(c["key"])
+            if e and e["last_seen"] == a.date:
+                streak, first = e["streak"], e["first_seen"]
+            elif e and prev_run and e["last_seen"] == prev_run:
+                streak, first = e["streak"] + 1, e["first_seen"]
+            else:
+                streak, first = 1, a.date
+            c.update(streak=streak, first_seen=first, moved=bool(e) and e.get("evidence") != c["evidence"])
+            keys[c["key"]] = {"first_seen": first, "last_seen": a.date, "streak": streak,
+                              "evidence": c["evidence"]}
+        for k, e in old.items():  # a run on the same date keeps what an earlier run of that date saw
+            if e["last_seen"] == a.date:
+                keys.setdefault(k, e)
+        if not a.once:
+            rs["last_run"], rs["keys"] = a.date, keys
+        for c in kept:
+            due = a.once or c["streak"] >= a.repeat
+            info["candidates"].append({k: c[k] for k in ("key", "kind", "target", "summary", "evidence", "streak")}
+                                      | {"due": due})
+            if not due:
+                continue
+            act = {"repo": repo, "public": digest["public"], "key": c["key"], "streak": c["streak"],
+                   "title": f"[nav] {c['key']}: {c['summary']}", "labels": ["nav-retro"]}
+            found_issues = None if a.no_lookup else lookup(repo, c["key"])
+            opened = [i for i in found_issues or [] if i["state"].upper() == "OPEN"]
+            if not a.no_lookup and found_issues is None:
+                act |= {"action": "none", "reason": "issue lookup failed; nothing is filed blind"}
+            elif opened:
+                i = opened[0]
+                act["issue"] = i["url"]
+                if days_since(i["updatedAt"], a.date) >= 7 and c["moved"]:
+                    act |= {"action": "comment", "comment": (
+                        f"{a.date} 時点: 直近 10 セッションのうち {c['evidence']['sessions']} セッションで"
+                        f"{WHAT[c['kind']]}（{c['evidence']['count']} 回）。連続 {c['streak']} 回の実行。\n"
+                        f"手元のレポート: `~/.claude/worker-reports/nav-retro/{a.date}/{name}.md`\n")}
+                else:
+                    act |= {"action": "none", "reason": "an open issue exists and nothing moved in 7 days"}
+            else:
+                if found_issues:
+                    act["closed_before"] = found_issues[0]["url"]
+                act |= {"action": "create", "body": body(c, repo, name, a.date, a.once)}
+                if "closed_before" in act:
+                    act["body"] += f"以前の Issue（閉じている）: {act['closed_before']}\n"
+                pool.append(((-c["streak"], -c["evidence"]["count"], c["key"]), act))
+            plan["actions"].append(act)
+
+    per_repo = {}
+    for _, act in sorted(pool, key=lambda t: t[0]):
+        n = per_repo.get(act["repo"], 0)
+        if n >= a.max_per_repo or sum(per_repo.values()) >= a.max_total:
+            act |= {"action": "none", "reason": "over the daily cap; it keeps its streak for tomorrow"}
+            act.pop("body")
+        else:
+            per_repo[act["repo"]] = n + 1
+    if not a.once:
+        os.makedirs(os.path.dirname(os.path.abspath(a.state)), exist_ok=True)
+        tmp = a.state + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(state, f, ensure_ascii=False, indent=1, sort_keys=True)
+        os.replace(tmp, a.state)
+    plan["cost_usd"] = round(plan["cost_usd"], 4)
+    json.dump(plan, sys.stdout, ensure_ascii=False, indent=1)
+    print()
+
+
+if __name__ == "__main__":
+    main()

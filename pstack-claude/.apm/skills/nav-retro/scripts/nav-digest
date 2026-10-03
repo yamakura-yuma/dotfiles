@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""Squeeze the last coding-agent sessions of each repository into a navigation digest.
+
+  nav-digest [--out DIR] [--limit 10] [--new-hours 24] [--now ISO] [--home DIR] [--projects DIR]
+  nav-digest --key <kind> <target>      print the candidate key, e.g. stale-doc-docs-gates-md
+  nav-digest --repo-of <cwd>            print the repo a working directory belongs to, or "-"
+
+No LLM runs here. The digest is what nav-retro's reviewers read instead of the raw
+jsonl (about 1/1900 of its size): for each session, how many searches ran before the
+first edit, which files were read again and again, which paths did not exist, which
+.md files were read. Without --out, one JSON for every repo goes to stdout; with --out,
+<DIR>/<repo>.digest.json is written per repo and stdout is a one-line-per-repo summary.
+
+A session belongs to a repo by the `cwd` its jsonl records, matched against REPOS below:
+the repo root itself, anything under it, or a worktree next to it (`<root>-<name>`, the
+shape Orca gives worktrees; the directory name under ~/.claude/projects cannot be used
+because `-` is both separator and part of a name). Sessions elsewhere (~, /tmp) belong to
+no repo and are dropped. Sessions that an automation of ours started (nav-retro, insights,
+triage, telemetry) are dropped too, or the retro would read itself.
+
+Paths are made relative to the session's own worktree. A path outside the repo is only
+counted (outside_repo) and blanked in shell commands, so that a repo's digest does not carry
+another repo's file names. The first prompt (60 characters) is kept as is, for the reviewers
+to see what the session was for; it stays local like the rest of the digest.
+"""
+import argparse
+import collections
+import datetime
+import json
+import os
+import re
+import sys
+
+# (path under $HOME, GitHub slug, public). A private repo's findings go to that repo only.
+REPOS = [
+    ("dotfiles", "yamakura-yuma/dotfiles", True),
+    ("knowledge-base", "yamakura-yuma/knowledge-base", True),
+    ("k8s-workspace/home-k8s", "yamakura-yuma/home-k8s", True),
+    ("k8s-workspace/temporal-saga", "yamakura-yuma/temporal-workflow-kit", True),
+    ("coordinator", "yamakura-yuma/coordinator", False),
+]
+KINDS = ("slow-search", "reread", "missing-target", "stale-doc")
+
+SEARCH = {"Grep", "Glob", "Read", "LS", "ToolSearch", "mcp__codegraph__codegraph_explore"}
+EDIT = {"Edit", "Write", "NotebookEdit"}
+BASH_SEARCH = re.compile(r"\b(grep|rg|find|ls|cat|sed -n|head|tail|graphify|codegraph)\b")
+BASH_INDEX = re.compile(r"\b(graphify|codegraph)\b")
+MISSING = re.compile(r"No such file|does not exist|ENOENT")
+# An automation of ours: Orca names its worktree auto-<name>-run-<n>-<time>, and its prompt
+# points at the procedure file.
+OWN_DIR = re.compile(r"-auto-(nav-retro|insights|pr-issue-triage|telemetry-daily)[a-z0-9-]*-run-\d+-\d{8}T\d{4}")
+OWN_PROMPT = re.compile(r"(TRIAGE_PROMPT|UPDATE_PROMPT|DAILY)\.md を読み")
+
+
+def key(kind, target):
+    """<kind>-<slug of target>: lowercase, every run of other characters one '-', 40 characters."""
+    slug = re.sub(r"[^a-z0-9]+", "-", target.lower()).strip("-")[:40].strip("-")
+    return f"{kind}-{slug}"
+
+
+def repo_of(cwd, home):
+    """-> (slug, public, worktree root) or None."""
+    for rel, slug, public in REPOS:
+        root = os.path.join(home, rel)
+        if cwd == root or cwd.startswith(root + "/"):
+            return slug, public, root
+        if cwd.startswith(root + "-"):
+            return slug, public, root + cwd[len(root):].split("/")[0]
+    return None
+
+
+def records(path):
+    with open(path, errors="replace") as f:
+        for line in f:
+            try:
+                yield json.loads(line)
+            except ValueError:
+                pass
+
+
+def text_of(content):
+    if isinstance(content, str):
+        return content
+    return " ".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+
+
+def head(path):
+    """The first cwd and the first user prompt: all that selecting a session needs."""
+    cwd = prompt = None
+    for o in records(path):
+        cwd = cwd or o.get("cwd")
+        m = o.get("message")
+        if prompt is None and o.get("type") == "user" and isinstance(m, dict):
+            prompt = text_of(m.get("content", "")).strip() or None
+        if cwd and prompt:
+            break
+    return cwd, prompt or ""
+
+
+def last_at(path):
+    """Newest `timestamp` in the file (the order must not depend on file mtimes)."""
+    best = ""
+    for o in records(path):
+        best = max(best, o.get("timestamp") or "")
+    return best or datetime.datetime.fromtimestamp(os.path.getmtime(path), datetime.timezone.utc).isoformat()
+
+
+def parse_time(s):
+    return datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+def digest(path, root):
+    calls = []  # [tool, repo-relative path or None, error, label for the search sequence]
+    errors = collections.Counter()
+    pending = {}
+    first = None
+    first_edit = None
+    outside = 0
+
+    def rel(p):
+        nonlocal outside
+        if not p:
+            return None
+        if p.startswith(root + "/"):
+            return p[len(root) + 1:]
+        if p.startswith(("/", "~")):
+            outside += 1
+            return None
+        return p
+
+    def scrub(text):
+        """A command or pattern with every path outside the repo blanked."""
+        return re.sub(r"(?<![\w.-])[~/][^\s'\"]*",
+                      lambda m: m.group(0)[len(root) + 1:] if m.group(0).startswith(root + "/")
+                      else "." if m.group(0) == root else "<outside>", text)
+
+    for o in records(path):
+        m = o.get("message")
+        if not isinstance(m, dict) or not isinstance(m.get("content"), (list, str)):
+            continue
+        c = m["content"]
+        if o.get("type") == "user" and first is None:
+            first = text_of(c).strip()[:60] or None
+        if isinstance(c, str):
+            continue
+        for b in c:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "tool_use":
+                name, inp = b.get("name", ""), b.get("input") or {}
+                path_in = inp.get("file_path") or inp.get("path") or ""
+                tgt = rel(path_in) if name in {"Read", "LS", "Grep", "Glob"} | EDIT else None
+                label = tgt or ""
+                if name in EDIT and first_edit is None and tgt is not None:
+                    first_edit = len(calls)
+                if name == "Bash":
+                    cmd = inp.get("command", "")
+                    label = scrub(cmd)[:80]
+                    if BASH_SEARCH.search(cmd):
+                        name = "Bash:index" if BASH_INDEX.search(cmd) else "Bash:search"
+                    else:
+                        label = label.split()[0] if label.split() else ""
+                elif name in ("Grep", "Glob"):
+                    label = scrub(inp.get("pattern") or "")[:60] + (f" @ {tgt}" if tgt else "")
+                elif name == "mcp__codegraph__codegraph_explore":
+                    label = scrub(inp.get("query") or "")[:80]
+                calls.append([name, tgt, False, label])
+                pending[b.get("id")] = len(calls) - 1
+            elif b.get("type") == "tool_result" and b.get("tool_use_id") in pending:
+                k = pending[b["tool_use_id"]]
+                txt = json.dumps(b.get("content"), ensure_ascii=False)[:300]
+                if b.get("is_error") or MISSING.search(txt):
+                    calls[k][2] = True
+                    errors[calls[k][0]] += 1
+
+    pre = calls[:first_edit] if first_edit is not None else calls
+    is_search = lambda n: n in SEARCH or n in ("Bash:search", "Bash:index")
+    reads = collections.Counter(t for n, t, e, _ in calls if n == "Read" and t and not e)
+    searched = collections.Counter(t for n, t, _, _ in pre if n in ("Grep", "Glob", "LS") and t)
+    top = lambda counter, n=20: dict(sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:n])
+    return {
+        "session": os.path.basename(path)[:8],
+        "last_at": last_at(path),
+        "first_prompt": first or "",
+        "tool_calls": len(calls),
+        "search_calls_before_first_edit": sum(1 for n, *_ in pre if is_search(n)),
+        "index_calls": sum(1 for n, *_ in calls if n in ("Bash:index", "mcp__codegraph__codegraph_explore")),
+        "first_edit_at": first_edit,
+        "errors": dict(errors),
+        "reread_files": {k: v for k, v in top(reads).items() if v >= 3},
+        "missing_targets": top(collections.Counter(t for n, t, e, _ in calls if n in ("Read", "LS") and e and t), 15),
+        "docs_read": top(collections.Counter({k: v for k, v in reads.items() if k.endswith(".md")})),
+        "search_targets": top(searched),
+        "outside_repo": outside,
+        "search_seq_head": [f"{n} {lab}".strip() for n, _, _, lab in pre if is_search(n)][:25],
+    }
+
+
+def build(args):
+    home = args.home
+    now = parse_time(args.now) if args.now else datetime.datetime.now(datetime.timezone.utc)
+    by_repo = collections.defaultdict(list)  # slug -> [(last_at, path, root)]
+    for d in sorted(os.listdir(args.projects)) if os.path.isdir(args.projects) else []:
+        if OWN_DIR.search(d):
+            continue
+        for f in sorted(os.listdir(os.path.join(args.projects, d))):
+            if not f.endswith(".jsonl"):
+                continue
+            path = os.path.join(args.projects, d, f)
+            cwd, prompt = head(path)
+            hit = repo_of(cwd, home) if cwd else None
+            if hit is None or OWN_PROMPT.search(prompt[:400]) or OWN_DIR.search(cwd):
+                continue
+            by_repo[hit[0]].append((last_at(path), path, hit[2]))
+    out = []
+    for rel, slug, public in REPOS:
+        picked = sorted(by_repo.get(slug, []), key=lambda t: (t[0], t[1]), reverse=True)[:args.limit]
+        sessions = [digest(p, root) for _, p, root in picked]
+        fresh = sum(1 for s in sessions if now - parse_time(s["last_at"]) <= datetime.timedelta(hours=args.new_hours))
+        targets = sorted({t for s in sessions for k in ("reread_files", "missing_targets", "docs_read", "search_targets")
+                          for t in s[k]})
+        out.append({"repo": slug, "public": public, "root": os.path.join(home, rel), "generated": now.isoformat(),
+                    "new_sessions": fresh, "sessions": sessions, "targets": targets})
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--out")
+    ap.add_argument("--limit", type=int, default=10)
+    ap.add_argument("--new-hours", type=float, default=24)
+    ap.add_argument("--now")
+    ap.add_argument("--home", default=os.path.expanduser("~"))
+    ap.add_argument("--projects")
+    ap.add_argument("--key", nargs=2, metavar=("KIND", "TARGET"))
+    ap.add_argument("--repo-of", metavar="CWD")
+    args = ap.parse_args()
+    args.projects = args.projects or os.path.join(args.home, ".claude", "projects")
+    if args.key:
+        if args.key[0] not in KINDS:
+            sys.exit(f"nav-digest: kind must be one of {', '.join(KINDS)}")
+        print(key(*args.key))
+    elif args.repo_of:
+        hit = repo_of(args.repo_of, args.home)
+        print(hit[0] if hit else "-")
+    elif args.out:
+        os.makedirs(args.out, exist_ok=True)
+        for d in build(args):
+            name = d["repo"].split("/")[1]
+            with open(os.path.join(args.out, f"{name}.digest.json"), "w") as f:
+                json.dump(d, f, ensure_ascii=False, separators=(",", ":"))
+            print(json.dumps({"repo": d["repo"], "name": name, "public": d["public"], "sessions": len(d["sessions"]),
+                              "new_sessions": d["new_sessions"]}, ensure_ascii=False))
+    else:
+        json.dump(build(args), sys.stdout, ensure_ascii=False, separators=(",", ":"))
+        print()
+
+
+if __name__ == "__main__":
+    main()

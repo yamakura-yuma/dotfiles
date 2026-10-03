@@ -1,0 +1,153 @@
+[
+  {
+    "generated": "2026-10-03T10:00:00+00:00",
+    "new_sessions": 1,
+    "public": true,
+    "repo": "yamakura-yuma/dotfiles",
+    "root": "/home/t/dotfiles",
+    "sessions": [
+      {
+        "docs_read": {
+          "docs/gates.md": 3
+        },
+        "errors": {
+          "Read": 1
+        },
+        "first_edit_at": 11,
+        "first_prompt": "make the gates doc match the workflow",
+        "index_calls": 1,
+        "last_at": "2026-10-03T08:00:25Z",
+        "missing_targets": {
+          "docs/missing.md": 1
+        },
+        "outside_repo": 1,
+        "reread_files": {
+          "docs/gates.md": 3
+        },
+        "search_calls_before_first_edit": 10,
+        "search_seq_head": [
+          "Grep gate",
+          "Grep just ci @ docs",
+          "Read docs/gates.md",
+          "Read docs/gates.md",
+          "Read docs/gates.md",
+          "Read docs/missing.md",
+          "Bash:search grep -rn gate .github",
+          "Bash:index graphify query \"where is the gate\"",
+          "Read",
+          "Bash:search grep -rn nav <outside> docs"
+        ],
+        "search_targets": {
+          "docs": 1
+        },
+        "session": "aaaa1111",
+        "tool_calls": 13
+      },
+      {
+        "docs_read": {
+          "docs/gates.md": 1
+        },
+        "errors": {
+          "Read": 1
+        },
+        "first_edit_at": 2,
+        "first_prompt": "fix the nav docs",
+        "index_calls": 0,
+        "last_at": "2026-10-01T12:00:07Z",
+        "missing_targets": {
+          "docs/missing.md": 1
+        },
+        "outside_repo": 0,
+        "reread_files": {},
+        "search_calls_before_first_edit": 2,
+        "search_seq_head": [
+          "Read docs/gates.md",
+          "Read docs/missing.md"
+        ],
+        "search_targets": {},
+        "session": "bbbb2222",
+        "tool_calls": 3
+      },
+      {
+        "docs_read": {},
+        "errors": {},
+        "first_edit_at": 0,
+        "first_prompt": "an old session",
+        "index_calls": 0,
+        "last_at": "2026-09-20T10:00:03Z",
+        "missing_targets": {},
+        "outside_repo": 0,
+        "reread_files": {},
+        "search_calls_before_first_edit": 0,
+        "search_seq_head": [],
+        "search_targets": {},
+        "session": "gggg7777",
+        "tool_calls": 1
+      }
+    ],
+    "targets": [
+      "docs",
+      "docs/gates.md",
+      "docs/missing.md"
+    ]
+  },
+  {
+    "generated": "2026-10-03T10:00:00+00:00",
+    "new_sessions": 0,
+    "public": true,
+    "repo": "yamakura-yuma/knowledge-base",
+    "root": "/home/t/knowledge-base",
+    "sessions": [],
+    "targets": []
+  },
+  {
+    "generated": "2026-10-03T10:00:00+00:00",
+    "new_sessions": 0,
+    "public": true,
+    "repo": "yamakura-yuma/home-k8s",
+    "root": "/home/t/k8s-workspace/home-k8s",
+    "sessions": [],
+    "targets": []
+  },
+  {
+    "generated": "2026-10-03T10:00:00+00:00",
+    "new_sessions": 0,
+    "public": true,
+    "repo": "yamakura-yuma/temporal-workflow-kit",
+    "root": "/home/t/k8s-workspace/temporal-saga",
+    "sessions": [],
+    "targets": []
+  },
+  {
+    "generated": "2026-10-03T10:00:00+00:00",
+    "new_sessions": 1,
+    "public": false,
+    "repo": "yamakura-yuma/coordinator",
+    "root": "/home/t/coordinator",
+    "sessions": [
+      {
+        "docs_read": {
+          "docs/private.md": 1
+        },
+        "errors": {},
+        "first_edit_at": 1,
+        "first_prompt": "private work",
+        "index_calls": 0,
+        "last_at": "2026-10-03T09:00:05Z",
+        "missing_targets": {},
+        "outside_repo": 0,
+        "reread_files": {},
+        "search_calls_before_first_edit": 1,
+        "search_seq_head": [
+          "Read docs/private.md"
+        ],
+        "search_targets": {},
+        "session": "eeee5555",
+        "tool_calls": 2
+      }
+    ],
+    "targets": [
+      "docs/private.md"
+    ]
+  }
+]
