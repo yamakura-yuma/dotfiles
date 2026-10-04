@@ -564,6 +564,64 @@ rf_run none | jq -e '.source == "none" and .age_s == null and .zone == "unknown"
   fail "routing-facts did not report source none and zone unknown with no usage anywhere"
 [ -s "$tmp/rf.err" ] && fail "routing-facts wrote to stderr in a normal run: $(cat "$tmp/rf.err")"
 
+# worker-limits: the numbers the topic chat writes into <name>.limits.json. The
+# expected values are the design worker's table (worker-limits-measure.md): a base
+# per role times a factor per zone, usd to two decimals, the rest whole numbers.
+wl="$pkg/.apm/skills/pstack-on-claude-code/scripts/worker-limits"
+[ -x "$wl" ] || fail "worker-limits is not executable"
+bash -n "$wl" || fail "worker-limits does not parse"
+grep -q 'curl\|wget' "$wl" && fail "worker-limits calls the network (curl or wget)"
+while read -r role zone usd minutes calls; do
+  want="{\"zone\":\"$zone\",\"usd\":$usd,\"minutes\":$minutes,\"tool_calls\":$calls}"
+  [ "$("$wl" "$role" --zone "$zone" 2>/dev/null)" = "$want" ] || fail "worker-limits $role --zone $zone: want $want, got $("$wl" "$role" --zone "$zone" 2>&1)"
+done <<'TABLE'
+design         green   25    60  200
+design         yellow  25    60  200
+design         orange  12.5  30  100
+design         red     6.25  15  50
+design         unknown 12.5  30  100
+implementation green   15    90  300
+implementation yellow  15    90  300
+implementation orange  7.5   45  150
+implementation red     3.75  23  75
+implementation unknown 7.5   45  150
+light          green   5     30  80
+light          yellow  5     30  80
+light          orange  2.5   15  40
+light          red     1.25  8   20
+light          unknown 2.5   15  40
+TABLE
+for bad in "" "bogus" "design --zone" "design --zone purple" "design implementation" "--zone red"; do
+  # shellcheck disable=SC2086
+  "$wl" $bad >/dev/null 2>&1
+  [ $? -eq 2 ] || fail "worker-limits '$bad' did not exit 2"
+done
+# With no --zone it asks routing-facts, the one script next to it; a reading it
+# cannot get is the zone routing-facts calls unknown.
+mkdir -p "$tmp/wl"
+cp "$wl" "$tmp/wl/worker-limits"
+wl_zone() {
+  printf '#!/bin/sh\n%s\n' "$1" >"$tmp/wl/routing-facts"
+  chmod +x "$tmp/wl/routing-facts"
+  "$tmp/wl/worker-limits" implementation 2>/dev/null | jq -r '.zone + " " + (.usd | tostring)'
+}
+[ "$(wl_zone "echo '{\"zone\":\"red\"}'")" = "red 3.75" ] || fail "worker-limits did not take the zone from routing-facts"
+[ "$(wl_zone "echo '{\"zone\":\"orange\"}'")" = "orange 7.5" ] || fail "worker-limits did not scale for orange"
+[ "$(wl_zone "echo 'not json'")" = "unknown 7.5" ] || fail "worker-limits did not fall back to unknown on garbage from routing-facts"
+[ "$(wl_zone "exit 1")" = "unknown 7.5" ] || fail "worker-limits did not fall back to unknown when routing-facts fails"
+[ "$(wl_zone "echo '{\"zone\":\"purple\"}'")" = "unknown 7.5" ] || fail "worker-limits trusted a zone that is not one"
+# What it prints is what the hook reads: no other keys, every number positive.
+"$wl" light --zone red | jq -e 'keys == ["minutes","tool_calls","usd","zone"] and .usd > 0 and .minutes > 0 and .tool_calls > 0' >/dev/null ||
+  fail "worker-limits output is not the limits file shape"
+grep -qF -- 'worker-limits' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" "$sow" || fail "pstack-on-claude-code does not mention worker-limits"
+# The procedure and the spec line: the topic chat writes the file before worker-start, and every
+# worker is told not to work around a stop.
+grep -qF -- 'If you are stopped with `limit' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" ||
+  fail "pstack-on-claude-code/SKILL.md lost the spec line for a worker stopped by a limit"
+for w in 'before `worker-start`' '.limits.json' 'limit …` escalation' 'Raise them only when'; do
+  grep -qF -- "$w" "$sow" || fail "supervising-orca-workers.md lost \"$w\" (writing the limits, handling the escalation)"
+done
+
 # The text the chats read names the script, and the main chat is told to stay silent on heartbeats.
 for f in .apm/skills/pstack-on-claude-code/supervising-orca-workers.md .apm/skills/pstack-on-claude-code/scripts/open-topic-chat .apm/hooks/scripts/dispatch-by-topic.sh; do
   grep -q wait-worker-events "$pkg/$f" || fail "$f does not point at wait-worker-events"

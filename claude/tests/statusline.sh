@@ -134,7 +134,29 @@ cat >"$tmp/empty.json" <<<'{}'
 out=$(run "$tmp/empty.json" "$(base_payload 'null')")
 expect "config without a usage snapshot" "?%" "$out"
 
-# --- 7. No network, ever -----------------------------------------------------
+# --- 7. Cost snapshot for the worker-limit hook ------------------------------
+# A hook's input has neither the session's cost nor its duration, so the status
+# line leaves them in <session_id>.cost. A payload without them leaves nothing:
+# a missing cost must not read as "free".
+state="$tmp/home/.claude/statusline-state"
+cost_payload() {
+  cat <<EOF
+{"model":{"display_name":"Opus 5"},"workspace":{"current_dir":"$tmp"},
+ "context_window":{"used_percentage":40},"session_id":"$1",
+ "cost":{"total_cost_usd":0.0241403,"total_duration_ms":12888},"rate_limits":null}
+EOF
+}
+run "$tmp/empty.json" "$(cost_payload with-cost)" >/dev/null
+[ "$(cat "$state/with-cost.cost" 2>/dev/null)" = "0.0241403 12888" ] ||
+  fail "cost snapshot: expected '0.0241403 12888' in with-cost.cost, got: $(cat "$state/with-cost.cost" 2>/dev/null)"
+cost_payload with-cost | sed 's/0\.0241403/0.5/; s/12888/99000/' >"$tmp/cost2.json"
+run "$tmp/empty.json" "$(cat "$tmp/cost2.json")" >/dev/null
+[ "$(cat "$state/with-cost.cost" 2>/dev/null)" = "0.5 99000" ] || fail "cost snapshot: not replaced by the next redraw"
+[ -z "$(ls "$state" | grep -F '.cost.')" ] || fail "cost snapshot: left a temp file behind: $(ls "$state")"
+run "$tmp/empty.json" "$(base_payload 'null')" >/dev/null
+[ -e "$state/test.cost" ] && fail "cost snapshot: wrote a .cost file for a payload with no cost"
+
+# --- 8. No network, ever -----------------------------------------------------
 # The whole point of the fallback is that the numbers come off local disk. A
 # future edit reaching for the API would be a regression, so shadow every way
 # out of the box with a stub that fails, and require the output to be unchanged.
@@ -147,6 +169,9 @@ done
 out=$(PATH="$tmp/bin:$PATH" run "$tmp/max.json" "$(base_payload 'null')")
 expect "works with no network tools available" "29%" "$out"
 expect "works with no network tools available" "8%" "$out"
+rm -f "$state/with-cost.cost"
+PATH="$tmp/bin:$PATH" run "$tmp/max.json" "$(cost_payload with-cost)" >/dev/null
+[ -s "$state/with-cost.cost" ] || fail "cost snapshot: not written when every network tool is shadowed"
 
 # And statically, because a stub only catches what the test happens to trigger.
 # Comments are stripped first: the script explains in prose why it makes no

@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit
 
 lint-shell:
 	@echo "== shell syntax"
@@ -101,6 +101,12 @@ test-harness:
 test-worker-deny:
 	@echo "== worker deny"
 	@./core-principal/tests/worker-deny.sh
+
+# worker-limit hook: no limits file means no opinion; money, minutes and tool calls
+# each stop the worker; the escalation goes out once. Against a stub orca.
+test-worker-limit:
+	@echo "== worker limit"
+	@./core-principal/tests/worker-limit.sh
 
 test-pstack-claude:
 	@echo "== pstack-claude"

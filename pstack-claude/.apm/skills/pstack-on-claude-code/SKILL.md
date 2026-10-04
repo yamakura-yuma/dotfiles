@@ -14,7 +14,7 @@ The user's own preferences on top of poteto-mode are the `p-mode` skill.
 
 | Section | File |
 |---|---|
-| Tools, Skills and services, Models (launch table, usage zone, advisor, review before the PR), Worker permissions, Paths, Who runs parallel work | This file |
+| Tools, Skills and services, Models (launch table, usage zone, limits, advisor, review before the PR), Worker permissions, Paths, Who runs parallel work | This file |
 | Supervising Orca workers: the main chat / topic chat split, Reply shape | [`supervising-orca-workers.md`](supervising-orca-workers.md) |
 | Main chat: open a topic chat, status, close a finished topic | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Main chat" |
 | Topic chat: run an Issue, dispatch, wait, hand a finished topic to the main chat | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Topic chat" |
@@ -134,6 +134,21 @@ never the network. A reading older than `ROUTING_FACTS_MAX_AGE` seconds (default
 Claude on API-key billing has no usage numbers, which is not the same as being
 signed out.
 
+**Every worker has limits, and the topic chat writes them before `worker-start`.**
+An interactive worker has no budget or turn flag: `--max-budget-usd` and
+`--max-turns` are print-mode only (CLI reference; measured on a TUI session,
+where both were ignored), and `worker-start --timeout-ms` is the launch wait, not
+the work. What stops one is the `worker-limit` hook in `core-principal`. It reads
+`~/.claude/worker-reports/<name>.limits.json`
+(`{"zone","usd","minutes","tool_calls"}`) and, when money, wall-clock time or tool
+calls pass it, sends an `escalation` and stops the session. No file, no limit.
+`.claude/skills/pstack-on-claude-code/scripts/worker-limits <role>` prints that
+JSON (`<role>` is `design`, `implementation` or `light`, the rows of the launch
+table). It takes `zone` from `routing-facts` and scales a base per role: x1 at
+green and yellow, x0.5 at orange and unknown, x0.25 at red. The bases are in its
+header. How the topic chat writes the file and what it does with the escalation:
+"Topic chat" in [`supervising-orca-workers.md`](supervising-orca-workers.md).
+
 **Keep live-state work off implementation workers.** Shell profiles,
 clusters, systemd, `~/.claude/settings.json`: anything hard to undo is a design
 worker's job, on Opus. If it must go to Sonnet, the spec names the verification
@@ -148,6 +163,13 @@ keeps the human's view current without a notification:
   --worktree active --comment "<one-line status>" --json` (no notification).
   Do not report a failure of this command. Before `worker_done`, add
   `--workspace-status in-review`."
+
+**Every worker's spec carries this line too.** The `worker-limit` hook has no
+way to make a worker stand down; the line does:
+
+- "If you are stopped with `limit …`, do not work around it: the `worker-limit`
+  hook has sent the escalation (if the refusal says it could not, send one with
+  `orca orchestration send --type escalation`). Then wait for the coordinator."
 
 **An implementation worker's spec adds these lines.** Sonnet alone on #19
 dropped them.
