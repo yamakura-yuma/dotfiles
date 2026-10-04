@@ -172,6 +172,9 @@ jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | endswith("/scripts/dispatch
 grep -q '^    apm install$' "$repo/orca.yaml" || fail "orca.yaml setup does not run apm install"
 grep -q '^setupAgentStartupPolicy: wait-for-setup$' "$repo/orca.yaml" ||
   fail "orca.yaml does not make the agent wait for setup"
+# apm install rewrites apm.lock.yaml; left uncommitted it stops `orca worktree rm`.
+[ "$(grep -n -A1 '^    apm install$' "$repo/orca.yaml" | tail -1 | cut -d- -f2-)" = '    git checkout -- apm.lock.yaml' ] ||
+  fail "orca.yaml setup does not restore apm.lock.yaml right after apm install"
 
 # open-topic-chat, against stub orca and apm: nothing real is created. The orca
 # stub answers with the JSON shapes `orca ... --json` returns, logs each call,
