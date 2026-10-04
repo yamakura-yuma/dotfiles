@@ -97,7 +97,7 @@ dependencies:
 Orca が作る worktree には、ルートの `orca.yaml` の `setup` が `apm install` を走らせて
 展開します（`setupAgentStartupPolicy: wait-for-setup` で、終わるまでエージェントは
 起動しません）。このリポジトリの `orca.yaml` はローカルパスの `./core-principal` をそのまま
-入れるだけです。使う側のリポジトリも同じ `orca.yaml` を置きます。
+入れ、`apm install` が作り直した `apm.lock.yaml` は `git checkout` で戻します。使う側のリポジトリも同じ `orca.yaml` を置きます。
 
 ```yaml
 scripts:
