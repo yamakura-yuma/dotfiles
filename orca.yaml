@@ -1,5 +1,10 @@
 # core-principal はローカルパス（./core-principal）なので、この worktree の版がそのまま入る。
+# deny は worktree の .claude/settings.local.json に置く。apm は hook ファイルに書いた
+# permissions を捨てるので、apm が運んだ正本（core-principal の lib/worker-deny.settings.json）
+# を setup で複写する。ワーカーは bypass で起動するが、deny は bypass でも効く。
+# worktree の .claude/ は setup が毎回作り直すもので、複写は既存の settings.local.json を上書きする。
 scripts:
   setup: |
     apm install
+    cp .claude/hooks/core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json .claude/settings.local.json
 setupAgentStartupPolicy: wait-for-setup

@@ -41,6 +41,7 @@ Orca publishes its own skills.
 | `/retro` command | Runs `core-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `~/.claude/worker-reports/<worktree-name>.md`" instruction. |
 | `/workers` command | Formats `worktree ps` and the `worker-list` projection -- attention categories and the literal `nextAction` -- into one table. Completion is polled here rather than waited on, so this is also the recovery entry point. |
+| `lib/worker-deny.settings.json` | The one copy of the `permissions.deny` every worker worktree gets: secrets (`~/.ssh`, `~/.claude/.credentials.json`) and the human's environment (`~/.bashrc`, `~/.claude/settings.json`). Workers start in bypass mode and deny still holds. apm drops `permissions` from a hook file but ships the file, so a consuming repo's `orca.yaml` setup must `cp .claude/hooks/core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json .claude/settings.local.json` after `apm install`. |
 
 ### Skills pulled in from elsewhere
 
