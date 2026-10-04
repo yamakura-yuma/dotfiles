@@ -811,7 +811,7 @@ for w in 'nav-digest --out' '--no-session-persistence' '--model claude-sonnet-5-
   'nav-candidates --date $D --dir $OUT --once' 'gh issue create' 'routing-facts' '手動 1 回' 'subagent_stats'; do
   grep -qF -- "$w" "$nr/DAILY.md" || fail "nav-retro/DAILY.md lost \"$w\""
 done
-# Agent is a deferred tool: without ToolSearch allowed the session may never load it and the reviewers do not split
+# The flags of the run where the reviewers did split (2026-10-05). Whether ToolSearch is what makes them split is a hypothesis (DAILY.md).
 grep -E -- '--allowedTools "' "$nr/DAILY.md" | grep -qE '\bAgent\b.*\bToolSearch\b' ||
   fail "nav-retro/DAILY.md does not allow ToolSearch next to Agent, so the session may never load Agent"
 # the reviewers need Bash (ls) to check paths; denying Bash outright would beat the allow
