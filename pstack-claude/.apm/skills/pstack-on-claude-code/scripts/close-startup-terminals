@@ -23,9 +23,8 @@
 # terminal is then a shell at a prompt after the setup command, so `$?` there
 # is the setup's exit code, and it is asked for once (`echo $?`). A last line
 # that merely looks like a prompt (`Downloading 45%`, `-> installed`) is not
-# enough: the shell's prompt is what the terminal showed in front of the setup
-# command Orca typed (`❯ apm install`), so the setup is finished only when the
-# last line is that same prompt again, bare. Nothing is typed until then.
+# enough: the setup is finished only when the terminal is back at the prompt it
+# showed before the setup began (setup_at_prompt). Nothing is typed until then.
 # Prints `closed: <handle> (<what>)` and `left: <handle> (<why>)`, one per line.
 set -euo pipefail
 
@@ -74,20 +73,28 @@ at_prompt() {
   [ "$a" = "$b" ] && printf '%s' "$b" | tail -n 1 | grep -qE "$prompt_re"
 }
 
-# Whether the last non-blank line of the lines (a JSON array) is a prompt the
-# terminal showed before: some earlier line is that line followed by typed text,
-# which is how the setup command appears. Output that stopped mid-run has no
-# such earlier line.
-returned_to_prompt() {
-  printf '%s' "$1" | jq -e '
-    [.[] | sub("\\s+$"; "") | select(length > 0)] as $l
-    | ($l | last // "") as $p
-    | ($p | length) > 0 and ([$l[:-1][] | select(startswith($p + " "))] | length) > 0' >/dev/null
-}
+# The setup is finished when the terminal is back at the prompt it showed before
+# the setup began, learned from the head of its output (read from cursor 0). In a
+# real Setup terminal the head is the command Orca typed, then the prompt drawn
+# once (a line of `user in dir on branch`, then `❯ <command>` or just `❯`), then
+# the setup's output. So the last line is the prompt when it, or the line above it
+# (the prompt's first line, which gains ` took 26s` after a slow command), also
+# opens one of the first lines after the command; progress output that merely ends
+# in `%` or `>` has no such twin. Output with no head to read (rotated out), or
+# shorter than the head, is not finished yet.
 setup_at_prompt() {
-  local screen
-  screen="$(orca_json terminal read --terminal "$1" --screen | jq -c '.result.terminal.tail')" || return 1
-  returned_to_prompt "$screen" || returned_to_prompt "$(tail_of "$1")"
+  local head tail
+  head="$(orca_json terminal read --terminal "$1" --cursor 0 --limit 5000)" || return 1
+  [ "$(printf '%s' "$head" | jq -r '.result.terminal.oldestCursor')" = 0 ] || return 1
+  tail="$(tail_of "$1")" || return 1
+  jq -en --argjson h "$(printf '%s' "$head" | jq -c '.result.terminal.tail')" --argjson t "$tail" '
+    def lines: [.[] | sub("\\s+$"; "") | select(length > 0)];
+    ($h | lines) as $H | ($t | lines) as $T
+    | ($T | last // "") as $last | ($T[-2] // "") as $above | $H[1:4] as $head
+    | ($H | length) > 8 and (
+        any($head[]; . == $last or startswith($last + " "))
+        or any($head[] as $e | ($e | length) >= 20 and ($above == $e or ($above | startswith($e + " ")));
+               .))' >/dev/null
 }
 
 # Sets `code` to the setup's exit code, or leaves it empty while it is not known yet.

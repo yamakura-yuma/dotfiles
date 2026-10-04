@@ -181,8 +181,9 @@ grep -q '^setupAgentStartupPolicy: wait-for-setup$' "$repo/orca.yaml" ||
 # shells the new worktree opened with and STUB_PROMPT what their last line is;
 # STUB_SETUP sets the `Setup` terminal: marker-ok / marker-fail (Orca's
 # __ORCA_SETUP_COMPLETE__ line with exit code 0 / 3), probe-ok / probe-fail (a
-# bare shell at a prompt that answers `echo $?` with 0 / 3), running (the setup
-# stopped mid-output on a line that ends like a prompt) or none. STUB_AGENT=1
+# bare shell at a prompt that answers `echo $?` with 0 / 3; probe-bare is probe-ok
+# with a prompt drawn before the command), running (the setup stopped mid-output on
+# a line that ends like a prompt) or none. STUB_AGENT=1
 # adds an agent terminal, STUB_CLOSE_FAIL=1 makes `terminal close` refuse. Closed
 # handles are kept in "$STUB_LOG.closed".
 otc="$pkg/.apm/skills/pstack-on-claude-code/scripts/open-topic-chat"
@@ -211,10 +212,27 @@ case "$1 $2" in
         case "${STUB_SETUP:-marker-ok}" in
           marker-*) printf '{"ok":true,"result":{"terminal":{"latestCursor":"9","tail":["[*] Installed","__ORCA_SETUP_COMPLETE__:id:%s","","❯"]}}}' "$code" ;;
           *) if [ -f "$STUB_LOG.probed" ]; then
-               printf '{"ok":true,"result":{"terminal":{"latestCursor":"9","tail":["❯ echo __CST_SETUP_EXIT:$?","__CST_SETUP_EXIT:%s","❯"]}}}' "$code"
+               printf '{"ok":true,"result":{"terminal":{"latestCursor":"9","tail":["%s","__CST_SETUP_EXIT:%s","❯"]}}}' "❯ echo __CST_SETUP_EXIT:\$?" "$code"
              else
-               last="❯"; [ "$STUB_SETUP" != running ] || last="Downloading 45%"
-               printf '{"ok":true,"result":{"terminal":{"latestCursor":"8","tail":["❯ apm install","[*] Installed","%s"]}}}' "$last"
+               # What a real Setup terminal shows: the command Orca typed, the prompt drawn once
+               # (probe-ok: with the command after it; probe-bare: without), the setup's output.
+               # A read from cursor 0 is the whole stream (its unfinished last line missing); the
+               # default read is the last lines only, ending at the prompt (or at the output).
+               info="yyamakura in demo-dir on  chat-demo"; cmd="bash /x/orca/setup-runner.sh"
+               case "$STUB_SETUP" in probe-bare) first="$info" ;; *) first="❯ $cmd" ;; esac
+               out='"[>] Installing","[>] Resolving a","[>] Resolving b","[>] Resolving c","[>] Resolving d","Updated 1 dependency."'
+               case "$STUB_SETUP" in
+                 running) end="Downloading 45%"; done_=0 ;;
+                 *) end="❯"; done_=1 ;;
+               esac
+               if [ -n "$(arg --cursor)" ]; then
+                 printf '{"ok":true,"result":{"terminal":{"oldestCursor":"0","latestCursor":"20","tail":["%s","","%s","%s",%s%s]}}}' \
+                   "$cmd" "$info" "$first" "$out" "$([ "$done_" = 1 ] && printf ',"%s took 26s"' "$info" || printf ',"Downloading 45%%"')"
+               elif [ "$done_" = 1 ]; then
+                 printf '{"ok":true,"result":{"terminal":{"latestCursor":"20","tail":["Updated 1 dependency.","","%s took 26s","%s"]}}}' "$info" "$end"
+               else
+                 printf '{"ok":true,"result":{"terminal":{"latestCursor":"20","tail":["[>] Resolving d","Updated 1 dependency.","%s"]}}}' "$end"
+               fi
              fi ;;
         esac ;;
       term_agent) printf '{"ok":true,"result":{"terminal":{"latestCursor":"2","tail":["","working"]}}}' ;;
@@ -330,10 +348,15 @@ out="$(cst_run STUB_SETUP=running STUB_AGENT=1)"
 [ ! -e "$tmp/stub.log.probed" ] || fail "close-startup-terminals typed into a Setup terminal whose output stopped mid-run"
 grep -qx term_setup "$tmp/stub.log.closed" && fail "close-startup-terminals closed a Setup terminal whose output stopped mid-run"
 case "$out" in *"left: term_setup (setup-unfinished"*) ;; *) fail "close-startup-terminals did not report the unfinished Setup: $out" ;; esac
-# The same terminal back at its bare prompt after the setup command: asked once.
-out="$(cst_run CLOSE_STARTUP_TERMINALS_WAIT=8 STUB_SETUP=probe-ok STUB_AGENT=1)"
-[ -e "$tmp/stub.log.probed" ] || fail "close-startup-terminals did not ask a Setup terminal back at its prompt for the exit code"
-grep -qx term_setup "$tmp/stub.log.closed" || fail "close-startup-terminals did not close a Setup terminal that exited 0 without the completion line"
+# A Setup terminal back at the prompt it showed before the setup began, in the two
+# shapes a real one has (the prompt drawn with the command after it, and without):
+# asked once, then closed. The plain read's last lines do not hold the command line, so
+# the prompt is recognized from the head of the output.
+for shape in probe-ok probe-bare; do
+  out="$(cst_run CLOSE_STARTUP_TERMINALS_WAIT=8 STUB_SETUP=$shape STUB_AGENT=1)"
+  [ -e "$tmp/stub.log.probed" ] || fail "close-startup-terminals did not ask a finished Setup terminal ($shape) for the exit code"
+  grep -qx term_setup "$tmp/stub.log.closed" || fail "close-startup-terminals did not close a finished Setup terminal ($shape): $out"
+done
 out="$(cst_run STUB_CLOSE_FAIL=1)" || fail "close-startup-terminals failed when terminal close was refused"
 case "$out" in *terminal_stop_unverifiable*) ;; *) fail "close-startup-terminals did not report a refused close" ;; esac
 otc_run --said x 'Bad Topic' > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
