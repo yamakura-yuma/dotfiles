@@ -9,7 +9,7 @@ input=$(cat)
 # --- Parse everything in a single jq pass -------------------------------------
 IFS=$'\t' read -r MODEL CUR_DIR CTX_USED CTX_IN CTX_OUT CTX_SIZE \
         RL5_PCT RL5_RESET RL7_PCT RL7_RESET \
-        LINES_ADD LINES_DEL SESSION_ID EFFORT < <(
+        LINES_ADD LINES_DEL SESSION_ID COST_USD COST_MS EFFORT < <(
   echo "$input" | jq -r '
     [ (.model.display_name // "?"),
       (.workspace.current_dir // .cwd // "."),
@@ -24,6 +24,8 @@ IFS=$'\t' read -r MODEL CUR_DIR CTX_USED CTX_IN CTX_OUT CTX_SIZE \
       (.cost.total_lines_added // 0),
       (.cost.total_lines_removed // 0),
       (.session_id // "nosession"),
+      (.cost.total_cost_usd // -1),
+      (.cost.total_duration_ms // 0),
       (.effort.level // "")
     ] | @tsv'
 )
@@ -181,6 +183,17 @@ if [ "$PREV_PCT" -ge 30 ] && [ $(( PREV_PCT - CTX_USED )) -ge 25 ]; then
   COMPACTS=$(( COMPACTS + 1 ))
 fi
 printf '%s %s\n' "$CTX_USED" "$COMPACTS" > "$STATE_FILE"
+
+# --- Cost snapshot for the worker-limit hook ----------------------------------
+# A hook's input carries neither the session's cost nor its duration; only the
+# status line input does. So leave them where core-principal's worker-limit hook
+# can read them: "<total_cost_usd> <total_duration_ms>", one line, replaced
+# atomically so a hook never reads half of it. -1 is "the payload had none".
+# Like everything here this is a local file write -- no API call.
+if [ "$COST_USD" != "-1" ]; then
+  printf '%s %s\n' "$COST_USD" "$COST_MS" > "$STATE_FILE.cost.$$" 2>/dev/null &&
+    mv -f "$STATE_FILE.cost.$$" "$STATE_FILE.cost" 2>/dev/null
+fi
 
 # --- Line 2: model / context gauge / rate limits / compacts -------------------
 CZONE=$(zone "$CTX_USED")

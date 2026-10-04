@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Print the limits a worker of this role gets in the current usage zone, as the
+# JSON the worker-limit hook reads. The topic chat writes it before worker-start:
+#
+#   worker-limits <role> [--zone <zone>] > ~/.claude/worker-reports/<name>.limits.json
+#
+#   {"zone":"green","usd":15,"minutes":90,"tool_calls":300}
+#
+# <role> is a row of the Models table in SKILL.md:
+#   design          Design worker (Opus)
+#   implementation  Implementation worker (Sonnet, high)
+#   light           Light work (Sonnet, medium)
+#
+# routing-facts only prints numbers and decides nothing; the deciding is here. The
+# zone is read from it, or given with --zone when the caller already ran it. The
+# zone is fixed at launch: the file is written once, so a zone that moves
+# mid-task does not move the limits.
+#
+# A base value per role, times a factor per zone. The bases are two to three times
+# what an ordinary run of that role was measured to cost, so that normal work
+# stays under them and a worker that wanders hits them (the first runs: a design
+# worker took about 25 minutes, 60 tool calls and about $10 at list price).
+# usd is cost.total_cost_usd, an estimate at list price rather than the bill.
+#
+#                 usd  minutes  tool_calls        zone     factor
+#   design         25     60       200            green      1
+#   implementation 15     90       300            yellow     1
+#   light           5     30        80            orange     0.5
+#                                                 red        0.25
+#                                                 unknown    0.5
+#
+# Orange scales down so a wandering worker is returned before it eats what is left
+# of the window; red already runs everything on Sonnet, so it returns sooner still;
+# unknown (no reading) is treated like orange. usd keeps two decimals, minutes and
+# tool_calls are rounded to whole numbers.
+set -uo pipefail
+
+usage() { echo "usage: worker-limits <design|implementation|light> [--zone <zone>]" >&2; exit 2; }
+role="" zone=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --zone) [ $# -ge 2 ] || usage; zone="$2"; shift 2 ;;
+    -*) usage ;;
+    *) [ -z "$role" ] || usage; role="$1"; shift ;;
+  esac
+done
+case "$role" in design | implementation | light) ;; *) usage ;; esac
+case "$zone" in '' | green | yellow | orange | red | unknown) ;; *) echo "worker-limits: unknown zone '$zone'" >&2; exit 2 ;; esac
+command -v jq >/dev/null 2>&1 || { echo "worker-limits: jq not found" >&2; exit 1; }
+
+if [ -z "$zone" ]; then
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # No reading, or routing-facts failing, is the zone it calls unknown.
+  zone="$("$here/routing-facts" 2>/dev/null | jq -r '.zone // empty' 2>/dev/null)"
+  case "$zone" in green | yellow | orange | red | unknown) ;; *) zone=unknown ;; esac
+fi
+
+jq -nc --arg role "$role" --arg zone "$zone" '
+  { design:         {usd: 25, minutes: 60, tool_calls: 200},
+    implementation: {usd: 15, minutes: 90, tool_calls: 300},
+    light:          {usd: 5,  minutes: 30, tool_calls: 80} } as $base
+  | { green: 1, yellow: 1, orange: 0.5, red: 0.25, unknown: 0.5 } as $factor
+  | $base[$role] as $b | $factor[$zone] as $f
+  | { zone: $zone,
+      usd: (($b.usd * $f * 100 | round) / 100),
+      minutes: ($b.minutes * $f | round),
+      tool_calls: ($b.tool_calls * $f | round) }'

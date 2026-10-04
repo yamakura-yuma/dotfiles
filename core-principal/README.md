@@ -37,6 +37,7 @@ Orca publishes its own skills.
 | `core-harness` skill | How this harness is built: search the published ecosystem first, then decide whether a piece of knowledge is a check, a rule, a skill or nothing, and deploy it through apm. |
 | `core-retro` skill | Reviews a session for what to change about the agent's *environment* — a check, a pointer, a rule worth deleting — and routes each finding to `make ci`, to an `.apm/`, or to the memory it should be promoted out of. Adapted from mattpocock's `retro`. |
 | `core-dispatch` skill | What the coordinator does instead of implementing: classify the message, write the spec, dispatch to a worktree, and pick the results back up. Reporting follows Orca's own contract -- per Task an outcome, the evidence behind it, and any unresolved blocker -- rather than a shape invented here. `references/orca.md` carries the `orca` cheat sheet and the pitfalls measured on this host. |
+| `worker-limit` hook | Stops a worker that has used up its money, wall-clock time or tool calls: `continue:false` plus a deny, and one `escalation` to the coordinator the first time. It acts only when `~/.claude/worker-reports/<branch>.limits.json` exists, so the coordinator, a topic chat and a human's own session are untouched. See below. |
 | `completion-reviewer` subagent | Opus, read-only. An implementation worker calls it before opening a PR and again after fixing required findings, up to the re-review limit written once in `core-dispatch`. The advisor covers the first half of the work; this covers completion. |
 | `/retro` command | Runs `core-retro` explicitly. Nothing else fires it, so this is what turns a lesson into something that survives the session. |
 | `/worktree <task>` command | Hands a task to a Claude worker in a fresh Orca worktree, including the "write your report to `~/.claude/worker-reports/<worktree-name>.md`" instruction. |
@@ -106,11 +107,12 @@ rather than by path.
 ```bash
 ./core-principal/tests/guards.sh         # guard hooks, by feeding them payloads
 ./core-principal/tests/harness-check.sh  # invariants of the package itself
+./core-principal/tests/worker-limit.sh   # the worker-limit hook, against a stub orca
 ```
 
-Both live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
+All live outside `.apm/`, because apm deploys only `.apm/`: a consuming repo
 gets the hooks and rules without the tests, while the tests stay next to what
-they cover. dotfiles' `make ci` runs both.
+they cover. dotfiles' `make ci` runs all of them.
 
 `tests/eval/` asks the other question — whether installing this changes what an
 agent does — by running one prompt in two fixture repos, with and without the
@@ -173,6 +175,32 @@ Everything deploys into the consuming repo's own `./.claude/`, never into
 `~/.claude/`. Those files are generated, so gitignore `.claude/` and
 `apm_modules/` there the way `dotfiles` does.
 
+## The worker-limit hook
+
+An interactive worker has no way to be given a budget. `--max-budget-usd` and
+`--max-turns` are print-mode only (the CLI reference says so, and a TUI session
+ignored both), `worker-start` passes neither, and `worker-start --timeout-ms` is
+the launch wait. So the limit is a `PreToolUse` hook, which can stop a session
+(`continue:false`) from the inside:
+
+| Limit | Measured by |
+| --- | --- |
+| `usd` | the status line's `cost.total_cost_usd`. A hook's input does not carry it, so `claude/statusline.sh` leaves it in `~/.claude/statusline-state/<session_id>.cost`; it trails by about one tool call |
+| `minutes` | now minus the Dispatch's `dispatchedAt` (UTC), asked of `orca orchestration worker-show` once, on the first call |
+| `tool_calls` | the hook's own count, one per call |
+
+The numbers come from `~/.claude/worker-reports/<branch>.limits.json`, which
+whoever starts the worker writes first (`{"zone","usd","minutes","tool_calls"}`;
+pstack-claude's `worker-limits <role>` prints it). Over a limit, the hook sends an
+`escalation` once and stops the session; a human raises the numbers and tells the
+worker to continue, and the escalation re-arms when the worker is back under.
+Without `orca` or `ORCA_TERMINAL_HANDLE` it only stops.
+
+What it does not do: it cannot stop a worker that edits its own limits file (the
+spec line "do not work around it" holds that), and it protects only repos that
+install this package, which is why the cost lives in `statusline.sh` rather than
+in the repo. `tests/worker-limit.sh` pins the behaviour against a stub `orca`.
+
 ## The guardrail hooks
 
 The three blocking hooks exit 2, which blocks the tool call and hands their
@@ -187,7 +215,13 @@ while the thing it prevents may never have happened. So the bar is "frequent,
 irreversible, and hard to mistake for ordinary work". Writing outside the repo
 does not clear that bar despite there being a real incident behind it
 (`~/.claude/settings.json.graphify-bak`), so it is a paragraph in the
-`core-harness` skill rather than a fourth hook.
+`core-harness` skill rather than a fourth hook of this kind.
+
+`worker-limit` is the exception that clears the bar a different way, which is
+why it is described above and not here. It stops by JSON rather than exit 2, and
+its false positives cannot reach ordinary work: with no limits file it does
+nothing, and only whoever starts a worker writes one. What it prevents is not
+rare — a worker nobody is watching has no other stop.
 
 `guard-coordinator-edit` is the one that was added deliberately rather than
 reluctantly, because the layer it protects does not exist without it. An

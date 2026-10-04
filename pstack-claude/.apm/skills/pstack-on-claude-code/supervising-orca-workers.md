@@ -203,6 +203,23 @@ topics in, and one **topic chat** per topic sees that topic through.
     worktree's `terminal close --all`, and if that also returns
     `terminal_stop_unverifiable`, "When release is retained" applies.
   The script is also what `open-topic-chat` runs, so the two share one rule.
+- **Write the worker's limits before `worker-start`.** `.claude/skills/pstack-on-claude-code/scripts/worker-limits
+  <role> > ~/.claude/worker-reports/<name>.limits.json`, where `<role>` is
+  `design`, `implementation` or `light` and `<name>` is the `--name` you pass:
+  the `worker-limit` hook finds the file by the worktree's branch. Do it for
+  every worker, and add the "If you are stopped with `limit …`" line from
+  `SKILL.md` to its spec. The file is read again on each tool call, so changing
+  it takes effect without a restart. A repo that does not depend on
+  `core-principal` has no hook, so its workers have no limit; say so in the
+  report line.
+- **A `limit …` escalation is a worker you stopped, not one that failed.** Its
+  subject says which limit and by how much. Show the human that, what the worker
+  was doing (`orca terminal read --terminal <handle>` and its report file), and the
+  two ways on: stop it (`worker-stop`), or raise the numbers. Raise them only when
+  the human agrees, never on your own: edit `<name>.limits.json`, then
+  `orca terminal send --terminal <handle> --text "上限を上げた。続けて" --enter`
+  (`<handle>` is `agentTerminalHandle` from `worker-list`). The cost it counts
+  is the last status line's, one tool call behind.
 - **Fix coordinator-specific changes in dotfiles.** `pstack-claude` is the
   source of the coordinator's skills and instructions, so change them there.
   Start a worker in the coordinator repo only for what cannot live in dotfiles,

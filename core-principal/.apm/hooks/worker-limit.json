@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/.apm/hooks/scripts/worker-limit.sh",
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}
