@@ -21,7 +21,11 @@
 # line Orca prints when it starts the worktree with an agent (`worker-start`).
 # A worktree made by a bare `worktree create` has no such line: the Setup
 # terminal is then a shell at a prompt after the setup command, so `$?` there
-# is the setup's exit code, and it is asked for once (`echo $?`).
+# is the setup's exit code, and it is asked for once (`echo $?`). A last line
+# that merely looks like a prompt (`Downloading 45%`, `-> installed`) is not
+# enough: the shell's prompt is what the terminal showed in front of the setup
+# command Orca typed (`❯ apm install`), so the setup is finished only when the
+# last line is that same prompt again, bare. Nothing is typed until then.
 # Prints `closed: <handle> (<what>)` and `left: <handle> (<why>)`, one per line.
 set -euo pipefail
 
@@ -70,6 +74,22 @@ at_prompt() {
   [ "$a" = "$b" ] && printf '%s' "$b" | tail -n 1 | grep -qE "$prompt_re"
 }
 
+# Whether the last non-blank line of the lines (a JSON array) is a prompt the
+# terminal showed before: some earlier line is that line followed by typed text,
+# which is how the setup command appears. Output that stopped mid-run has no
+# such earlier line.
+returned_to_prompt() {
+  printf '%s' "$1" | jq -e '
+    [.[] | sub("\\s+$"; "") | select(length > 0)] as $l
+    | ($l | last // "") as $p
+    | ($p | length) > 0 and ([$l[:-1][] | select(startswith($p + " "))] | length) > 0' >/dev/null
+}
+setup_at_prompt() {
+  local screen
+  screen="$(orca_json terminal read --terminal "$1" --screen | jq -c '.result.terminal.tail')" || return 1
+  returned_to_prompt "$screen" || returned_to_prompt "$(tail_of "$1")"
+}
+
 # Sets `code` to the setup's exit code, or leaves it empty while it is not known yet.
 declare -A probed=()
 code=""
@@ -81,7 +101,7 @@ setup_code() {
   [ -z "$code" ] || return 0
   if [ -n "${probed[$h]:-}" ]; then
     code="$(printf '%s' "$lines" | jq -r '[.[] | select(test("^__CST_SETUP_EXIT:[0-9]+\\s*$")) | split(":")[1] | tonumber] | last // empty')"
-  elif at_prompt "$h"; then
+  elif at_prompt "$h" && setup_at_prompt "$h"; then
     # Sent once: after it `$?` is the echo's own.
     probed[$h]=1
     orca_json terminal send --terminal "$h" --text 'echo "__CST_SETUP_EXIT:$?"' --enter >/dev/null || true
