@@ -1,0 +1,48 @@
+name: 要望
+description: 機能の追加や変更を頼みたいとき。
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 目的
+      description: 何のために必要か、いま何に困っているかを 1 文で書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: 対象（ファイル・パス）
+      description: 触ってよいファイルやディレクトリを書いてください。分からなければ、それが分かる範囲で。
+      placeholder: |
+        リポジトリ: yamakura-yuma/dotfiles
+        パス: core-principal/.apm/hooks/
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: 完了条件
+      description: 終わったと分かる、観察できる条件を箇条書きで書いてください。
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: 対象外
+      description: やらないことがあれば書いてください。
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: 要望に関わるホスト（WSL・ubuntu・ZCU104 など）やツールのバージョンがあれば書いてください。
+      placeholder: |
+        ホスト: WSL2 (Ubuntu 24.04)
+        `claude --version` / `apm --version` の出力
+    validations:
+      required: false

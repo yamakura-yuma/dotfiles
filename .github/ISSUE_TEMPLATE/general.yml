@@ -1,0 +1,17 @@
+name: その他
+description: 他のどのテンプレートにも当てはまらないときだけ使ってください。
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 内容
+      description: 何についての Issue かを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 理由
+      description: なぜ他のテンプレートに当てはまらないのか、背景を書いてください。
+    validations:
+      required: false

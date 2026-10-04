@@ -1,0 +1,29 @@
+name: 質問
+description: 使い方や設計について聞きたいとき。
+labels:
+  - question
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 質問
+      description: 知りたいことを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: なぜ知りたいのか、何をしようとしているかを書いてください。
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: 質問がホストやツールのバージョンに関わるなら書いてください。
+      placeholder: |
+        ホスト: WSL2 (Ubuntu 24.04)
+        `claude --version` / `apm --version` の出力
+    validations:
+      required: false

@@ -1,0 +1,64 @@
+name: 不具合の報告
+description: 動くはずのものが動かないとき。不具合かどうか分からないときは「困りごとの相談」を選んでください。
+labels:
+  - bug
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: |
+        再現した場所と、動かしたコマンドの出力を貼ってください。
+        ホスト（WSL・ubuntu・ZCU104 など）、`./setup.sh reload` や `make ci` のどこで落ちたか、
+        `claude --version` と `apm --version` が分かると助かります。
+      placeholder: |
+        ホスト: WSL2 (Ubuntu 24.04)
+        コミット: `git rev-parse --short HEAD` の出力
+        ```console
+        $ make ci
+        ```
+    validations:
+      required: false
+  - type: textarea
+    id: overview
+    attributes:
+      label: 概要
+      description: 何が起きているかを 1〜2 文で書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: 再現手順
+      description: |
+        他の人が同じ手順で再現できるように、打ったコマンドを順に書いてください。
+        再現に要らないものは削ってください。
+      value: |
+        1.
+        2.
+
+        実行したコマンドの出力
+        ```console
+        $ ...
+        ```
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: 期待する動作
+    validations:
+      required: false
+  - type: textarea
+    id: actual-behaviour
+    attributes:
+      label: 実際の動作
+    validations:
+      required: false
+  - type: textarea
+    id: note
+    attributes:
+      label: 補足
+      description: 気づいたことがあれば書いてください。
+    validations:
+      required: false
