@@ -178,7 +178,12 @@ grep -q '^setupAgentStartupPolicy: wait-for-setup$' "$repo/orca.yaml" ||
 # and runs the command it is given (`terminal create --command`, or the text of
 # `terminal send`) with `claude` replaced by a function that records its
 # arguments, so the quoting is exercised as well. STUB_TERMINALS sets how many
-# terminals the new worktree opened with and STUB_PROMPT what its last line is.
+# shells the new worktree opened with and STUB_PROMPT what their last line is;
+# STUB_SETUP sets the `Setup` terminal: marker-ok / marker-fail (Orca's
+# __ORCA_SETUP_COMPLETE__ line with exit code 0 / 3), probe-ok / probe-fail (a
+# bare shell at a prompt that answers `echo $?` with 0 / 3) or none. STUB_AGENT=1
+# adds an agent terminal, STUB_CLOSE_FAIL=1 makes `terminal close` refuse. Closed
+# handles are kept in "$STUB_LOG.closed".
 otc="$pkg/.apm/skills/pstack-on-claude-code/scripts/open-topic-chat"
 [ -x "$otc" ] || fail "open-topic-chat is not executable"
 mkdir -p "$tmp/stub" "$tmp/chat-demo"
@@ -192,10 +197,33 @@ case "$1 $2" in
   "worktree list") printf '{"ok":true,"result":{"worktrees":[{"repoId":"R1","path":"%s"}]}}' "$STUB_REPO" ;;
   "worktree create") printf '{"ok":true,"result":{"worktree":{"id":"R1::%s"}}}' "$STUB_CHAT" ;;
   "terminal list")
-    n="${STUB_TERMINALS:-1}"
-    printf '{"ok":true,"result":{"terminals":[%s]}}' "$(for ((i = 1; i <= n; i++)); do printf '{"handle":"term_shell%s"},' "$i"; done | sed 's/,$//')" ;;
-  "terminal read") printf '{"ok":true,"result":{"terminal":{"latestCursor":"2","tail":["","%s"]}}}' "${STUB_PROMPT:-❯}" ;;
-  "terminal send") run_cmd "$(arg --text)"; printf '{"ok":true,"result":{"send":{"handle":"%s"}}}' "$(arg --terminal)" ;;
+    n="${STUB_TERMINALS:-1}"; items=()
+    item() { grep -qx "$1" "$STUB_LOG.closed" 2>/dev/null || items+=("{\"handle\":\"$1\",\"title\":$2,\"agentIdentity\":$3}"); }
+    for ((i = 1; i <= n; i++)); do item "term_shell$i" null null; done
+    [ "${STUB_SETUP:-marker-ok}" = none ] || item term_setup '"Setup"' null
+    [ -z "${STUB_AGENT:-}" ] || item term_agent '"claude is working"' '"claude"'
+    printf '{"ok":true,"result":{"terminals":[%s]}}' "$(IFS=,; echo "${items[*]}")" ;;
+  "terminal read")
+    case "$(arg --terminal)" in
+      term_setup)
+        code=0; case "$STUB_SETUP" in *fail) code=3 ;; esac
+        case "${STUB_SETUP:-marker-ok}" in
+          marker-*) printf '{"ok":true,"result":{"terminal":{"latestCursor":"9","tail":["[*] Installed","__ORCA_SETUP_COMPLETE__:id:%s","","❯"]}}}' "$code" ;;
+          *) if [ -f "$STUB_LOG.probed" ]; then
+               printf '{"ok":true,"result":{"terminal":{"latestCursor":"9","tail":["❯ echo __CST_SETUP_EXIT:$?","__CST_SETUP_EXIT:%s","❯"]}}}' "$code"
+             else
+               printf '{"ok":true,"result":{"terminal":{"latestCursor":"8","tail":["[*] Installed","❯"]}}}'
+             fi ;;
+        esac ;;
+      term_agent) printf '{"ok":true,"result":{"terminal":{"latestCursor":"2","tail":["","working"]}}}' ;;
+      *) printf '{"ok":true,"result":{"terminal":{"latestCursor":"2","tail":["","%s"]}}}' "${STUB_PROMPT:-❯}" ;;
+    esac ;;
+  "terminal send")
+    if [ "$(arg --terminal)" = term_setup ]; then echo probed > "$STUB_LOG.probed"; else run_cmd "$(arg --text)"; fi
+    printf '{"ok":true,"result":{"send":{"handle":"%s"}}}' "$(arg --terminal)" ;;
+  "terminal close")
+    if [ -n "${STUB_CLOSE_FAIL:-}" ]; then printf '{"ok":false,"error":{"code":"terminal_stop_unverifiable"}}'; exit 1; fi
+    arg --terminal >> "$STUB_LOG.closed"; echo >> "$STUB_LOG.closed"; printf '{"ok":true,"result":{"close":{}}}' ;;
   "terminal rename") printf '{"ok":true,"result":{}}' ;;
   "terminal create") run_cmd "$(arg --command)"; printf '{"ok":true,"result":{"handle":"term_stub"}}' ;;
   *) printf '{"ok":false,"error":"unexpected"}' ;;
@@ -207,9 +235,9 @@ echo "apm $* in $PWD" >> "$STUB_LOG"
 STUB
 chmod +x "$tmp/stub/orca" "$tmp/stub/apm"
 otc_run() {
-  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude"
+  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude" "$tmp/stub.log.closed" "$tmp/stub.log.probed"
   (cd "$tmp/origin-repo" && PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
-    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=2 "$otc" "$@" 2>&1)
+    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=2 CLOSE_STARTUP_TERMINALS_WAIT=3 "$otc" "$@" 2>&1)
 }
 out="$(otc_run --said 'the request, "quoted"' --guess 'guessed target' demo)"
 grep -q "^orca worktree create --repo id:R1 --name chat-demo --setup inherit --no-parent --json$" "$tmp/stub.log" ||
@@ -231,6 +259,25 @@ grep -q 'plan mode' "$tmp/stub.log.claude" && grep -q 'grounding.md' "$tmp/stub.
 grep -q 'topic chat for `demo`' "$tmp/stub.log.claude" || fail "open-topic-chat did not state the topic chat's role"
 grep -q 'run-use' "$tmp/stub.log.claude" && fail "open-topic-chat mentioned run-use without --run"
 case "$out" in *"terminal: term_shell1"*) ;; *) fail "open-topic-chat did not print the startup shell's handle" ;; esac
+# The worktree opened with a shell and a `Setup` terminal. The agent goes into the
+# shell (Setup does not count), a Setup that exited 0 is closed, the shell kept.
+grep -qx "term_setup" "$tmp/stub.log.closed" || fail "open-topic-chat did not close the Setup terminal after its setup exited 0"
+grep -qx "term_shell1" "$tmp/stub.log.closed" && fail "open-topic-chat closed the shell it started the topic chat in"
+case "$out" in *"closed: term_setup (setup exited 0)"*) ;; *) fail "open-topic-chat did not report closing Setup" ;; esac
+# A failed setup keeps its Setup terminal, whether Orca printed its exit code
+# (marker-fail) or the shell has to be asked for it (probe-fail); a bare shell
+# without the marker (probe-ok) is asked and then closed.
+for setup in marker-fail probe-fail probe-ok; do
+  out="$(cd "$tmp/origin-repo" && rm -f "$tmp/stub.log.closed" "$tmp/stub.log.probed" && : > "$tmp/stub.log" && env STUB_SETUP="$setup" PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
+    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=2 CLOSE_STARTUP_TERMINALS_WAIT=3 "$otc" --said x demo 2>&1)"
+  case "$setup" in
+    *fail)
+      grep -qx "term_setup" "$tmp/stub.log.closed" 2>/dev/null && fail "open-topic-chat closed a Setup terminal whose setup failed ($setup)"
+      case "$out" in *"left: term_setup (setup exited 3)"*) ;; *) fail "open-topic-chat did not report the failed Setup as left ($setup)" ;; esac ;;
+    *) grep -qx "term_setup" "$tmp/stub.log.closed" || fail "open-topic-chat did not close Setup ($setup)" ;;
+  esac
+  case "$setup" in probe-*) [ -f "$tmp/stub.log.probed" ] || fail "open-topic-chat did not ask the Setup shell for its exit code ($setup)" ;; esac
+done
 otc_run --said x --known 'a fact' demo > /dev/null
 grep -A1 '^## わかっていること$' "$tmp/stub.log.claude" | grep -q '^a fact$' || fail "open-topic-chat did not put --known under 「わかっていること」"
 otc_run --run run_42 --said x demo > /dev/null
@@ -246,15 +293,36 @@ grep -q "^orca terminal send --terminal term_shell1 --text claude --model claude
 # Fall back to a terminal of our own when the startup shell cannot be used: more
 # than one terminal (a configured default layout), or no prompt to type at.
 for stub in "STUB_TERMINALS=2" "STUB_TERMINALS=0" "STUB_PROMPT=Running-a-build..."; do
-  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude"
+  : > "$tmp/stub.log"; rm -f "$tmp/stub.log.claude" "$tmp/stub.log.closed" "$tmp/stub.log.probed"
   out="$(cd "$tmp/origin-repo" && env "$stub" PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" STUB_REPO="$tmp/origin-repo" \
-    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=1 "$otc" --said x demo 2>&1)"
+    STUB_CHAT="$tmp/chat-demo" OPEN_TOPIC_CHAT_SHELL_WAIT=1 CLOSE_STARTUP_TERMINALS_WAIT=2 "$otc" --said x demo 2>&1)"
   grep -q "^orca terminal create --worktree path:$tmp/chat-demo --title demo --command claude --model claude-opus-5-5 " "$tmp/stub.log" ||
     fail "open-topic-chat did not fall back to terminal create ($stub)"
   grep -q "^orca terminal send" "$tmp/stub.log" && fail "open-topic-chat typed into a shell it could not verify ($stub)"
   [ -f "$tmp/stub.log.claude" ] || fail "open-topic-chat's fallback did not start the chat ($stub)"
   case "$out" in *"terminal: term_stub"*) ;; *) fail "open-topic-chat's fallback did not print the new terminal's handle ($stub)" ;; esac
 done
+# close-startup-terminals on its own (the worker's side): it closes the Setup
+# terminal and the unused shell, never the agent's terminal, and a refused close
+# leaves the terminal and is reported, not forced.
+cst="$pkg/.apm/skills/pstack-on-claude-code/scripts/close-startup-terminals"
+[ -x "$cst" ] || fail "close-startup-terminals is not executable"
+cst_run() {
+  rm -f "$tmp/stub.log.closed" "$tmp/stub.log.probed"; : > "$tmp/stub.log"
+  env "$@" PATH="$tmp/stub:$PATH" STUB_LOG="$tmp/stub.log" CLOSE_STARTUP_TERMINALS_WAIT=2 "$cst" "$tmp/chat-demo" 2>&1
+}
+out="$(cst_run STUB_AGENT=1)"
+grep -qx term_agent "$tmp/stub.log.closed" && fail "close-startup-terminals closed the agent's terminal"
+[ "$(sort "$tmp/stub.log.closed" | tr -s '\n' ' ')" = "term_setup term_shell1 " ] ||
+  fail "close-startup-terminals did not close exactly the Setup terminal and the unused shell: $(cat "$tmp/stub.log.closed")"
+out="$(cst_run STUB_SETUP=marker-fail STUB_AGENT=1)"
+grep -qx term_setup "$tmp/stub.log.closed" && fail "close-startup-terminals closed a failed Setup"
+case "$out" in *"left: term_setup (setup exited 3)"*) ;; *) fail "close-startup-terminals did not report the failed Setup" ;; esac
+out="$(cst_run STUB_PROMPT=Running-a-build... STUB_SETUP=none)"
+[ ! -s "$tmp/stub.log.closed" ] || fail "close-startup-terminals closed a shell that is not at a prompt"
+case "$out" in *"left: term_shell1"*) ;; *) fail "close-startup-terminals did not report the shell it could not verify" ;; esac
+out="$(cst_run STUB_CLOSE_FAIL=1)" || fail "close-startup-terminals failed when terminal close was refused"
+case "$out" in *terminal_stop_unverifiable*) ;; *) fail "close-startup-terminals did not report a refused close" ;; esac
 otc_run --said x 'Bad Topic' > /dev/null && fail "open-topic-chat accepted a topic that is not kebab-case"
 case "$(otc_run --said x 'Bad Topic')" in *kebab-case*) ;; *) fail "open-topic-chat refused a bad topic for a reason other than kebab-case" ;; esac
 # The old two-positional form and a missing --said stop at usage: no worktree is created.

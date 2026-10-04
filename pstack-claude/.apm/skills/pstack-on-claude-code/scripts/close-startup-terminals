@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Close what Orca opens next to an agent when it creates a worktree, so the
+# agent's terminal is the only one left: the empty first shell and the `Setup`
+# terminal that ran the repo's orca.yaml setup.
+#
+#   close-startup-terminals [--keep <handle>] [--wait <seconds>] <worktree-path>
+#
+# Only two kinds of terminal are closed, each once it is verified:
+#   - a `Setup` terminal whose setup finished with exit code 0;
+#   - a shell still at its first prompt: default title (`Terminal N` or none),
+#     nothing typed into it, and the screen has stopped moving at a prompt.
+# Never closed: a terminal Orca marks as an agent, the one named by --keep, a
+# `Setup` whose setup failed (its output is the lead for finding out why), and
+# anything it cannot verify within --wait (default 120 seconds; the environment
+# variable CLOSE_STARTUP_TERMINALS_WAIT sets the default). Those are listed as
+# `left:` with the reason. A close Orca refuses (`terminal_stop_unverifiable`)
+# is not retried or forced; the terminal stays, listed the same way, and goes
+# with the worktree's `terminal close --all` when the topic is closed.
+#
+# The exit code of a setup is read from the `__ORCA_SETUP_COMPLETE__:<id>:<code>`
+# line Orca prints when it starts the worktree with an agent (`worker-start`).
+# A worktree made by a bare `worktree create` has no such line: the Setup
+# terminal is then a shell at a prompt after the setup command, so `$?` there
+# is the setup's exit code, and it is asked for once (`echo $?`).
+# Prints `closed: <handle> (<what>)` and `left: <handle> (<why>)`, one per line.
+set -euo pipefail
+
+usage() { echo "usage: close-startup-terminals [--keep <handle>] [--wait <seconds>] <worktree-path>" >&2; exit 2; }
+
+keep="" wait_s="${CLOSE_STARTUP_TERMINALS_WAIT:-120}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --keep) [ $# -ge 2 ] || usage; keep="$2"; shift 2 ;;
+    --wait) [ $# -ge 2 ] || usage; wait_s="$2"; shift 2 ;;
+    -h|--help) usage ;;
+    --) shift; break ;;
+    -*) usage ;;
+    *) break ;;
+  esac
+done
+[ $# -eq 1 ] && [ -n "$1" ] || usage
+path="$1"
+
+# `orca ... --json` prints {"ok":false,...} for a refused call, so check ok
+# rather than the exit status alone.
+orca_json() {
+  local out
+  out="$(orca "$@" --json)" || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s' "$out" | jq -e '.ok == true' >/dev/null || { printf '%s\n' "$out" >&2; return 1; }
+  printf '%s' "$out"
+}
+
+prompt_re='(\$|#|%|>|❯|»|➜)[[:space:]]*$'
+typed_re='(\$|#|%|>|❯|»|➜)[[:space:]]+[^[:space:]]'
+
+# The last lines the terminal printed, as a JSON array.
+tail_of() { orca_json terminal read --terminal "$1" | jq -c '.result.terminal.tail'; }
+
+# The cursor and the last non-blank line: equal twice running means it is idle
+# (`terminal wait --for tui-idle` is for agent TUIs and times out on a shell).
+screen_of() {
+  orca_json terminal read --terminal "$1" \
+    | jq -r '.result.terminal | (.latestCursor | tostring), ([.tail[] | select(test("\\S"))] | last // "")'
+}
+at_prompt() {
+  local a b
+  a="$(screen_of "$1")" || return 1
+  sleep 1
+  b="$(screen_of "$1")" || return 1
+  [ "$a" = "$b" ] && printf '%s' "$b" | tail -n 1 | grep -qE "$prompt_re"
+}
+
+# Sets `code` to the setup's exit code, or leaves it empty while it is not known yet.
+declare -A probed=()
+code=""
+setup_code() {
+  local h="$1" lines
+  code=""
+  lines="$(tail_of "$h")" || return 0
+  code="$(printf '%s' "$lines" | jq -r '[.[] | select(test("^__ORCA_SETUP_COMPLETE__:[^:]+:[0-9]+\\s*$")) | split(":")[2] | tonumber] | last // empty')"
+  [ -z "$code" ] || return 0
+  if [ -n "${probed[$h]:-}" ]; then
+    code="$(printf '%s' "$lines" | jq -r '[.[] | select(test("^__CST_SETUP_EXIT:[0-9]+\\s*$")) | split(":")[1] | tonumber] | last // empty')"
+  elif at_prompt "$h"; then
+    # Sent once: after it `$?` is the echo's own.
+    probed[$h]=1
+    orca_json terminal send --terminal "$h" --text 'echo "__CST_SETUP_EXIT:$?"' --enter >/dev/null || true
+  fi
+}
+
+# 0 = an unused shell at its first prompt, 1 = not an unused shell, 2 = not yet known.
+unused_shell() {
+  local lines
+  lines="$(tail_of "$1")" || return 2
+  [ "$(printf '%s' "$lines" | jq '[.[] | select(test("\\S"))] | length')" -le 4 ] || return 1
+  ! printf '%s' "$lines" | jq -r '.[]' | grep -qE "$typed_re" || return 1
+  at_prompt "$1" || return 2
+}
+
+declare -A settled=()
+close_one() {
+  local out
+  if out="$(orca_json terminal close --terminal "$1" 2>&1)"; then
+    echo "closed: $1 ($2)"
+  else
+    echo "left: $1 ($2, but terminal close was refused: $(printf '%s' "$out" | jq -r '.error.code // .error // "unknown"' 2>/dev/null || echo unknown))"
+  fi
+  settled[$1]=1
+}
+
+deadline=$((SECONDS + wait_s))
+while :; do
+  pending=""
+  rows="$(orca_json terminal list --worktree "path:$path" \
+    | jq -r '.result.terminals[] | [.handle, (.title // ""), (.agentIdentity // "")] | @tsv')"
+  while IFS=$'\t' read -r handle title agent; do
+    [ -n "$handle" ] && [ -z "$agent" ] && [ "$handle" != "$keep" ] && [ -z "${settled[$handle]:-}" ] || continue
+    if [ "$title" = Setup ]; then
+      setup_code "$handle"
+      case "$code" in
+        '') pending="$pending $handle:setup-unfinished" ;;
+        0) close_one "$handle" "setup exited 0" ;;
+        *) settled[$handle]=1; echo "left: $handle (setup exited $code)" ;;
+      esac
+    elif [ -z "$title" ] || [[ "$title" =~ ^Terminal\ [0-9]+$ ]]; then
+      rc=0; unused_shell "$handle" || rc=$?
+      case "$rc" in
+        0) close_one "$handle" "unused shell" ;;
+        1) settled[$handle]=1; echo "left: $handle (not an unused shell)" ;;
+        *) pending="$pending $handle:shell-not-at-prompt" ;;
+      esac
+    fi
+  done <<< "$rows"
+  [ -n "$pending" ] || break
+  if [ "$SECONDS" -ge "$deadline" ]; then
+    for p in $pending; do echo "left: ${p%%:*} (${p#*:} after ${wait_s}s)"; done
+    break
+  fi
+  sleep 1
+done
