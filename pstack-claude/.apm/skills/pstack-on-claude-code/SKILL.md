@@ -284,15 +284,19 @@ workers" in [`supervising-orca-workers.md`](supervising-orca-workers.md)). Desig
 
 ## Worker permissions
 
-`worker-start` has no permission argument (measured: `orca orchestration worker-start --help`). A worker's launch mode comes from Orca's own `agentDefaultArgs.claude`, one value for the whole host, currently `--dangerously-skip-permissions` (bypass). So the permission mode cannot differ by role; do not look for a flag to set it.
+`worker-start` has no permission argument (measured: `orca orchestration worker-start --help`). A worker's launch mode comes from Orca's own `agentDefaultArgs.claude`, one value for the whole host, set to `--permission-mode auto` (auto). Orca puts it at the front of the worker's `claude` command line. So the permission mode cannot differ by role; do not look for a flag to set it.
 
-What actually stops a worker is a guard hook (exit 2) or a `permissions.deny` rule. Both hold under bypass (measured with `claude -p --dangerously-skip-permissions`). `allow` means nothing under bypass. `sandbox` stops nothing here: without `socat` it prints "Sandbox disabled" and commands run unsandboxed.
+In auto a classifier reviews each action that is not a read or an edit inside the working directory. Every step of a worker's job ran without a prompt (measured in an Orca terminal: commit, push, `gh pr create --dry-run`, `apm install`, read-only `orca orchestration`, writes under `~/.claude/worker-reports/`). Writes under `~/.claude/` are protected paths and go to the classifier, so they take a few seconds longer.
 
-The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json`. apm drops `permissions` written in a hook file but ships the file as is, so a repo's `orca.yaml` setup copies it to `.claude/settings.local.json` (see dotfiles' `orca.yaml`). A repo without that line has workers with no deny. The limit: `Edit(...)` deny stops the Edit tool, not a Bash redirect (measured: `echo probe >> <file>` ran with that file under `Edit` deny). `Read(~/.ssh/**)` did stop both the Read tool and `cat` in Bash.
+Auto has two ways to end at a permission prompt, and Orca does not answer one: the classifier blocks 3 actions in a row or 20 in a session, or the model cannot use auto (Haiku 4.5 fell back to manual, measured). Launch workers on Sonnet 5 or Opus 5 or later. A worker whose heartbeats stop may be waiting at a prompt, so read its terminal before treating it as dead.
+
+What stops a worker for certain is a guard hook (exit 2) or a `permissions.deny` rule. Both hold in every mode, auto and bypass alike (official; measured in both). The classifier is not a guarantee: a boundary stated in the spec can be lost to compaction. `sandbox` stops nothing here: without `socat` it prints "Sandbox disabled" and commands run unsandboxed.
+
+The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json`. apm drops `permissions` written in a hook file but ships the file as is, so a repo's `orca.yaml` setup copies it to `.claude/settings.local.json` (see dotfiles' `orca.yaml`). A repo without that line has workers with no deny. The limit: `Edit(...)` deny stops the Edit tool, not a Bash redirect (measured: `echo probe >> <file>` ran with that file under `Edit` deny); in auto such a redirect still goes to the classifier. `Read(~/.ssh/**)` did stop both the Read tool and `cat` in Bash.
 
 | Role | Mode | Fence | Difference by role |
 |---|---|---|---|
-| Every worker | bypass (Orca setting) | guard hooks + deny from `.claude/settings.local.json` | none by flag |
+| Every worker | auto (Orca setting) | guard hooks + deny from `.claude/settings.local.json` + the auto classifier | none by flag |
 | Implementation (Sonnet) | same | same; `git push`, `gh pr create`, edits in the worktree and writes to `~/.claude/worker-reports/` stay allowed | what to change goes in the spec |
 | Design (Opus) | same | same | "do not change code" goes in the spec |
 

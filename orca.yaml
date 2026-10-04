@@ -1,7 +1,8 @@
 # core-principal はローカルパス（./core-principal）なので、この worktree の版がそのまま入る。
 # deny は worktree の .claude/settings.local.json に置く。apm は hook ファイルに書いた
 # permissions を捨てるので、apm が運んだ正本（core-principal の lib/worker-deny.settings.json）
-# を setup で複写する。ワーカーは bypass で起動するが、deny は bypass でも効く。
+# を setup で複写する。ワーカーは auto で起動する（Orca の agentDefaultArgs.claude）。deny はどの
+# 権限モードでも効き、auto の分類器と違って必ず止める。
 # worktree の .claude/ は setup が毎回作り直すもので、複写は既存の settings.local.json を上書きする。
 # apm install は apm.lock.yaml を作り直すが、lock の差分はワーカーの PR に混ぜず、未コミットで
 # 残すと worktree を消せなくなるので戻す。
