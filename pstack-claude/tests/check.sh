@@ -478,7 +478,7 @@ cc_run '{"criteria":[{"id":"c1","text":"a","passes":false},{"id":"c2","text":"b"
 [ "$(wc -l < "$ccd/err")" -eq 2 ] || fail "check-criteria did not print one reason per failure"
 [ "$(WORKER_REPORTS_DIR="$ccd" "$cc" ../w 2>/dev/null; echo $?)" = 2 ] || fail "check-criteria accepted a path as <name>"
 for w in 'check-criteria <name>' '.criteria.json' '.criteria.base.json' 'Edit nothing but `passes`'; do
-  cat "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" "$sow" | grep -qF -- "$w" || fail "pstack-on-claude-code SKILL.md or supervising-orca-workers.md lost \"$w\""
+  grep -qF -- "$w" "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" "$sow" || fail "pstack-on-claude-code SKILL.md or supervising-orca-workers.md lost \"$w\""
 done
 grep -q '^- Completion criteria as a checklist' "$pkg/.apm/skills/pstack-on-claude-code/SKILL.md" &&
   fail "pstack-on-claude-code/SKILL.md went back to a Markdown checklist for completion criteria"
