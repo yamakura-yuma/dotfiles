@@ -22,6 +22,10 @@ Paths are made relative to the session's own worktree. A path outside the repo i
 counted (outside_repo) and blanked in shell commands, so that a repo's digest does not carry
 another repo's file names. The first prompt (60 characters) is kept as is, for the reviewers
 to see what the session was for; it stays local like the rest of the digest.
+
+`review` in each repo's digest says what reviewer 2 must read (the .md files and missing
+paths seen in 2+ sessions, at most 3 .md files) and whether that is big enough (`split`,
+40 KB) to be worth a context of its own; below that the session does both views itself.
 """
 import argparse
 import collections
@@ -40,6 +44,13 @@ REPOS = [
     ("coordinator", "yamakura-yuma/coordinator", False),
 ]
 KINDS = ("slow-search", "reread", "missing-target", "stale-doc")
+# The sequence is 75-85% of a digest's bytes and three contexts (the session and both
+# reviewers) read it; the reviewers only need how a session started looking.
+SEQ_HEAD = 8
+# A reviewer in its own context writes its own ~55k tokens of base prompt (about 0.2 USD)
+# whatever it reads, so reviewer 2 only gets one when the .md files it must read are big.
+DOCS_MAX = 3
+SPLIT_BYTES = 40_000
 
 SEARCH = {"Grep", "Glob", "Read", "LS", "ToolSearch", "mcp__codegraph__codegraph_explore"}
 EDIT = {"Edit", "Write", "NotebookEdit"}
@@ -192,8 +203,24 @@ def digest(path, root):
         "docs_read": top(collections.Counter({k: v for k, v in reads.items() if k.endswith(".md")})),
         "search_targets": top(searched),
         "outside_repo": outside,
-        "search_seq_head": [f"{n} {lab}".strip() for n, _, _, lab in pre if is_search(n)][:25],
+        "search_seq_head": [f"{n} {lab}".strip() for n, _, _, lab in pre if is_search(n)][:SEQ_HEAD],
     }
+
+
+def review(sessions, root):
+    """What reviewer 2 must read: .md files and missing paths seen in 2+ sessions (a thing
+    seen in one session is dropped at the end anyway), at most DOCS_MAX .md files, most
+    sessions first. split: the .md files are big enough to be worth a context of their own."""
+    seen = collections.defaultdict(set)  # (field, path) -> sessions
+    for s in sessions:
+        for field in ("docs_read", "missing_targets"):
+            for p in s[field]:
+                seen[(field, p)].add(s["session"])
+    docs = sorted((p for (f, p), v in seen.items() if f == "docs_read" and len(v) >= 2),
+                  key=lambda p: (-len(seen[("docs_read", p)]), p))[:DOCS_MAX]
+    size = sum(os.path.getsize(os.path.join(root, p)) for p in docs if os.path.isfile(os.path.join(root, p)))
+    return {"docs": docs, "docs_bytes": size, "split": size >= SPLIT_BYTES,
+            "missing": sorted(p for (f, p), v in seen.items() if f == "missing_targets" and len(v) >= 2)}
 
 
 def build(args):
@@ -219,8 +246,10 @@ def build(args):
         fresh = sum(1 for s in sessions if now - parse_time(s["last_at"]) <= datetime.timedelta(hours=args.new_hours))
         targets = sorted({t for s in sessions for k in ("reread_files", "missing_targets", "docs_read", "search_targets")
                           for t in s[k]})
-        out.append({"repo": slug, "public": public, "root": os.path.join(home, rel), "generated": now.isoformat(),
-                    "new_sessions": fresh, "sessions": sessions, "targets": targets})
+        root = os.path.join(home, rel)
+        out.append({"repo": slug, "public": public, "root": root, "generated": now.isoformat(),
+                    "new_sessions": fresh, "sessions": sessions, "targets": targets,
+                    "review": review(sessions, root)})
     return out
 
 

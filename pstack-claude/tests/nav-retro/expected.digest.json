@@ -4,6 +4,16 @@
     "new_sessions": 1,
     "public": true,
     "repo": "yamakura-yuma/dotfiles",
+    "review": {
+      "docs": [
+        "docs/gates.md"
+      ],
+      "docs_bytes": 0,
+      "missing": [
+        "docs/missing.md"
+      ],
+      "split": false
+    },
     "root": "/home/t/dotfiles",
     "sessions": [
       {
@@ -33,9 +43,7 @@
           "Read docs/gates.md",
           "Read docs/missing.md",
           "Bash:search grep -rn gate .github",
-          "Bash:index graphify query \"where is the gate\"",
-          "Read",
-          "Bash:search grep -rn nav <outside> docs"
+          "Bash:index graphify query \"where is the gate\""
         ],
         "search_targets": {
           "docs": 1
@@ -96,6 +104,12 @@
     "new_sessions": 0,
     "public": true,
     "repo": "yamakura-yuma/knowledge-base",
+    "review": {
+      "docs": [],
+      "docs_bytes": 0,
+      "missing": [],
+      "split": false
+    },
     "root": "/home/t/knowledge-base",
     "sessions": [],
     "targets": []
@@ -105,6 +119,12 @@
     "new_sessions": 0,
     "public": true,
     "repo": "yamakura-yuma/home-k8s",
+    "review": {
+      "docs": [],
+      "docs_bytes": 0,
+      "missing": [],
+      "split": false
+    },
     "root": "/home/t/k8s-workspace/home-k8s",
     "sessions": [],
     "targets": []
@@ -114,6 +134,12 @@
     "new_sessions": 0,
     "public": true,
     "repo": "yamakura-yuma/temporal-workflow-kit",
+    "review": {
+      "docs": [],
+      "docs_bytes": 0,
+      "missing": [],
+      "split": false
+    },
     "root": "/home/t/k8s-workspace/temporal-saga",
     "sessions": [],
     "targets": []
@@ -123,6 +149,12 @@
     "new_sessions": 1,
     "public": false,
     "repo": "yamakura-yuma/coordinator",
+    "review": {
+      "docs": [],
+      "docs_bytes": 0,
+      "missing": [],
+      "split": false
+    },
     "root": "/home/t/coordinator",
     "sessions": [
       {

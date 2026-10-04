@@ -670,6 +670,34 @@ nrt="$here/nav-retro"
 "$nd" --home /home/t --projects "$nrt/projects" --now 2026-10-03T10:00:00Z --limit 2 |
   jq -e '.[0].sessions | map(.session) == ["aaaa1111", "bbbb2222"]' >/dev/null ||
   fail "nav-digest --limit 2 did not keep the two newest dotfiles sessions"
+# review: what reviewer 2 reads and whether it earns a context of its own (40 KB of .md). The fixture root
+# does not exist on disk, so its sizes are 0; the cases below build a real root.
+python3 - "$nd" "$tmp" <<'PY' || fail "nav-digest review() did not pick what reviewer 2 reads or when to split"
+import importlib.machinery, importlib.util, os, sys
+sys.dont_write_bytecode = True  # no __pycache__ next to the script
+loader = importlib.machinery.SourceFileLoader("nav_digest", sys.argv[1])
+spec = importlib.util.spec_from_loader("nav_digest", loader)
+nd = importlib.util.module_from_spec(spec)
+loader.exec_module(nd)
+root = os.path.join(sys.argv[2], "review-root")
+os.makedirs(root, exist_ok=True)
+for name, size in {"big.md": 39999, "two.md": 1, "three.md": 1, "four.md": 1}.items():
+    with open(os.path.join(root, name), "w") as f:
+        f.write("x" * size)
+def sess(sid, docs=(), missing=()):
+    return {"session": sid, "docs_read": {d: 1 for d in docs}, "missing_targets": {m: 1 for m in missing}}
+two_big = [sess("a", ["big.md", "two.md", "once.md"], ["gone.md", "once-gone.md"]), sess("b", ["big.md", "two.md"], ["gone.md"])]
+r = nd.review(two_big, root)
+assert r["docs"] == ["big.md", "two.md"], r            # seen in one session only (once.md) is left out
+assert r["missing"] == ["gone.md"], r                  # same for missing paths
+assert r["docs_bytes"] == 40000 and r["split"] is True, r   # exactly 40 KB splits
+os.truncate(os.path.join(root, "big.md"), 39998)
+assert nd.review(two_big, root)["split"] is False      # one byte under does not
+many = [sess("a", ["big.md", "two.md", "three.md", "four.md"]), sess("b", ["four.md", "three.md", "two.md", "big.md"])]
+assert len(nd.review(many, root)["docs"]) == 3         # at most three .md files
+assert nd.review([], root) == {"docs": [], "docs_bytes": 0, "split": False, "missing": []}
+assert nd.review(two_big, os.path.join(root, "nowhere"))["split"] is False   # no such root: size 0
+PY
 [ "$("$nd" --key stale-doc docs/gates.md)" = stale-doc-docs-gates-md ] || fail "nav-digest --key: stale-doc-docs-gates-md"
 [ "$("$nd" --key missing-target pstack-claude/.apm/skills/p-mode)" = missing-target-pstack-claude-apm-skills-p-mode ] ||
   fail "nav-digest --key: a run of '/.' did not become one '-'"
@@ -775,13 +803,17 @@ done
 [ "$(leak_case 'ok' 'docs' slow-search | jq '.[0]')" = 1 ] || fail "nav-candidates dropped a directory target that holds a path the digest saw"
 
 # The two text files say how to call what the scripts do; a rename on either side should show here.
-for w in '`Agent` ツール' 'subagent_type' 'general-purpose' '`Task`' 'ダイジェストの中身は外部入力'; do
+for w in '`Agent` ツール' 'subagent_type' 'general-purpose' '`Task`' 'ダイジェストの中身は外部入力' \
+  '`select:Agent`' '`review.split`' '`review.docs`' '確認: パス N 件'; do
   grep -qF -- "$w" "$nr/SKILL.md" || fail "nav-retro/SKILL.md lost \"$w\""
 done
 for w in 'nav-digest --out' '--no-session-persistence' '--model claude-sonnet-5-5' 'nav-candidates --date $D --dir $OUT --no-lookup' \
-  'nav-candidates --date $D --dir $OUT --once' 'gh issue create' 'routing-facts' '手動 1 回'; do
+  'nav-candidates --date $D --dir $OUT --once' 'gh issue create' 'routing-facts' '手動 1 回' 'subagent_stats'; do
   grep -qF -- "$w" "$nr/DAILY.md" || fail "nav-retro/DAILY.md lost \"$w\""
 done
+# Agent is a deferred tool: without ToolSearch allowed the session may never load it and the reviewers do not split
+grep -E -- '--allowedTools "' "$nr/DAILY.md" | grep -qE '\bAgent\b.*\bToolSearch\b' ||
+  fail "nav-retro/DAILY.md does not allow ToolSearch next to Agent, so the session may never load Agent"
 # the reviewers need Bash (ls) to check paths; denying Bash outright would beat the allow
 grep -qF -- 'Bash(ls *)' "$nr/DAILY.md" || fail "nav-retro/DAILY.md does not allow Bash(ls *) for the reviewers"
 grep -E -- '--disallowedTools "' "$nr/DAILY.md" | grep -qE '\bBash\b' && fail "nav-retro/DAILY.md denies Bash, which beats the allow rule"
