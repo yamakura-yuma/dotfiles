@@ -80,8 +80,9 @@ at_prompt() {
 # the setup's output. So the last line is the prompt when it, or the line above it
 # (the prompt's first line, which gains ` took 26s` after a slow command), also
 # opens one of the first lines after the command; progress output that merely ends
-# in `%` or `>` has no such twin. Output with no head to read (rotated out), or
-# shorter than the head, is not finished yet.
+# in `%` or `>` has no such twin. Output with no head to read (the read does not
+# start at cursor 0, as when old lines were dropped), or with 8 or fewer non-blank
+# lines, is treated as not finished: nothing is typed and the terminal is left.
 setup_at_prompt() {
   local head tail
   head="$(orca_json terminal read --terminal "$1" --cursor 0 --limit 5000)" || return 1
