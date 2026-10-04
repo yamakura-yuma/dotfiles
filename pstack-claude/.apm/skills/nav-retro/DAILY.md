@@ -37,20 +37,38 @@ precheck ── nav-digest ── claude -p /nav-retro（リポごと） ── 
    ```sh
    timeout 900 claude -p "/nav-retro $OUT/<name>.digest.json" \
      --no-session-persistence --model claude-sonnet-5-5 --max-budget-usd 1 \
-     --permission-mode dontAsk --allowedTools "Agent Read Grep Glob Bash(ls *)" \
+     --permission-mode dontAsk --allowedTools "Agent ToolSearch Read Grep Glob Bash(ls *)" \
      --disallowedTools "Edit Write NotebookEdit" \
-     --add-dir "$OUT" --add-dir "<root>" --output-format json < /dev/null > $OUT/<name>.claude.json
+     --add-dir "$OUT" --add-dir "<root>" --output-format json < /dev/null > $OUT/<name>.claude.json 2> $OUT/<name>.claude.err
    ```
 
    レビュアー（`Agent`）は親の権限を引き継ぎ、deny は allow に勝つ。だから `Bash` を
    `--disallowedTools` に入れず、`Bash(ls *)` だけ許す（存在確認用。他は `dontAsk` が断る）。
+   `Agent` は名前だけが一覧に載る deferred ツールで、引かないと呼べない場合があるらしいので、
+   `ToolSearch` も許す（SKILL.md が引かせる）。これが 10/3 に分かれなかった原因かは**仮説**
+   （根拠は、その日の coordinator の実行が「`Agent` ツールがこのセッションに無かった」と書いたこと。
+   temporal-workflow-kit は 10/3 に `ToolSearch` 無しでも分かれていて、10/5 の 1 回では切り分けていない）。
    根拠: <https://code.claude.com/docs/en/permissions>、<https://code.claude.com/docs/en/sub-agents>。
-   **このフラグでレビュアーが分かれることは、まだ実地で確かめていない**（1 リポ 1 回の `claude -p`
-   で `num_turns` が 1 より大きく、`Agent` が 2 回呼ばれ、存在確認の行が埋まるかを見る）。
+   このフラグでレビュアーが分かれることは、実地で確かめた（2026-10-05、1 リポ 1 回。ただし下の
+   `review.split` を入れる前の版の SKILL.md で流した。確かめたのはフラグで、最終版の分ける・分けない
+   の両方の経路は実地では確かめていない）:
+   `subagent_stats.spawned` が 2（`by_type.general-purpose` 2・`completed` 2）、`permission_denials` が空、
+   `result` の `確認:` の行が埋まった。**分かれたかは `num_turns` では分からない**（レビュアーは
+   background で動き、親は 1 turn で終わる）。`jq .subagent_stats $OUT/<name>.claude.json` で見る。
 
-   費用の目安は 1 リポ 1 回で 0.63〜0.67 USD（上限 `--max-budget-usd 1`。5 リポで 1.78 USD）。
-   これはレビュアーが分かれなかった実行の値で、分かれると増えうる。日次に載せる前に、
-   ダイジェストの大きさか読み方を見直す。
+   費用の目安（1 リポ 1 回。上限 `--max-budget-usd 1`）:
+
+   | | 見直し前（10/3） | 見直し後（10/5） |
+   |---|---|---|
+   | レビュアーが分かれた実行 | 0.63〜0.67 USD（2 リポ） | 0.62 USD（1 リポ） |
+   | 分かれなかった実行（親が自分で行う） | 0.13〜0.18 USD（3 リポ） | 未実測 |
+
+   ダイジェストを 16 KB→10 KB、レビュアー 2 が読む .md を 82 KB→9.6 KB に減らしても、分かれた実行は
+   ほぼ変わらなかった（0.63→0.62）。費用の大半は、文脈ごとの土台（約 56k トークン）を親と 2 人の
+   3 つ分書くことで、分けると約 4 倍になる。ダイジェストは全体の 1 割弱で、削っても効かない。
+   そこで分ける条件を絞った。`nav-digest` が `review.split` を出し、レビュアー 2 が読む .md が合計
+   40 KB 以上のときだけ分ける。それ未満は親が自分で行う（SKILL.md）。**この条件にした後の費用は
+   まだ実測していない**。表の「分かれなかった実行」は、条件を絞る前に親が自分で行った 3 リポの値。
 
    automation の作業ディレクトリ（nav-retro が入っている coordinator の checkout）から打つ。
    対象のリポは `--add-dir` で読むだけにする。`--no-session-persistence` を外さない
