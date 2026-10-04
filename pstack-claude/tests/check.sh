@@ -313,7 +313,7 @@ cst_run() {
 }
 out="$(cst_run STUB_AGENT=1)"
 grep -qx term_agent "$tmp/stub.log.closed" && fail "close-startup-terminals closed the agent's terminal"
-[ "$(sort "$tmp/stub.log.closed" | tr -s '\n' ' ')" = "term_setup term_shell1 " ] || [ "$(sort "$tmp/stub.log.closed" | tr -s '\n' ' ')" = "term_shell1 term_setup " ] ||
+[ "$(sort "$tmp/stub.log.closed" | tr -s '\n' ' ')" = "term_setup term_shell1 " ] ||
   fail "close-startup-terminals did not close exactly the Setup terminal and the unused shell: $(cat "$tmp/stub.log.closed")"
 out="$(cst_run STUB_SETUP=marker-fail STUB_AGENT=1)"
 grep -qx term_setup "$tmp/stub.log.closed" && fail "close-startup-terminals closed a failed Setup"
