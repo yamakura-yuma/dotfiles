@@ -5,9 +5,10 @@ The body of an Issue that a human can later hand to a topic chat with
 --title "<title>" --body-file <file>`; the topic chat writes the file, and the
 human only says "make this an Issue".
 
-This is not a `.github/ISSUE_TEMPLATE/`: apm cannot deploy that directory, and
-`/.github/` is stage C in every repo, so a copy there would cost four admin
-merges per edit. The web form is not offered; Issues are made from the chat.
+A human who makes an Issue from the GitHub web UI uses the forms in each
+repo's `.github/ISSUE_TEMPLATE/`; this body is for Issues made from the chat.
+apm cannot deploy that directory, and `/.github/` is stage C in every repo, so
+each repo keeps its own forms and an edit costs one admin merge per repo.
 
 ```markdown
 ## 目的

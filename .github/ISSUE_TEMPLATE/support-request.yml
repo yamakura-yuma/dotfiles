@@ -1,0 +1,30 @@
+name: 困りごとの相談
+description: 困っているが、不具合かどうか分からないとき。
+body:
+  - type: textarea
+    id: trouble
+    attributes:
+      label: 困りごと
+      description: 何をしようとして、何が起きたかを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: |
+        ホスト（WSL・ubuntu・ZCU104 など）と、打ったコマンドの出力を貼ってください。
+        `./setup.sh reload` や `make ci` で困っているなら、その出力の失敗した部分を。
+      placeholder: |
+        ホスト: WSL2 (Ubuntu 24.04)
+        ```console
+        $ make ci
+        ```
+    validations:
+      required: false
+  - type: textarea
+    id: tried
+    attributes:
+      label: 試したこと
+    validations:
+      required: false
