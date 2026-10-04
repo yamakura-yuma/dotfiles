@@ -44,9 +44,14 @@ precheck ── nav-digest ── claude -p /nav-retro（リポごと） ── 
 
    レビュアー（`Agent`）は親の権限を引き継ぎ、deny は allow に勝つ。だから `Bash` を
    `--disallowedTools` に入れず、`Bash(ls *)` だけ許す（存在確認用。他は `dontAsk` が断る）。
-   `Agent` は名前だけが一覧に載る deferred ツールなので、`ToolSearch` も許す（SKILL.md が引かせる）。
+   `Agent` は名前だけが一覧に載る deferred ツールで、引かないと呼べない場合があるらしいので、
+   `ToolSearch` も許す（SKILL.md が引かせる）。これが 10/3 に分かれなかった原因かは**仮説**
+   （根拠は、その日の coordinator の実行が「`Agent` ツールがこのセッションに無かった」と書いたこと。
+   temporal-workflow-kit は 10/3 に `ToolSearch` 無しでも分かれていて、10/5 の 1 回では切り分けていない）。
    根拠: <https://code.claude.com/docs/en/permissions>、<https://code.claude.com/docs/en/sub-agents>。
-   このフラグでレビュアーが分かれることは、実地で確かめた（2026-10-05、1 リポ 1 回）:
+   このフラグでレビュアーが分かれることは、実地で確かめた（2026-10-05、1 リポ 1 回。ただし下の
+   `review.split` を入れる前の版の SKILL.md で流した。確かめたのはフラグで、最終版の分ける・分けない
+   の両方の経路は実地では確かめていない）:
    `subagent_stats.spawned` が 2（`by_type.general-purpose` 2・`completed` 2）、`permission_denials` が空、
    `result` の `確認:` の行が埋まった。**分かれたかは `num_turns` では分からない**（レビュアーは
    background で動き、親は 1 turn で終わる）。`jq .subagent_stats $OUT/<name>.claude.json` で見る。
