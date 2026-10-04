@@ -54,11 +54,14 @@ topics in, and one **topic chat** per topic sees that topic through.
   a fresh worktree has no harness: the repo's `orca.yaml` setup installs it and the agent
   waits for that (`wait-for-setup`), so the script runs no `apm install` of its own. It starts the chat on the hand-off by typing
   `claude --model claude-opus-5-5 --permission-mode plan "<hand-off>"` into the
-  one terminal Orca opened with the worktree, so the worktree has one terminal.
-  It types only after `terminal list` shows that terminal alone and `terminal
-  read` shows a shell prompt that has stopped moving; otherwise it opens a
-  terminal of its own, as before (`terminal wait --for tui-idle` is for agent
-  TUIs and times out on a shell, so it is not the check). `--agent-cmd` replaces
+  first shell Orca opened with the worktree. Orca opens that shell and a
+  `Setup` terminal for the repo's setup, so a fresh worktree has two terminals
+  before the agent. The script types only after `terminal list` shows one
+  terminal other than `Setup` and `terminal read` shows a shell prompt that has
+  stopped moving; otherwise it opens a terminal of its own (`terminal wait --for
+  tui-idle` is for agent TUIs and times out on a shell, so it is not the check).
+  Then it runs `close-startup-terminals` ("Close the startup terminals", below),
+  so the chat's terminal is the only one left, unless the setup failed. `--agent-cmd` replaces
   that command; the hand-off is appended to it as the last argument. Whatever
   chooses the agent and model passes it there. It adds the topic chat's role (the hook and
   the edit guard stay silent in a child worktree, so that text is the only place
@@ -181,6 +184,25 @@ topics in, and one **topic chat** per topic sees that topic through.
   Report in one line: worker name, repo, model, zone.
   The chat's first start also starts `wait-worker-events` below; restart it after
   each return.
+- **Close the startup terminals after `worker-start`.** A worker's worktree
+  opens with three terminals: the agent, an unused first shell, and `Setup`
+  (the repo's setup). Right after the start returns, run
+  `.claude/skills/pstack-on-claude-code/scripts/close-startup-terminals
+  <worker worktree path>` (`worktreeId` after `::` in `worker-list`). It closes
+  the `Setup` terminal once the setup exited 0 and the first shell once `terminal
+  read` shows its prompt untouched and still; it never closes an agent terminal
+  (`agentIdentity` set) or a terminal it cannot verify, and it waits up to 120 s
+  (`--wait`) for the setup to finish. It reads the exit code from the
+  `__ORCA_SETUP_COMPLETE__:<id>:<code>` line Orca prints for a worktree started
+  with an agent; with no such line it asks the `Setup` shell for `$?` once.
+  Anything it leaves is printed as `left: <handle> (<why>)`:
+  - setup exited non-zero: `Setup` stays, its output says why; read it before
+    deciding the worker can proceed, and close it with the worktree later;
+  - `terminal close` refused (`terminal_stop_unverifiable`) or the wait ran out:
+    not retried and not forced. The terminal stays; it is closed with the
+    worktree's `terminal close --all`, and if that also returns
+    `terminal_stop_unverifiable`, "When release is retained" applies.
+  The script is also what `open-topic-chat` runs, so the two share one rule.
 - **Fix coordinator-specific changes in dotfiles.** `pstack-claude` is the
   source of the coordinator's skills and instructions, so change them there.
   Start a worker in the coordinator repo only for what cannot live in dotfiles,

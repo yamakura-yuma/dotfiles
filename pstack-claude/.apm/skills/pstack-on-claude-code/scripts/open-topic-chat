@@ -18,10 +18,13 @@
 # from settings. --repo defaults to the repo whose worktree contains the current
 # directory, read from `orca worktree list`.
 #
-# The command is typed into the shell Orca opens with the worktree, so the
-# worktree has one terminal. Only a shell verifiably waiting at a prompt is used;
-# otherwise a terminal of our own is opened (and the shell stays, as before).
-# Prints the worktree path and the terminal handle.
+# The command is typed into the shell Orca opens with the worktree. Only a shell
+# verifiably waiting at a prompt is used; otherwise a terminal of our own is
+# opened. Orca also opens a `Setup` terminal for the repo's setup; once the
+# command is started, close-startup-terminals closes it (when the setup exited 0)
+# and any unused shell, so the worktree is left with the agent's terminal alone.
+# A failed setup keeps its `Setup` terminal. Prints the worktree path, the
+# terminal handle and what was closed or left.
 set -euo pipefail
 
 usage() { echo "usage: open-topic-chat [--run <run_id>] [--repo <selector>] [--agent-cmd <command>] --said <words> [--known <facts>] [--guess <guesses>] <topic>" >&2; exit 2; }
@@ -86,15 +89,18 @@ printf '%s\n\n## ユーザーの原文\n%s\n\n## わかっていること\n%s\n\
 
 launch="$agent_cmd \"\$(cat $(printf %q "$file"))\""
 
-# The terminal Orca opened with the worktree, if it is the only one and sits at
-# a shell prompt that has stopped moving. Prints its handle. `terminal wait` has
-# nothing for this: `tui-idle` is for agent TUIs and times out on a shell.
+# The terminal Orca opened with the worktree, if it is the only one besides the
+# `Setup` terminal and sits at a shell prompt that has stopped moving. Prints its
+# handle. `terminal wait` has nothing for this: `tui-idle` is for agent TUIs and
+# times out on a shell. (`worktree create` returns no startupTerminal handle
+# without --agent, so the terminals are listed.)
 waiting_shell() {
-  local deadline=$((SECONDS + ${OPEN_TOPIC_CHAT_SHELL_WAIT:-15})) list handle a b
+  local deadline=$((SECONDS + ${OPEN_TOPIC_CHAT_SHELL_WAIT:-15})) list shells handle a b
   while [ "$SECONDS" -lt "$deadline" ]; do
     list="$(orca_json terminal list --worktree "path:$path")" || return 1
-    if [ "$(printf '%s' "$list" | jq '.result.terminals | length')" = 1 ]; then
-      handle="$(printf '%s' "$list" | jq -r '.result.terminals[0].handle')"
+    shells="$(printf '%s' "$list" | jq -r '[.result.terminals[] | select(.title != "Setup" and (.agentIdentity // "") == "") | .handle]')"
+    if [ "$(printf '%s' "$shells" | jq 'length')" = 1 ]; then
+      handle="$(printf '%s' "$shells" | jq -r '.[0]')"
       a="$(shell_screen "$handle")" || return 1
       sleep 0.5
       b="$(shell_screen "$handle")" || return 1
@@ -123,3 +129,5 @@ fi
 
 printf 'worktree: %s\n' "$path"
 printf 'terminal: %s\n' "$handle"
+# Not fatal: the topic chat runs either way, and leftovers go with `terminal close --all`.
+"$(dirname "$0")/close-startup-terminals" --keep "$handle" "$path" || echo "open-topic-chat: close-startup-terminals failed; the extra terminals stay" >&2

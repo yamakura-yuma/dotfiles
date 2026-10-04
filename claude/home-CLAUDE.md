@@ -12,8 +12,9 @@
 上のスクリプトが、coordinator の repo id を `orca worktree list` から引き、worktree
 `chat-<topic>` の作成（`--setup inherit --no-parent`。ハーネスは repo の `orca.yaml` の setup が入れ、起動は setup の完了を待つ）、
 Opus（`--model claude-opus-5-5`）の話題チャットの起動（plan モード）までを行う。起動コマンドは
-worktree と一緒に開く最初のシェルに打つ（ターミナルは 1 つ）。待機中のシェルと確かめられないときは
-別に `terminal create` する。コマンドは `--agent-cmd` で差し替えられる（引き継ぎ文は最後の引数に付く）。`~` は repo ではないので
+worktree と一緒に開く最初のシェルに打つ（`Setup` 端末は除いて数える）。待機中のシェルと確かめられないときは
+別に `terminal create` する。起動したあと、成功した `Setup` と使われていないシェルは閉じるので、
+残る端末はエージェントだけになる（setup が失敗したときは `Setup` を残す）。コマンドは `--agent-cmd` で差し替えられる（引き継ぎ文は最後の引数に付く）。`~` は repo ではないので
 `--repo id:<coordinatorRepoId>` を渡す（repo id は `orca worktree list --json` の id の `::` より前）。
 引き継ぎ文は原文（`--said`）・わかっていること（`--known`）・推測（`--guess`）の 3 つに分ける。
 掘り下げは話題チャットの仕事で、ここではしない。
