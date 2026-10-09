@@ -12,7 +12,6 @@ Claude Code の設定ファイルを直接編集することはありません�
 | 種類 | 実体 | 数 |
 | --- | --- | --- |
 | ルール | `core-principal.instructions.md` | 1 |
-| ガードフック（ブロックする） | `guard-default-branch`、`guard-destructive-git`、`guard-coordinator-edit` | 3 |
 | 助言フック（ブロックしない） | `dispatch-in-coordinator` | 1 |
 | コマンド | `/retro`、`/workers`、`/worktree` | 3 |
 | `core-*` スキル | `core-tools`、`core-communication`、`core-harness`、`core-retro`、`core-dispatch` | 5 |
@@ -62,36 +61,14 @@ instructions のほうです。
 apm はパッケージの一部だけを配らないので、何かを外に出さない唯一の方法がこれです。
 `includes:` でファイルを除外しようとしたことがあり、黙って配られました。
 
-## ガードフック
+## 外したガード
 
-3つのガードは exit 2 でツール呼び出しをブロックし、理由を stderr でエージェントに返し
-ます。
-
-| フック | 拒否するもの | 外す環境変数 |
-| --- | --- | --- |
-| `guard-default-branch` | デフォルトブランチ上での `git commit` / `git push` | `MAKURA_ALLOW_MAIN=1` |
-| `guard-destructive-git` | どこにも残っていない作業を消す4つ（`reset --hard`、`clean -f`、ツリー全体の `checkout --` / `restore`、`push --force`） | `MAKURA_ALLOW_DESTRUCTIVE=1` |
-| `guard-coordinator-edit` | coordinator での `Edit` / `Write` / `NotebookEdit` | `MAKURA_ALLOW_MAIN=1` |
-
-`--force-with-lease` と `reset --soft` は通します。線を引いているのは「危なく聞こえるか」
-ではなく「復旧できないか」です。
-
-ガードは、判断できないとき（`jq` が無い、リポジトリでない、detached HEAD、ペイロードが
-読めない）は exit 0 で素通りします。Claude Code のフックプロトコルで exit 0 は「意見なし」
-であって「承認」ではないからです。
-
-外したいときは Claude Code を**起動する前に** export してください。マーカーファイルでは
-なく環境変数なのは意図的です。フックは Claude Code の環境を継承するのであって、Bash
-ツールの1回の呼び出しが作る環境ではありません。つまりエージェントはコマンドに変数を
-前置きしても自分に許可を出せません。
-
-フックが少数で止まっているのも意図的です。ブロックするフックは非対称で、誤検知は
-発火するたびに必ずコストを払うのに、防いでいるものは一度も起きなかったかもしれない。
-1つずつ場所を勝ち取らせています。理由の全文は
-[`core-principal/README.md`](../core-principal/README.md) に。
-
-なお、ガードフックがこのリポジトリの `main` を守るのは、ここに限った話です。
-`core-principal` を入れていないリポジトリで開いたセッションには何の保護もありません。
+`guard-default-branch`、`guard-destructive-git`、`guard-coordinator-edit` の3つ（exit 2 で
+止める PreToolUse hook）は意図的に外しました。個人のリポジトリで、エージェントに速く
+開発させたいからです。デフォルトブランチへの commit、`git reset --hard`、force push、
+`gh pr merge --admin` を止めるものはもうありません。coordinator → 話題チャット →
+ワーカーの委任の形は、指示（`core-dispatch` スキルなど）だけで残しています。
+資格情報を守る `permissions.deny`（`worker-deny.settings.json`）は残しています。
 
 ## コード探索のツールが、意識せず効く
 

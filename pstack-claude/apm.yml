@@ -1,6 +1,6 @@
 name: pstack-claude
 version: 0.1.0
-description: pstack (poteto-mode) from cursor/plugins, run on Claude Code — upstream skills as-is, one overlay skill that maps Cursor's tools onto Claude Code and Orca, and the coordinator edit guard
+description: pstack (poteto-mode) from cursor/plugins, run on Claude Code — upstream skills as-is, one overlay skill that maps Cursor's tools onto Claude Code and Orca
 author: yyamakura
 targets:
 - claude
