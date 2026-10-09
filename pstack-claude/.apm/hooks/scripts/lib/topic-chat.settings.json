@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(orca orchestration:*)",
+      "Bash(.claude/skills/pstack-on-claude-code/scripts/*)"
+    ]
+  }
+}

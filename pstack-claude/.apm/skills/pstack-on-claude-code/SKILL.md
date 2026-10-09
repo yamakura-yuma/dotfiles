@@ -298,6 +298,12 @@ The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.
 | Every worker | bypass (Orca setting) | deny from `.claude/settings.local.json` + the spec | none by flag |
 | Implementation (Sonnet) | same | same; `git push`, `gh pr create`, `gh pr merge` (after the review passes), edits in the worktree and writes to `~/.claude/worker-reports/` stay allowed | what to change goes in the spec |
 | Design (Opus) | same | same | "do not change code" goes in the spec |
+| Topic chat (Opus) | plan at launch, auto after the human approves the plan | `permissions.allow` from `.claude/settings.local.json` (below) + `autoMode.allow` in `~/.claude/settings.json` | not bypass; the human approves the plan |
+
+**The topic chat runs in auto, so its allow rules are narrow and live in two places.** Official (https://code.claude.com/docs/en/permission-modes, "How the classifier evaluates actions"; https://code.claude.com/docs/en/auto-mode-config): on entering auto mode, broad allow rules (`Bash(*)`, `Bash(python*)`, `Agent`, `Monitor`) are dropped, while narrow ones such as `Bash(npm test)` stay and resolve before the classifier. Writes under `~/.claude/` are protected paths: they go to the classifier even when an allow rule matches, and a `permissions.allow` rule does not change that. The classifier's `[Self-Modification]` and `[Instruction Poisoning]` are `soft_deny` rules, which `autoMode.allow` can clear. `autoMode` is read only from `~/.claude/settings.json`, managed settings and `--settings`; it is ignored in `.claude/settings.local.json`.
+
+- `permissions.allow` (`Bash(orca orchestration:*)`, `Bash(.claude/skills/pstack-on-claude-code/scripts/*)`) lives once in `pstack-claude/.apm/hooks/scripts/lib/topic-chat.settings.json`. Like the worker deny, apm ships it as a plain file and the coordinator's `orca.yaml` setup merges it into `.claude/settings.local.json`.
+- `autoMode.allow` (writes under `~/.claude/worker-reports/`, dispatching workers) lives once in dotfiles' `claude/auto-mode.json`; `setup.sh reload` / `claude-settings` merges it into `~/.claude/settings.json`.
 
 ## Paths
 

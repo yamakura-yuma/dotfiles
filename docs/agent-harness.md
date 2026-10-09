@@ -70,6 +70,23 @@ apm はパッケージの一部だけを配らないので、何かを外に出�
 ワーカーの委任の形は、指示（`core-dispatch` スキルなど）だけで残しています。
 資格情報を守る `permissions.deny`（`worker-deny.settings.json`）は残しています。
 
+## 話題チャットの allow
+
+話題チャットは plan で起動し、承認後は auto で動きます（bypass にしません）。auto は分類器が
+判定するので、Run の作成・`worker-start`・`~/.claude/worker-reports/` への書き込みが
+`[Self-Modification]` や `[Instruction Poisoning]` で止まっていました。公式
+（[permission-modes](https://code.claude.com/docs/en/permission-modes)、
+[auto-mode-config](https://code.claude.com/docs/en/auto-mode-config)）によると、auto に入るときに
+`Bash(*)` のような広い allow は外れ、狭い allow は分類器より先に効きます。`~/.claude/` への
+書き込みは保護パスで、allow があっても分類器に回ります。この2つは `soft_deny` で、`autoMode.allow`
+で外せます。`autoMode` は `~/.claude/settings.json` からしか読まれません（`.claude/settings.local.json`
+では無視）。
+
+| 何を | どこに | どう届く |
+| --- | --- | --- |
+| `Bash(orca orchestration:*)`、`Bash(.claude/skills/pstack-on-claude-code/scripts/*)` | `pstack-claude/.apm/hooks/scripts/lib/topic-chat.settings.json` | coordinator の `orca.yaml` setup が `.claude/settings.local.json` に merge |
+| `autoMode.allow`（worker-reports への書き込み、ワーカーの出動） | `claude/auto-mode.json` | `setup.sh reload`（`claude-settings`）が `~/.claude/settings.json` に merge。`autoMode.allow` を置き換える |
+
 ## コード探索のツールが、意識せず効く
 
 `codegraph`、`graphify`、`headroom` は、入れるだけでは半分です。持っていてなお `grep` に

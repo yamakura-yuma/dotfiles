@@ -47,6 +47,12 @@ expect "no settings.json: created with true" "true" "$(jq -r "$sid" "$settings")
 merge '{}'
 expect "empty settings: env added" "true" "$(jq -r "$sid" "$settings")"
 
+# autoMode.allow is replaced by claude/auto-mode.json; other autoMode keys stay.
+merge '{"autoMode":{"environment":["mine"],"allow":["stale"]}}'
+expect "autoMode.allow: replaced" "\$defaults" "$(jq -r '.autoMode.allow[0]' "$settings")"
+expect "autoMode.allow: stale entry gone" "0" "$(jq '[.autoMode.allow[] | select(. == "stale")] | length' "$settings")"
+expect "autoMode.environment: kept" "mine" "$(jq -r '.autoMode.environment[0]' "$settings")"
+
 if [ "$failures" != 0 ]; then
   printf '\n%s claude-settings test(s) failed\n' "$failures" >&2
   exit 1

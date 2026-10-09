@@ -110,7 +110,8 @@ dry-run など）を spec で具体的に指定する。#19 の advisor 付き S
 - 「検証コマンドとその結果を報告ファイルに貼ること」
 - 実機の状態を変える操作の禁止事項（「`~/.bashrc` を書き換えない」「実クラスタに apply
   しない」のように対象を名指しする）と、代わりに使う検証の場所
-- 「`gh pr merge` は打たない（`--auto` も `--admin` も）。マージの予約は coordinator が行う」
+- 「レビューが合格して PR が開いたら、自分で `gh pr merge <番号> --squash --delete-branch` を打つ
+  （ブランチ保護で止まるときは `--admin` を足す）。そのあと `worker_done` を送る。合格前にマージしない」
 - 下の「advisor の誘導」と「完了前レビュー」の 2 つのブロックをそのまま
 
 **役割を分ける。advisor は作業の前半、完了時点の確認は完了前レビューだけ。** 完了時点
@@ -244,13 +245,11 @@ you learn that"）。つまり自分から引かなければ資格喪失にす�
    報告に完了前レビューの `verdict: pass` のラウンドがあるかを確かめる。無ければ
    受け取らず、「追加指示を届ける」で完了前レビューをやり直させる。再レビューでも
    fail で escalation が来たときは、残った required を人に見せて解釈を決めてもらう。
-   PR のマージの予約はここで coordinator が行う。`gh pr checks <番号> --required`
-   で `ci / stage C paths` が SUCCESS（段階 A・B）のときだけ `gh pr merge <番号>
-   --auto --squash` を打つ。FAILURE（C）は付けず、人が管理者としてマージする。
-   チェックが無い（ゲート未導入）ときも付けず、人に伝える。ただし coordinator
-   リポジトリ（CI なし・private で auto merge が使えない）の PR は、報告に pass が
-   あれば `gh pr merge <番号> --squash` で直接マージする。`--admin` は打たない
-   （docs/gates.md）
+   マージはワーカーが自分で行う（完了前レビューの合格後。ブランチ保護で止まるときは
+   `--admin`）。回収では `gh pr view <番号> --json state,mergedAt` で `MERGED` を確かめる。
+   `OPEN` で報告に pass があるなら、ワーカーがマージ前に止まっているので `send` でマージを
+   促す（代わりに打たない）。pass が無いなら上の「やり直させる」の場合で、マージしない。
+   `--auto` は使わない（docs/gates.md）
 5. escalation / question は人に取り次ぎ、返答を `orca orchestration reply` で返す
 6. 落ち着いたワーカーは `orca orchestration worker-release` で解放する。有効な
    worker_done は Task と Dispatch を自動で決着させるので、続けて `task-update` を

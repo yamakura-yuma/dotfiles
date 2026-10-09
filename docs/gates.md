@@ -140,12 +140,12 @@ owner も `yamakura-yuma` だけのリポジトリでは、作者が自分の PR
 
 ### 管理者のマージ
 
-C の PR は、人が管理者としてマージします。`enforce_admins` を外してあるので、`ci / stage C paths`
-が落ちていても、管理者は `gh pr merge --admin` か UI で飛ばせます。**エージェントは
-`gh pr merge --admin` を使いません**（`--auto` も C の PR では打ちません）。ワーカーは
-`gh pr merge` を一切打たず、`--auto` は話題チャットが回収時に A・B の PR にだけ付けます。
-GitHub の設定ではエージェントを防げないので、手順で禁じます（dotfiles#53）。禁止は両方のパッケージの
-instructions（`pstack-claude`、`core-principal`）と、ワーカーの spec の決まり文句に書いてあります。
+`enforce_admins` を外してあるので、`ci / stage C paths` が落ちていても、管理者は
+`gh pr merge --admin` か UI で飛ばせます。個人リポジトリで速さを取るため、ワーカーが
+completion-reviewer の合格後に自分でマージし、ブランチ保護で止まるときは `--admin` も
+使います（dotfiles#103、#53 の禁止を外した）。合格前のマージはしません。この手順は両方の
+パッケージの instructions（`pstack-claude`、`core-principal`）と、ワーカーの spec の決まり文句に
+書いてあります。
 エージェント用の別 ID は今は作りません。
 
 ### 呼ぶ側が SHA を上げるとき
@@ -214,7 +214,7 @@ instructions（`pstack-claude`、`core-principal`）と、ワーカーの spec �
   and status checks pass" とあり、管理者が有効にしても C の PR は止まったままのはずです。各チケットで
   C のパスに触る PR を 1 本出して確かめてください。
 - **`enforce_admins` を外していると、エージェントも `gh pr merge --admin` で飛ばせる。**
-  GitHub の設定では防げないので、ワーカーの手順で禁じます（上の「管理者のマージ」）。
+  防ぎません。ワーカーが合格後に自分で使うことを許しています（上の「管理者のマージ」）。
 
 ## 各リポジトリでの設定手順（後続チケット用）
 
@@ -284,11 +284,9 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
    gh repo edit yamakura-yuma/<repo> --enable-auto-merge
    ```
 
-7. 話題チャットが回収時に、A・B の PR にだけ `gh pr merge <番号> --auto --squash` を打つ。
-   報告に completion-reviewer の pass があり、`gh pr checks <番号> --required` で
-   `ci / stage C paths` が SUCCESS であることを確かめてから付ける（FAILURE と、チェックが無い場合は付けない）。C の PR には付けず、
-   人が管理者としてマージする。ワーカーは `gh pr merge` を打たず、エージェントは
-   `gh pr merge --admin` を使わない。
+7. ワーカーが completion-reviewer の合格後に、自分で `gh pr merge <番号> --squash --delete-branch`
+   を打つ（`ci / stage C paths` が FAILURE の C の PR やブランチ保護で止まるときは `--admin`）。
+   話題チャットは回収時に `MERGED` を確かめるだけで、代わりにマージしない。
 
 設定を外すときは `gh api -X DELETE repos/yamakura-yuma/<repo>/branches/main/protection` と
 `gh repo edit yamakura-yuma/<repo> --disable-auto-merge` です。

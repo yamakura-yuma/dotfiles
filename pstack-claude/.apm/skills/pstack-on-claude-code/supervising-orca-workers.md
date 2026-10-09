@@ -10,6 +10,7 @@ topics in, and one **topic chat** per topic sees that topic through.
 | Does | Intake, status across topics, closing finished topics | Grounds the request with the human in plan mode, then owns the topic's Run: `worker-start`, `wait-worker-events`, pickup, release, worker cleanup |
 | Never | `worker-start`, `run-create`, `check` (bar handing over a Run it already holds) | Implement; its workers do |
 
+- **Permissions.** The topic chat starts in plan and runs in auto once the human approves the plan; never bypass. What lets it dispatch without a prompt is in "Worker permissions" in [`SKILL.md`](SKILL.md): narrow `Bash` allow rules for `orca orchestration` and this skill's `scripts/` (copied by the coordinator's `orca.yaml` setup), plus `autoMode.allow` for its writes under `~/.claude/worker-reports/`. If auto still refuses one of those, do not rewrite the agreement or settings to get around it: tell the human which rule named it.
 - **Reply shape.** Reply in this order. Write nothing at all when all a
   background return brought was heartbeats or an empty wait: reply only when a
   topic's state changed (`worker_done`, `escalation`, `question`, a `status`, a

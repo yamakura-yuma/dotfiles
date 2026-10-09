@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-topic-chat-allow test-worker-limit \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-topic-chat-allow test-worker-limit
 
 lint-shell:
 	@echo "== shell syntax"
@@ -101,6 +101,11 @@ test-harness:
 test-worker-deny:
 	@echo "== worker deny"
 	@./core-principal/tests/worker-deny.sh
+
+# 話題チャットの allow と autoMode の正本。
+test-topic-chat-allow:
+	@echo "== topic chat allow"
+	@./pstack-claude/tests/topic-chat-allow.sh
 
 # worker-limit hook: no limits file means no opinion; money, minutes and tool calls
 # each stop the worker; the escalation goes out once. Against a stub orca.
