@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit test-haiku-direct \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit test-haiku-direct \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit test-haiku-direct
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-gate-stage-c test-worker-deny test-worker-limit test-haiku-direct
 
 lint-shell:
 	@echo "== shell syntax"
@@ -127,6 +127,10 @@ test-nix-tools:
 test-claude-settings:
 	@echo "== setup.sh claude-settings"
 	@./tests/claude-settings.sh
+
+test-headroom-init:
+	@echo "== setup.sh headroom-init"
+	@./tests/headroom-init.sh
 
 # bin/claude-haiku-direct.sh against a stub claude on PATH: no API call.
 test-haiku-direct:
