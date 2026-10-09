@@ -7,8 +7,8 @@ human only says "make this an Issue".
 
 A human who makes an Issue from the GitHub web UI uses the forms in each
 repo's `.github/ISSUE_TEMPLATE/`; this body is for Issues made from the chat.
-apm cannot deploy that directory, and `/.github/` is stage C in every repo, so
-each repo keeps its own forms and an edit costs one admin merge per repo.
+apm cannot deploy that directory, so each repo keeps its own forms and an edit
+costs one PR per repo.
 
 ```markdown
 ## 目的
@@ -22,7 +22,7 @@ each repo keeps its own forms and an edit costs one admin merge per repo.
 パス: <触ってよい範囲>
 
 ## 段階の見込み
-<A | B | C>（見込み。正は必須チェック `ci / stage C paths`）
+<A | B>（見込み）
 
 ## 対象外
 - <しないこと>
@@ -36,8 +36,8 @@ each repo keeps its own forms and an edit costs one admin merge per repo.
   sub-issues, each carrying the parent's URL in the last line.
 - 目的 and 完了条件 are the human's words. If either cannot be written yet, the
   work is still a topic to ground, not an Issue (`supervising-orca-workers.md`, "Topic chat").
-- 段階の見込み is a guess from `docs/gates.md`. The required check
-  `ci / stage C paths` decides; a wrong guess changes nothing.
+- 段階の見込み is a guess from `docs/gates.md`. Both stages merge once `ci / just ci`
+  passes; a wrong guess only changes whether the completion-reviewer runs first.
 - Do not add the `agent:go` label. Only the human adds it ("Run an Issue" in
   `supervising-orca-workers.md`), and `triage:*` labels are not a substitute.
 
