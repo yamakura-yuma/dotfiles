@@ -3,7 +3,7 @@
 # agent environment. Subcommands mirror what used to be Justfile recipes;
 # dotfiles is plain shell scripts end to end, no task runner required.
 #
-# Usage: ./setup.sh [install-nix|nix-tools|reload|claude-settings|agents-init|all]
+# Usage: ./setup.sh [install-nix|nix-tools|reload|claude-settings|headroom-init|agents-init|all]
 #   install-nix   one-time: installs Nix itself (system/multi-user)
 #   nix-tools     installs/upgrades jq/uv/node via `nix profile`
 #   claude-settings  only the OpenTelemetry env and advisor model merge into
@@ -13,6 +13,8 @@
 #                 versions.env, host-apm.yml's MCP servers and this repo's own
 #                 .apm/ primitives, and the OpenTelemetry env and advisor
 #                 model in ~/.claude/settings.json. Safe to re-run any time.
+#   headroom-init the headroom proxy as the cache-mode service on 8787, and
+#                 retire the token-mode init-user profile (part of agents-init)
 #   agents-init   one-time per host: durable headroom + graphify integrations
 #   all (default) install-nix + reload + agents-init
 set -euo pipefail
@@ -188,9 +190,55 @@ cmd_reload() {
   ( cd "$DIR" && apm install )
 }
 
+# Run the headroom proxy as the cache-mode service, and only that.
+#
+# Why not `headroom init --global claude`: it writes an `init-user` profile
+# whose manifest is hard-coded to `proxy_mode: token`, plus hooks (and the
+# headroom@headroom-marketplace plugin) that run `headroom init hook ensure`
+# before every session and Bash call. That runner took 8787 first, so the
+# cache-mode service never served a request. Token mode re-compresses earlier
+# turns differently from one request to the next, which rewrites the prompt
+# prefix and turns each prompt-cache read into a fresh cache write.
+#
+# Order matters on a host that has init-user: the manifest goes first, because
+# while it exists any session's hook restarts the runner we are stopping.
+#
+# PATH puts ~/.local/bin first because `install apply` bakes the first
+# `headroom` on PATH into run-headroom.sh; a mise shim there has no version set
+# outside a mise project, so systemd restarted the service forever.
+cmd_headroom_init() {
+  local d="$HOME/.headroom/deploy/init-user" settings="$HOME/.claude/settings.json" tmp pid
+  if [ -d "$d" ]; then
+    rm -f "$d/manifest.json"
+    pid="$(cat "$d/runner.pid" 2>/dev/null || true)"
+    [ -z "$pid" ] || pkill -TERM -P "$pid" 2>/dev/null || true
+    [ -z "$pid" ] || kill "$pid" 2>/dev/null || true
+    rm -rf "$d"
+  fi
+  mkdir -p ~/.claude
+  [ -e "$settings" ] || echo '{}' >"$settings"
+  tmp="$(mktemp "$settings.XXXXXX")"
+  # Routing used to be written by `headroom init`; keep it here so `claude`
+  # started outside a login shell still goes through the proxy.
+  # ENABLE_TOOL_SEARCH: with a custom base URL Claude Code otherwise inlines
+  # every deferred tool schema (headroom GH #746).
+  jq '.env = ((.env // {}) + {ANTHROPIC_BASE_URL: "http://127.0.0.1:8787"})
+      | .env.ENABLE_TOOL_SEARCH //= "true"
+      | if .hooks then .hooks |= with_entries(.value |= map(select(
+          ([.hooks[]?.command // ""] | any(contains("headroom-init-claude"))) | not)))
+        else . end
+      | .enabledPlugins["headroom@headroom-marketplace"] = false' "$settings" >"$tmp"
+  cat "$tmp" >"$settings"
+  rm -f "$tmp"
+  PATH="$HOME/.local/bin:$PATH" headroom install apply --target claude --mode cache
+  if grep -q 'mise/shims' "$HOME/.headroom/deploy/default/run-headroom.sh"; then
+    echo "setup.sh: run-headroom.sh still execs a mise shim" >&2
+    return 1
+  fi
+}
+
 cmd_agents_init() {
-  headroom install apply --target claude
-  headroom init --global claude
+  cmd_headroom_init
   graphify install --platform claude
   ( cd ~ && graphify claude install )
 }
@@ -200,6 +248,7 @@ case "${1:-all}" in
   nix-tools) cmd_nix_tools ;;
   reload) cmd_reload ;;
   claude-settings) mkdir -p ~/.claude && merge_claude_settings ;;
+  headroom-init) cmd_headroom_init ;;
   agents-init) cmd_agents_init ;;
   all)
     cmd_install_nix
@@ -212,7 +261,7 @@ uv/node are on PATH for future sessions.
 EOF
     ;;
   *)
-    echo "usage: $0 [install-nix|nix-tools|reload|claude-settings|agents-init|all]" >&2
+    echo "usage: $0 [install-nix|nix-tools|reload|claude-settings|headroom-init|agents-init|all]" >&2
     exit 1
     ;;
 esac

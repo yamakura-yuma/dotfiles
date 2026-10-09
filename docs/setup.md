@@ -53,12 +53,17 @@ statusline と `starship.toml` は `reload` が自動でリンクします。MCP
 
 - **codegraph** は `apm.yml` の MCP サーバが入っていれば、`UserPromptSubmit` フック
   （`codegraph prompt-hook`）が毎プロンプトで動きます。他に設定は要りません。
-- **headroom** はホストにつき1回 `./setup.sh agents-init` が要ります。
-  `headroom install apply --target claude` が最適化プロキシを常駐サービス
-  （systemd / launchd）として入れ、`headroom init --global claude` が恒久フックを入れる
-  ので、素の `claude` でも必ずプロキシを通ります。`.bashrc` のシェル関数では拾えない
-  非対話の起動（Orca が worktree のターミナルで直接 `claude` を起こす場合など）も
-  これで通る。確認は `headroom doctor`。
+- **headroom** はホストにつき1回 `./setup.sh agents-init` が要ります（headroom の部分だけなら
+  `./setup.sh headroom-init`）。`headroom install apply --target claude --mode cache` が
+  cache モードのプロキシを常駐サービス（systemd / launchd）として 8787 に入れ、
+  `~/.claude/settings.json` の `ANTHROPIC_BASE_URL` は setup.sh が書くので、素の `claude` でも
+  必ずプロキシを通ります。`.bashrc` のシェル関数では拾えない非対話の起動（Orca が worktree の
+  ターミナルで直接 `claude` を起こす場合など）もこれで通る。
+  `headroom init --global claude` は使いません。これが作る init-user は token モード固定で、
+  過去のターンを要求ごとに縮め直すため prompt cache が毎回書き直しになります。setup.sh は
+  init-user の manifest と runner、それを立ち上げ直すフックを消し、プラグイン
+  `headroom@headroom-marketplace` を無効にします。確認は `ss -ltnp | grep 8787`
+  （`--mode cache` の 1 プロセスだけ）と `headroom doctor`。
 - **graphify** も `agents-init` が要ります。`graphify install --platform claude` が
   `/graphify` スキルをグローバルに入れ、`graphify claude install` が自動化の部分
   （CLAUDE.md の節と `.claude/settings.json` の `PreToolUse` フック）を足します。後者は

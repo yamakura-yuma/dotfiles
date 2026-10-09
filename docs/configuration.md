@@ -44,7 +44,8 @@
 | `~/CLAUDE.md` のマーカー（`<!-- >>> dotfiles >>> -->`）の間 | `claude/home-CLAUDE.md`（外側は graphify が書くので触らない） | `reload` |
 | `./.claude/` と `./.mcp.json` | `apm install`（生成物。gitignore 済み） | `reload` |
 | `~/.claude/settings.json` の `PreToolUse` | `graphify install --platform claude` | `agents-init` |
-| `ANTHROPIC_BASE_URL` と常駐プロキシ | `headroom install apply` / `headroom init --global claude` | `agents-init` |
+| `~/.claude/settings.json` の `ANTHROPIC_BASE_URL`・`ENABLE_TOOL_SEARCH`、headroom の init-user のフックとプラグインの無効化 | `setup.sh headroom-init` | `agents-init` |
+| 常駐プロキシ（cache モード、systemd の `headroom-default`）と `.bashrc` などの headroom の env ブロック | `headroom install apply --mode cache` | `agents-init` |
 
 `reload` の列は何度走らせても同じ状態に収束します。`agents-init` の列はホストにつき1回で、
 外部ツールが自分の流儀で書くところなので、このリポジトリは中身を管理しません。
