@@ -170,6 +170,7 @@ cmd_reload() {
   install_host_apm_manifest
   ln -sfn "$DIR/starship.toml" ~/.config/starship.toml
   ln -sfn "$DIR/shell/prompt.sh" ~/.config/dotfiles/prompt.sh
+  ln -sfn "$DIR/bin/claude-haiku-direct.sh" ~/.local/bin/claude-haiku-direct
   hook_bashrc
   "$DIR/bin/install-apm.sh"
   # Versions come from versions.env so that `reload` is not a silent upgrade;
