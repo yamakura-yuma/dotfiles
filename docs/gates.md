@@ -25,7 +25,7 @@ AI が書いた PR を、人の手を介さずに auto merge するための型�
 止める仕組みではなく、ワーカーは合格後に自分で `--admin` を付けてマージします（dotfiles#104 がこの形でマージされた）。
 
 C は `CODEOWNERS` で表し、`CODEOWNERS` に当たる変更を必須チェック `stage C paths`
-で落として印を付けます（「段階 C を印付けるチェック」）。code owner の review では止まりません。
+で落として印を付けます（「段階 C を印を付けるチェック」）。code owner の review では止まりません。
 B の「AI レビュー 1 回」は CI では見ません（毎回 API を呼ぶと
 コストがかかるため）。ワーカーの手順として PR 前に回します。A と B の違いは手順の側にだけあり、
 GitHub の設定は同じです。
@@ -100,7 +100,7 @@ justfile の中で決めてください。
 | `ci / just ci` | `just-ci` | `just ci` が `0` で終わること |
 | `ci / stage C paths` | `stage-c` | 段階 C のパスに触っていないこと |
 
-## 段階 C を印付けるチェック
+## 段階 C を印を付けるチェック
 
 `CODEOWNERS` の code owner review は、段階 C を止めません。2026-10-03 に knowledge-base で
 確かめました。C のパス（`/justfile`）に触る PR #22 が、`ci / just ci` が通っただけで
