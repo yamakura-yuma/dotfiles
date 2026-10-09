@@ -8,7 +8,7 @@ AI が書いた PR を、人の手を介さずに auto merge するための型�
                                                     │
                GitHub Actions（ubuntu-latest）: just ci ──> 必須チェック
                                                     │
-      段階 A・B: チェックが通れば auto merge     段階 C: `stage C paths` が落ち、人がマージ
+      段階 A・B: チェックが通れば auto merge     段階 C: `stage C paths` が落ち、ワーカーが `--admin` でマージ
 ```
 
 ## 段階
@@ -19,12 +19,13 @@ AI が書いた PR を、人の手を介さずに auto merge するための型�
 | --- | --- | --- | --- |
 | A | docs、ナレッジ、スキル、リンクの修正 | `just ci` が通れば可 | 要らない |
 | B | home-k8s のマニフェストと Helm の values。A にも C にも入らないコードの変更（Go のコードとテスト、`setup.sh`・フック・`bin/`・`Makefile`、`just/` のスクリプトなど） | `just ci` が通り、PR 前に completion-reviewer を 1 回通していれば可 | 要らない |
-| C | Secret、ストレージの削除、外部公開（`just share`）、ArgoCD の設定そのもの、ゲート自身（`.github/workflows/**`、justfile の `ci` レシピ、`CODEOWNERS`） | 不可 | 要る |
+| C | Secret、ストレージの削除、外部公開（`just share`）、ArgoCD の設定そのもの、ゲート自身（`.github/workflows/**`、justfile の `ci` レシピ、`CODEOWNERS`） | 不可（`stage C paths` が落ちる） | 要らない。ワーカーが completion-reviewer の合格後に `--admin` でマージする |
 
-ゲート自身を C にするのは、AI がゲートを弱める変更を自分で通せないようにするためです。
+ゲート自身を C にするのは、CI の中身に触れた PR を PR 上で見分けられるようにする印のためです。
+止める仕組みではなく、ワーカーは合格後に自分で `--admin` を付けてマージします（dotfiles#104 がこの形でマージされた）。
 
 C は `CODEOWNERS` で表し、`CODEOWNERS` に当たる変更を必須チェック `stage C paths`
-で落として止めます（「段階 C を止めるチェック」）。code owner の review では止まりません。
+で落として印を付けます（「段階 C を印を付けるチェック」）。code owner の review では止まりません。
 B の「AI レビュー 1 回」は CI では見ません（毎回 API を呼ぶと
 コストがかかるため）。ワーカーの手順として PR 前に回します。A と B の違いは手順の側にだけあり、
 GitHub の設定は同じです。
@@ -99,14 +100,14 @@ justfile の中で決めてください。
 | `ci / just ci` | `just-ci` | `just ci` が `0` で終わること |
 | `ci / stage C paths` | `stage-c` | 段階 C のパスに触っていないこと |
 
-## 段階 C を止めるチェック
+## 段階 C を印を付けるチェック
 
 `CODEOWNERS` の code owner review は、段階 C を止めません。2026-10-03 に knowledge-base で
 確かめました。C のパス（`/justfile`）に触る PR #22 が、`ci / just ci` が通っただけで
 `mergeStateStatus: CLEAN` になり、`reviewDecision` も `reviewRequests` も空でした。作者も code
 owner も `yamakura-yuma` だけのリポジトリでは、作者が自分の PR を承認できないはずなのに、
-承認待ちになりません。そこで `CODEOWNERS` を C の一覧の正本としたまま、止める役を必須チェックに
-持たせます。
+承認待ちになりません。そこで `CODEOWNERS` を C の一覧の正本としたまま、印を付ける役を必須チェックに
+持たせます（auto merge と管理者でないマージは止まり、`--admin` では通ります）。
 
 `stage-c` job（`bin/gate-stage-c.sh`）は、PR の変更ファイルが `CODEOWNERS` のパスに 1 つでも
 当たれば失敗します。当たったパスは job のログに出ます。
@@ -151,7 +152,7 @@ completion-reviewer の合格後に自分でマージし、ブランチ保護で
 ### 呼ぶ側が SHA を上げるとき
 
 `stage-c` を足した版は、`ci.yml` の `@<SHA>` を上げて取り込みます。上げる PR は `.github/` に
-触るので、段階 C です（上のとおり、`stage C paths` が落ち、人が管理者としてマージします）。
+触るので、段階 C です（上のとおり、`stage C paths` が落ちるので、ワーカーが合格後に `--admin` でマージします）。
 上げたあと、branch protection の `checks` に `ci / stage C paths` を足します（後述の更新コマンド）。
 **足す前に、必ず PR を 1 本出して `gh pr checks <番号>` で名前を読んでください。** 名前が違うと、
 必須チェックが永遠に `Pending` のままになり、すべての PR が止まります。
@@ -197,13 +198,13 @@ completion-reviewer の合格後に自分でマージし、ブランチ保護で
   触る PR #22 は `CLEAN` でした。原因は、作者が唯一の code owner だから免除されたのか、
   承認数 0 だと code owner review が強制されないのか、切り分けられていません（別アカウントの
   試しが要る）。どちらにしても、1 人のリポジトリでは `CODEOWNERS` だけでは止まらないので、
-  上の `stage C paths` で止めます。
+  上の `stage C paths` で印を付けます。
 
 ### 推測（公式の記述が見つからない。各チケットで確かめる）
 
 - **C の PR は、管理者がマージできる**はず。`enforce_admins` を外したままなら、公式のとおり
   管理者には branch protection の制限が既定で掛からないので、必須チェックが落ちたままでも
-  管理者はマージできるはずです。各チケットで、C のパスに触る PR を人が管理者としてマージできることも
+  管理者はマージできるはずです。各チケットで、C のパスに触る PR をワーカーが `--admin` でマージできることも
   確かめてください（マージする PR は、その場で本物にしてかまいません）。
 - **`stage-c` job の `job.workflow_repository` と `job.workflow_sha` は、呼ばれた再利用 workflow
   自身のリポジトリと SHA になる**はず。GitHub の contexts のドキュメントに `job` コンテキストの
@@ -273,7 +274,7 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
    gh api repos/yamakura-yuma/<repo>/branches/main/protection/required_status_checks --jq '.checks[].context'
    ```
 
-   `require_code_owner_reviews: true` は残してかまいません。止める役は `stage C paths` で、
+   `require_code_owner_reviews: true` は残してかまいません。印を付ける役は `stage C paths` で、
    これは当てにしません（1 人の構成では効かない。上の「確かめた」）。
 5. 確かめる。`just ci` を落とす PR と、C のパスに触る PR を 1 本ずつ出し、どちらも
    `gh pr view <番号> --json mergeStateStatus` が `BLOCKED` になることを見る。後者は
