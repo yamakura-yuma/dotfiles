@@ -16,6 +16,7 @@
 | `claude/home-CLAUDE.md` | `~/CLAUDE.md` の coordinator 節の正。`reload` が `~/CLAUDE.md` のマーカー間に流し込む |
 | `starship.toml` | シェルプロンプトの設定。`kubernetes` モジュールを有効にし、`git_status` を記号ではなく件数で出す。`reload` が `~/.config/starship.toml` にリンクする |
 | `shell/prompt.sh` | プロンプトのシェル側。`~/.nix-profile/bin` を `PATH` に入れて `starship init bash` を走らせる。`starship` が未インストールなら何もしないので、途中まで組んだホストでもシェルは壊れない |
+| `bin/claude-haiku-direct.sh` | Haiku 5.5 を headroom を通さず（`--settings` で `ANTHROPIC_BASE_URL` を `https://api.anthropic.com` に）起動する薄いラッパー。`reload` が `~/.local/bin/claude-haiku-direct` に張る。理由は [setup.md](setup.md#ツールごとの1回きりの設定) |
 | `host-apm.yml` | ホスト全体のマニフェスト。`reload` が `~/.apm/apm.yml` にコピーする。`codegraph` と `headroom` の MCP サーバだけを宣言する（`~/.claude.json` の `mcpServers` はここが正で、あちらを手で編集しない） |
 | `apm.yml` | このリポジトリだけに効くマニフェスト。依存は `./core-principal` ひとつ |
 | `core-principal/` | エージェント設定一式の独立パッケージ。常時読み込みのルール1つ、ブロックするガードフック3つと助言フック1つ、`/retro`・`/workers`・`/worktree`、`core-*` スキル、完了前レビューのサブエージェント `completion-reviewer`、そして固定コミットで取り込んだ公開スキル群。詳しくは [agent-harness.md](agent-harness.md) |
