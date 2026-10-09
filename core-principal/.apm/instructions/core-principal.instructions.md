@@ -20,8 +20,9 @@ coordinator（デフォルトブランチ上の元 checkout、または `~` の�
 
 ## マージ
 
-エージェントは `gh pr merge --admin` を使わない。ワーカーは `gh pr merge` を打たない。
-予約は coordinator が回収時に行う（`core-dispatch` スキル）。
+completion-reviewer が合格したら、ワーカーが自分で `gh pr merge` する。必要なら `--admin`
+も使ってよい（個人リポジトリで、ブランチ保護より速さを取るとユーザーが決めた）。
+合格前・不合格のままのマージはしない（`core-dispatch` スキル）。
 
 ## コードを探す・理解する
 

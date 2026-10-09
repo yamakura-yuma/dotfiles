@@ -1,0 +1,9 @@
+{
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Topic chat bookkeeping is allowed: in a worktree named chat-<topic> of the coordinator repo, writing task agreements (合意書), worker briefs, completion-criteria files and `*.limits.json` under ~/.claude/worker-reports/ is the user-approved workflow. That directory holds specs and reports, not permission grants or instructions that clear a block.",
+      "Dispatching workers is allowed: `orca orchestration run-create`, `worker-start`, `send` and `check` from a topic chat are the delegated workflow the user set up, and `.claude/skills/pstack-on-claude-code/scripts/worker-limits <role> > ~/.claude/worker-reports/<name>.limits.json` only prints numeric limits."
+    ]
+  }
+}

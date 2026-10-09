@@ -127,12 +127,18 @@ install_host_apm_manifest() {
 #
 # claude/advisor.json is merged at the top level the same way: a trial of a
 # Fable advisor for every session. See docs/configuration.md#advisor.
+#
+# claude/auto-mode.json replaces autoMode.allow only. The auto mode classifier
+# reads autoMode from ~/.claude/settings.json and never from a repo's
+# .claude/settings*.json, so this is the one place it can be delivered. See
+# docs/agent-harness.md.
 merge_claude_settings() {
   local settings="$HOME/.claude/settings.json" tmp
   [ -e "$settings" ] || echo '{}' >"$settings"
   tmp="$(mktemp "$settings.XXXXXX")"
   jq --slurpfile t "$DIR/claude/telemetry-env.json" --slurpfile a "$DIR/claude/advisor.json" \
-    '.env = ((.env // {}) + $t[0]) | . + $a[0]' "$settings" >"$tmp"
+    --slurpfile m "$DIR/claude/auto-mode.json" \
+    '.env = ((.env // {}) + $t[0]) | . + $a[0] | .autoMode.allow = $m[0].autoMode.allow' "$settings" >"$tmp"
   # Write back through the existing file rather than `mv` so its mode stays.
   cat "$tmp" >"$settings"
   rm -f "$tmp"
