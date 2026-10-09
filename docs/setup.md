@@ -59,6 +59,13 @@ statusline と `starship.toml` は `reload` が自動でリンクします。MCP
   ので、素の `claude` でも必ずプロキシを通ります。`.bashrc` のシェル関数では拾えない
   非対話の起動（Orca が worktree のターミナルで直接 `claude` を起こす場合など）も
   これで通る。確認は `headroom doctor`。
+  - **Haiku 5.5 だけはプロキシを通せません。** headroom（0.40.0 まで）のモデル許可リストに
+    `claude-haiku-5` が無く、Haiku 5.5 が `messages[]` に入れる system（`tool_addition`
+    を含む）をトップレベルの `system` へ移すので、API が 400 を返します。`reload` が
+    `~/.local/bin/claude-haiku-direct` を張るので、Haiku を使うときはこれを打ちます
+    （`claude-haiku-direct -p "..."`。引数は `claude` にそのまま渡る）。直結の URL は
+    `--settings` で渡しています。`ANTHROPIC_BASE_URL` を export しても、
+    `~/.claude/settings.json` の `env` が勝つので効きません。他のモデルは素の `claude` のまま。
 - **graphify** も `agents-init` が要ります。`graphify install --platform claude` が
   `/graphify` スキルをグローバルに入れ、`graphify claude install` が自動化の部分
   （CLAUDE.md の節と `.claude/settings.json` の `PreToolUse` フック）を足します。後者は
