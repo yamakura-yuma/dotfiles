@@ -36,7 +36,6 @@
    shell/prompt.sh         ──  symlink + 追記   ──  ~/.config/dotfiles/prompt.sh
                                                     → ~/.bashrc の印付きブロック
    claude/statusline.sh    ──  symlink          ──  ~/.claude/statusline.sh
-   bin/claude-haiku-direct.sh ─ symlink         ──  ~/.local/bin/claude-haiku-direct
    claude/telemetry-env.json ── jq でマージ ──  ~/.claude/settings.json の env
    claude/advisor.json     ──  jq でマージ      ──  ~/.claude/settings.json の advisorModel
    apm.yml                 ──  apm install      ──  ./.claude/（このチェックアウト）
