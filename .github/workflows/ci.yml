@@ -1,7 +1,7 @@
 # PR のゲート。中身は justfile の `ci`（= `make ci`）で、再利用 workflow はそれを走らせるだけ。
 # 型は docs/gates.md。`paths` で絞らない（飛ばされた必須チェックは Pending のままマージを止めるため）。
 #
-# `./.github/workflows/just-ci.yml` ではなく SHA 固定で呼ぶ（公式が最も安全とする形）。
+# `./.github/workflows/just-ci.yml` ではなく SHA 固定で呼ぶ（公式が最も安全とする形。docs/gates.md の「再利用 workflow の参照」）。
 # just-ci.yml を変えたら、main に入れたあとで @ の SHA を上げる別 PR を出す。
 name: ci
 on:
