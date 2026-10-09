@@ -26,7 +26,7 @@ make help        # ターゲット一覧
 | `lint-yaml` | YAML がパースできるか |
 | `lint-frontmatter` | instruction に `applyTo:` と `description:` があるか |
 | `lint-pins` | `pins.tsv` を読んでピンの古さを報告する（オフライン。報告だけで失敗にはしない） |
-| `test-guards` | `core-principal/tests/guards.sh` — ガードフックに payload を食わせる |
+| `test-guards` | `core-principal/tests/guards.sh` — dispatch-in-coordinator に payload を食わせる |
 | `test-harness` | `core-principal/tests/harness-check.sh` — ハーネスのドリフト |
 | `test-statusline` | `claude/tests/statusline.sh` |
 | `test-metrics` | `claude/tests/metrics.sh` fixture のログを `claude/metrics.py` に数えさせる |

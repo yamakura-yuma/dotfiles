@@ -18,7 +18,7 @@ The user's own preferences on top of poteto-mode are the `p-mode` skill.
 | Supervising Orca workers: the main chat / topic chat split, Reply shape | [`supervising-orca-workers.md`](supervising-orca-workers.md) |
 | Main chat: open a topic chat, status, close a finished topic | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Main chat" |
 | Topic chat: run an Issue, dispatch, wait, hand a finished topic to the main chat | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Topic chat" |
-| Worker pickup and release: pick up completion, reserve the merge, remove a worker's worktree, when release is retained | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Topic chat" |
+| Worker pickup and release: pick up completion, confirm the merge, remove a worker's worktree, when release is retained | [`supervising-orca-workers.md`](supervising-orca-workers.md), "Topic chat" |
 | Grounding a request before the first worker | [`grounding.md`](grounding.md) |
 | The Issue body a human can hand to a topic chat | [`issue-template.md`](issue-template.md) |
 
@@ -194,8 +194,9 @@ dropped them.
 - "Paste the verification commands and their results into the report file"
 - The live-state operations it must not do, named ("do not edit `~/.bashrc`",
   "do not apply to the real cluster"), and where to verify instead
-- "Do not run `gh pr merge` (not `--auto`, not `--admin`). The coordinator
-  reserves the merge at pickup."
+- "When the review passes and the PR is open, run `gh pr merge <number> --squash
+  --delete-branch` yourself (add `--admin` if branch protection blocks it), then
+  send `worker_done`. Never merge before the review passes."
 - The advisor block and the review block below, verbatim
 
 **A spec for work that starts from an Issue adds these lines** ("Run an Issue" in
@@ -284,20 +285,18 @@ workers" in [`supervising-orca-workers.md`](supervising-orca-workers.md)). Desig
 
 ## Worker permissions
 
-`worker-start` has no permission argument (measured: `orca orchestration worker-start --help`). A worker's launch mode comes from Orca's own `agentDefaultArgs.claude`, one value for the whole host, set to `--permission-mode auto` (auto). Orca puts it at the front of the worker's `claude` command line. So the permission mode cannot differ by role; do not look for a flag to set it.
+`worker-start` has no permission argument (measured: `orca orchestration worker-start --help`). A worker's launch mode comes from Orca's own `agentDefaultArgs.claude`, one value for the whole host, set to `--dangerously-skip-permissions` (bypass). Orca puts it at the front of the worker's `claude` command line. So the permission mode cannot differ by role; do not look for a flag to set it. `orca terminal read` shows the command line; the flag must be in it.
 
-In auto a classifier reviews each action that is not a read or an edit inside the working directory. Every step of a worker's job ran without a prompt (measured in an Orca terminal: commit, push, `gh pr create --dry-run`, `apm install`, read-only `orca orchestration`, writes under `~/.claude/worker-reports/`). Writes under `~/.claude/` are protected paths and go to the classifier, so they take a few seconds longer.
+In bypass nothing prompts: reads, edits, `git push`, `gh pr create` and `gh pr merge` run without a classifier, so a worker does not stall at a permission prompt. A worker whose heartbeats stop is not waiting at one; read its terminal before treating it as dead.
 
-Auto has two ways to end at a permission prompt, and Orca does not answer one: the classifier blocks 3 actions in a row or 20 in a session, or the model cannot use auto (Haiku 4.5 fell back to manual, measured). Launch workers on Sonnet 5 or Opus 5 or later. A worker whose heartbeats stop may be waiting at a prompt, so read its terminal before treating it as dead.
+What stops a worker for certain is a `permissions.deny` rule. It holds in every mode, bypass included (official; measured). The guard hooks that once blocked the default branch, `git reset --hard`, force pushes and `gh pr merge --admin` were removed on purpose (a personal repo, the owner wants agents to move fast), so the spec and the deny rules are what is left. `sandbox` stops nothing here: without `socat` it prints "Sandbox disabled" and commands run unsandboxed.
 
-What stops a worker for certain is a guard hook (exit 2) or a `permissions.deny` rule. Both hold in every mode, auto and bypass alike (official; measured in both). The classifier is not a guarantee: a boundary stated in the spec can be lost to compaction. `sandbox` stops nothing here: without `socat` it prints "Sandbox disabled" and commands run unsandboxed.
-
-The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json`. apm drops `permissions` written in a hook file but ships the file as is, so a repo's `orca.yaml` setup copies it to `.claude/settings.local.json` (see dotfiles' `orca.yaml`). A repo without that line has workers with no deny. The limit: `Edit(...)` deny stops the Edit tool, not a Bash redirect (measured: `echo probe >> <file>` ran with that file under `Edit` deny); in auto such a redirect still goes to the classifier. `Read(~/.ssh/**)` did stop both the Read tool and `cat` in Bash.
+The deny rules live once, in `core-principal/.apm/hooks/scripts/lib/worker-deny.settings.json` (credentials such as `~/.ssh` and `~/.aws`, and the files that change the human's shell and Claude settings). Do not remove or loosen them. apm drops `permissions` written in a hook file but ships the file as is, so a repo's `orca.yaml` setup copies it to `.claude/settings.local.json` (see dotfiles' `orca.yaml`). A repo without that line has workers with no deny. The limit: `Edit(...)` deny stops the Edit tool, not a Bash redirect (measured: `echo probe >> <file>` ran with that file under `Edit` deny). `Read(~/.ssh/**)` did stop both the Read tool and `cat` in Bash.
 
 | Role | Mode | Fence | Difference by role |
 |---|---|---|---|
-| Every worker | auto (Orca setting) | guard hooks + deny from `.claude/settings.local.json` + the auto classifier | none by flag |
-| Implementation (Sonnet) | same | same; `git push`, `gh pr create`, edits in the worktree and writes to `~/.claude/worker-reports/` stay allowed | what to change goes in the spec |
+| Every worker | bypass (Orca setting) | deny from `.claude/settings.local.json` + the spec | none by flag |
+| Implementation (Sonnet) | same | same; `git push`, `gh pr create`, `gh pr merge` (after the review passes), edits in the worktree and writes to `~/.claude/worker-reports/` stay allowed | what to change goes in the spec |
 | Design (Opus) | same | same | "do not change code" goes in the spec |
 
 ## Paths

@@ -6,15 +6,15 @@ description: Taking work as the coordinator and handing it to a worker in a work
 # 仕事を受ける、出す、戻す
 
 このセッションは **coordinator**、つまり仕事を配る側で、ここでは実装しない。Edit /
-Write / NotebookEdit は `guard-coordinator-edit` hook が拒否し、`git commit` /
-`git push` は `guard-default-branch` hook が拒否する。調査・計画・コマンド実行は
+Write / NotebookEdit や `git commit` / `git push` を止める hook は無い（外した）。この
+指示が唯一の歯止めなので、守ること。調査・計画・コマンド実行は
 ここでしてよい。
 
 この分担には Orca 公式の裏付けがある。`orca skills get orchestration --reference
 coordinator-loop` の **Review ownership** は「review-only な `worker_done` は所見の
 統合を許すが、coordinator によるファイル編集は許さない。修正は dispatch か handoff に
-回す（ユーザーが明示的に coordinator に割り当てた場合を除く）」と定めている。hook は
-これを Orca の外側にも効かせているだけで、独自の方針ではない。
+回す（ユーザーが明示的に coordinator に割り当てた場合を除く）」と定めている。ここの指示は
+これを Orca の外側にも効かせる指示で、独自の方針ではない。
 
 coordinator かどうかの判定は 1 か所にある
 （`.apm/hooks/scripts/lib/coordinator-workspace.sh`）。**デフォルトブランチ上の

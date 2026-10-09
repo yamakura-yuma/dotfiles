@@ -156,8 +156,8 @@ topics in, and one **topic chat** per topic sees that topic through.
   3. Ground it as `grounding.md` says: an Issue with all five items of
      `issue-template.md` skips the grilling, and you write the brief from it and
      call `ExitPlanMode` once. A missing item is grounded as usual.
-  4. At pickup, reserve the merge as "Reserve the merge at pickup" says. The PR
-     closes the Issue with `Closes #<number>`.
+  4. At pickup, confirm the merge as "The worker merges; you confirm at pickup"
+     says. The PR closes the Issue with `Closes #<number>`.
   When the human asks to make something an Issue, fill `issue-template.md` and
   run `gh issue create -R <owner/repo> --title "<title>" --body-file <file>`.
   Do it only if the purpose and the completion criterion can already be written
@@ -274,20 +274,19 @@ topics in, and one **topic chat** per topic sees that topic through.
   fails, send the worker back with its output (open criteria, or the review not
   run). If the re-review still failed and the worker
   escalated, show the remaining required findings to the human to decide.
-- **Reserve the merge at pickup.** You, not the worker, reserve the merge, after
-  `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>` exits 0. Read `gh pr checks <number> -R
-  <owner/repo> --required` and wait for `ci / stage C paths` to have a result:
-  - FAILURE: stage C. Do not add `--auto`. Put "merge `<PR URL>` as an admin" under
-    「次にあなたがすること」; the human merges.
-  - SUCCESS: stage A or B. Run `gh pr merge <number> -R <owner/repo> --auto
-    --squash`.
-  - No `ci / stage C paths` among the required checks: the repository has no
-    gate yet. Do not add `--auto`; tell the human. The one exception is the
-    coordinator repository (no CI, private, so no auto merge): once
-    `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>` exits 0, merge it directly with `gh pr merge <number>
-    --squash`. Anything that would be stage C lives in dotfiles, not there.
-  Never run `gh pr merge --admin`, for any stage. Admin merges are the human's
-  (`docs/gates.md`, "管理者のマージ").
+- **The worker merges; you confirm at pickup.** An implementation worker runs
+  `gh pr merge` itself, only after the completion-reviewer's verdict is `pass`
+  (add `--admin` when branch protection blocks it). At pickup run
+  `.claude/skills/pstack-on-claude-code/scripts/check-criteria <name>`, then
+  `gh pr view <number> -R <owner/repo> --json state,mergedAt`. `MERGED` means
+  the topic can close. `OPEN` with check-criteria exiting 0 means the worker
+  stopped before merging: send it back (`send`) to merge, do not merge for it.
+  `OPEN` with check-criteria failing means the review did not pass; that is
+  the "send the worker back" case above, never a merge. A worker never
+  merges a PR whose review did not pass. A Run that predates this rule (a
+  worker whose spec says "do not run `gh pr merge`") is merged by the human or
+  by you with `gh pr merge <number> -R <owner/repo> --squash` once check-criteria
+  exits 0.
 - **Rebind the same Run when fenced.** If `worker-start` or another call fails
   with `consumer_fenced` (a session restart dropped the binding; it wants the
   topic chat's terminal bound to the Task's Run), run `orca orchestration

@@ -28,9 +28,6 @@ Orca publishes its own skills.
 | | |
 | --- | --- |
 | `core-principal` rule | The only always-loaded file: response language, then which skill or tool applies to navigating, explaining, verifying, changing the harness, retrospecting, and Orca. |
-| `guard-default-branch` hook | Refuses `git commit` / `git push` while HEAD is on the default branch, pointing you at a worktree instead. See below. |
-| `guard-destructive-git` hook | Refuses the four git commands that destroy work which exists nowhere else: `reset --hard`, `clean -f`, whole-tree `checkout --` / `restore`, and `push --force`. `--force-with-lease` and `reset --soft` stay allowed. |
-| `guard-coordinator-edit` hook | Refuses `Edit` / `Write` / `NotebookEdit` while the session is the coordinator -- the original checkout on its default branch, or a directory in no repository at all, naming `core-dispatch` as the way out. Same `MAKURA_ALLOW_MAIN=1` switch as `guard-default-branch`. |
 | `dispatch-in-coordinator` hook | Not a guard: on every prompt in the coordinator it appends the dispatch norm to the message, so the layer holds without a human typing a command. Silent everywhere else. |
 | `core-tools` skill | The indexes: what `graphify` and `codegraph` each return, how to tell one is present, why a worktree inherits neither, and what the headroom proxy does to large output. |
 | `core-communication` skill | Why long prose goes unread, and what to cut so that a reader can decide. |
@@ -105,7 +102,7 @@ rather than by path.
 ## Tests
 
 ```bash
-./core-principal/tests/guards.sh         # guard hooks, by feeding them payloads
+./core-principal/tests/guards.sh         # dispatch-in-coordinator, by feeding it payloads
 ./core-principal/tests/harness-check.sh  # invariants of the package itself
 ./core-principal/tests/worker-limit.sh   # the worker-limit hook, against a stub orca
 ```
@@ -201,60 +198,14 @@ spec line "do not work around it" holds that), and it protects only repos that
 install this package, which is why the cost lives in `statusline.sh` rather than
 in the repo. `tests/worker-limit.sh` pins the behaviour against a stub `orca`.
 
-## The guardrail hooks
+## Removed guards
 
-The three blocking hooks exit 2, which blocks the tool call and hands their
-stderr back to the agent as the reason. They are deliberately fail-open: exit 0 in Claude
-Code's hook protocol means "no opinion", not "approved", so anything they
-cannot evaluate confidently (no `jq`, not a repo, detached HEAD, unparseable
-payload) falls through to exit 0.
+`guard-default-branch`, `guard-destructive-git` and `guard-coordinator-edit` (the
+blocking PreToolUse hooks) were removed on purpose: this is a personal setup and
+the owner wants agents to move fast. Nothing blocks a commit on the default
+branch, `git reset --hard`, a force push or `gh pr merge --admin` now. The
+coordinator -> topic chat -> worker split is kept as an instruction only
+(`core-dispatch`). `dispatch-in-coordinator` (advisory, never blocks) and
+`worker-limit` stay, and so do the credential `permissions.deny` rules in
+`lib/worker-deny.settings.json`.
 
-There are only three of them, and that is on purpose. A blocking hook is
-asymmetric — a false positive costs something every single time it fires,
-while the thing it prevents may never have happened. So the bar is "frequent,
-irreversible, and hard to mistake for ordinary work". Writing outside the repo
-does not clear that bar despite there being a real incident behind it
-(`~/.claude/settings.json.graphify-bak`), so it is a paragraph in the
-`core-harness` skill rather than a fourth hook of this kind.
-
-`worker-limit` is the exception that clears the bar a different way, which is
-why it is described above and not here. It stops by JSON rather than exit 2, and
-its false positives cannot reach ordinary work: with no limits file it does
-nothing, and only whoever starts a worker writes one. What it prevents is not
-rare — a worker nobody is watching has no other stop.
-
-`guard-coordinator-edit` is the one that was added deliberately rather than
-reluctantly, because the layer it protects does not exist without it. An
-coordinator that merely *advises* against implementing gets talked out
-of it by the next small-looking request, and the damage shows up in the first
-tool call rather than eventually. Its false positives are cheap in a way the
-others' are not: the work is not refused, only relocated to a worktree, which
-is where it was supposed to happen anyway.
-
-`guard-destructive-git` draws its line at *what cannot be recovered*, not at
-what sounds alarming. `git reset --soft`, `git checkout <branch>` and
-`git push --force-with-lease` all pass, because each either keeps the work or
-refuses on its own when the remote has moved. Note that `--force` and
-`--force-with-lease` share a prefix, so the match requires a separator after
-`--force`; `core-principal/tests/guards.sh` pins that case specifically,
-because it is the one a sloppier regex would break every day.
-
-Two details worth knowing before editing it:
-
-- It judges the repository the command targets: it starts from `cwd` in the
-  hook payload rather than `${CLAUDE_PROJECT_DIR}`, which stays pinned to where
-  the session started and does not follow Claude into a worktree, then follows
-  `cd` and `git -C`. A directory or refspec it cannot read (`cd "$dir"`) gets
-  no opinion.
-- It splits the command roughly as a shell would, so a heredoc body or a quoted
-  argument that mentions `git push` does not trip it, and a push that names
-  only other branches (`--delete b`, `:b`, `HEAD:feature`) passes.
-- It resolves the default branch from the local `refs/remotes/origin/HEAD`
-  ref, never `git remote show origin` — that would put a network round trip in
-  front of every Bash call.
-
-To lift them, export `MAKURA_ALLOW_MAIN=1` or `MAKURA_ALLOW_DESTRUCTIVE=1`
-before starting Claude Code. They are environment variables and not marker
-files on purpose: hooks inherit Claude Code's environment rather than the one a
-Bash tool call builds, so an agent cannot grant itself either one by prefixing
-a command.
