@@ -20,7 +20,7 @@ SHELL := /usr/bin/env bash
 ls_src = git ls-files --cached --others --exclude-standard --
 
 .PHONY: help ci lint lint-shell lint-exec lint-json lint-yaml lint-frontmatter \
-        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-worker-deny test-topic-chat-allow test-worker-limit \
+        test test-guards test-harness test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-techdocs test-worker-deny test-topic-chat-allow test-worker-limit \
         metrics eval skill-eval install
 
 help:
@@ -37,7 +37,7 @@ ci: lint test
 
 lint: lint-shell lint-exec lint-json lint-yaml lint-frontmatter lint-pins
 
-test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-github-settings test-techdocs test-worker-deny test-topic-chat-allow test-worker-limit
+test: test-guards test-harness test-pstack-claude test-statusline test-metrics test-nix-tools test-claude-settings test-headroom-init test-techdocs test-worker-deny test-topic-chat-allow test-worker-limit
 
 lint-shell:
 	@echo "== shell syntax"
@@ -136,12 +136,6 @@ test-claude-settings:
 test-headroom-init:
 	@echo "== setup.sh headroom-init"
 	@./tests/headroom-init.sh
-
-# bin/github-settings.sh against a stub gh. The script itself is never run by
-# ci: it talks to GitHub, and its --apply paths change it.
-test-github-settings:
-	@echo "== github-settings"
-	@./tests/github-settings.sh
 
 # catalog-info.yaml and mkdocs.yml, the files Backstage's TechDocs builds docs/
 # from. Offline: it checks the config, not a mkdocs build.

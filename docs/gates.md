@@ -80,7 +80,7 @@ justfile の中で決めてください。
 
 再利用 workflow の job を足したり消したりした版は、`ci.yml` の `@<SHA>` を上げて取り込みます。
 必須チェックの名前が変わるときは、**SHA を上げる PR のマージと同時かその前に**、branch protection の
-`checks` を新しい名前に合わせてください（後述の更新コマンド）。消えた名前が必須のままだと、
+`checks` を新しい名前に合わせてください（下の手順 4）。消えた名前が必須のままだと、
 その必須チェックが永遠に `Pending` のままになり、すべての PR が止まります（下の「飛ばされた workflow」）。
 足すときは、先に PR を 1 本出して `gh pr checks <番号>` で名前を読んでから `checks` に足します。
 
@@ -116,10 +116,12 @@ justfile の中で決めてください。
   `BLOCKED` になりました。名前の規則を書いた公式の記述は見つけられていません。新しい job の名前を
   必須にするときは、設定する前に PR を 1 本出して `gh pr checks <番号>` で読んでください。
 
-## 各リポジトリでの設定手順（後続チケット用）
+## 各リポジトリでの設定手順
 
-dotfiles#51 の作業ではどのリポジトリの設定も変えていません。以下は各チケット（home-k8s#31、
-knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポジトリで行う手順です。
+GitHub の設定（branch protection・auto merge など）は、各リポジトリの `.github/settings.yml` を正本とします。
+Settings アプリ（[repository-settings/app](https://github.com/repository-settings/app)）が、既定ブランチへの
+push でこのファイルを読んで GitHub に反映します。`gh api -X PUT` や `gh repo edit` では設定を書きません。
+手で変えると、次に `settings.yml` が変わったときにアプリが上書きします。
 **auto merge は最後に、ゲートが落ちる PR を止めると確かめてから有効にします。**
 
 1. `justfile` に `ci` レシピを作り、ローカルで `just ci` が `0` で終わることを確かめる。わざと
@@ -131,49 +133,60 @@ knowledge-base#19、temporal-workflow-kit#12、dotfiles#52）が自分のリポ�
    gh pr checks <PR 番号> -R yamakura-yuma/<repo>
    ```
 
-4. branch protection を入れる（読んだ名前を `context` に）。
+4. `.github/settings.yml` の `branches` に branch protection を書く（読んだ名前を `context` に）。
+   protection は PUT で丸ごと置き換わるので、既定値の項目も全部書く。必須チェックは `contexts` ではなく
+   `checks`（`context` と `app_id`）で書く。`contexts` だけだと `app_id` が外れ、どのアプリのチェックでも
+   通ってしまう。
 
-   ```bash
-   gh api -X PUT repos/yamakura-yuma/<repo>/branches/main/protection --input - <<'EOF'
-   {
-     "required_status_checks": {
-       "strict": false,
-       "checks": [{ "context": "ci / just ci" }]
-     },
-     "enforce_admins": false,
-     "required_pull_request_reviews": null,
-     "restrictions": null
-   }
-   EOF
-   gh api repos/yamakura-yuma/<repo>/branches/main/protection   # 読み戻す
+   ```yaml
+   branches:
+     - name: main
+       protection:
+         required_status_checks:
+           strict: false
+           checks:
+             - context: ci / just ci
+               app_id: 15368
+         required_pull_request_reviews: null
+         enforce_admins: false
+         restrictions: null
+         required_linear_history: false
+         allow_force_pushes: false
+         allow_deletions: false
+         block_creations: false
+         required_conversation_resolution: false
+         lock_branch: false
+         allow_fork_syncing: false
    ```
+
+   既にレビュー必須などの設定があるときは、読み戻した JSON の中身を全部写す（上は何も無い場合の例）。
+   全項目の見本は dotfiles の `.github/settings.yml` の `branches`。
 
    `strict` は `false` にします。`true` だと main が進むたびに PR の更新が要り、auto merge が
-   止まりやすくなるためです。
+   止まりやすくなるためです。必須チェックの名前を変えるときは、`checks` を書き換える PR を出します
+   （残したい名前も含めて全部書く）。
 
-   既に必須チェックを持つリポジトリは、名前だけを更新する。公式は `checks` が置き換えか追加かを
-   書いていないので、残したい名前も含めて全部書き、読み戻して揃っていることを確かめる。
+5. その PR をマージする。マージの push でアプリが動き、設定が反映される。読み戻して、書いたとおりに
+   なっていることを確かめる。`updated_at` が進んでいれば、アプリが動いた証拠になる。
 
    ```bash
-   gh api -X PATCH repos/yamakura-yuma/<repo>/branches/main/protection/required_status_checks --input - <<'EOF'
-   { "strict": false, "checks": [{ "context": "ci / just ci" }] }
-   EOF
+   gh api repos/yamakura-yuma/<repo>/branches/main/protection   # protection
    gh api repos/yamakura-yuma/<repo>/branches/main/protection/required_status_checks --jq '.checks[].context'
+   gh api repos/yamakura-yuma/<repo> --jq .updated_at
    ```
 
-5. 確かめる。`just ci` を落とす PR と、通る PR を 1 本ずつ出し、前者は
+6. 確かめる。`just ci` を落とす PR と、通る PR を 1 本ずつ出し、前者は
    `gh pr view <番号> --json mergeStateStatus` が `BLOCKED`、後者は `CLEAN` になることを見る。見たら閉じる。
-6. ここまで確かめてから auto merge を有効にする。
-
-   ```bash
-   gh repo edit yamakura-yuma/<repo> --enable-auto-merge
-   ```
-
-7. ワーカーが completion-reviewer の合格後に、自分で `gh pr merge <番号> --squash --delete-branch`
+7. ここまで確かめてから auto merge を有効にする。`settings.yml` の `repository:` に
+   `allow_auto_merge: true` を書く PR を出してマージする。
+8. ワーカーが completion-reviewer の合格後に、自分で `gh pr merge <番号> --squash --delete-branch`
    を打つ。話題チャットは回収時に `MERGED` を確かめるだけで、代わりにマージしない。
 
-設定を外すときは `gh api -X DELETE repos/yamakura-yuma/<repo>/branches/main/protection` と
-`gh repo edit yamakura-yuma/<repo> --disable-auto-merge` です。
+設定を外すときも `settings.yml` を直します。branch protection は `branches` の `protection` を消す PR ではなく、
+`protection: null` を書く PR にします（`protection` の節ごと消すとアプリは何もせず、保護が残ります）。
+auto merge は `allow_auto_merge: false` にします。
+
+`settings.yml` の `labels:` に無いラベルはアプリが消します。ラベルを足すときも `settings.yml` に書いてください。
 
 ## 壊れたときの戻し方
 
