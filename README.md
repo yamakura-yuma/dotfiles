@@ -83,7 +83,6 @@ Claude Code のセッションからは `/retro`（振り返って、学んだ�
 | [docs/agent-harness.md](docs/agent-harness.md) | `core-principal` の中身。ルール・スキル・フックの使い分け、配置先、ガードフック |
 | [docs/setup.md](docs/setup.md) | インストールと更新。`setup.sh` のサブコマンド、他のリポジトリへの導入 |
 | [docs/configuration.md](docs/configuration.md) | 設定リファレンス。ファイルの役割、ホストスコープの設定の書き手、環境変数、OpenTelemetry トレースの送り先と止め方 |
-| [docs/github-settings.md](docs/github-settings.md) | GitHub リポジトリの設定を揃え、マージ済みブランチを掃除する `bin/github-settings.sh` の使い方 |
 | [docs/gates.md](docs/gates.md) | PR のゲートの型。段階 A/B、`just ci` の約束、再利用 workflow、各リポジトリでの設定手順と戻し方 |
 | [docs/development.md](docs/development.md) | 開発と検証。`make ci` の中身、`core-principal` を編集するときの罠 |
 

@@ -9,5 +9,4 @@ nav:
   - 設定リファレンス: configuration.md
   - 開発と検証: development.md
   - エージェントハーネス: agent-harness.md
-  - GitHub リポジトリの設定: github-settings.md
   - PR のゲートと auto merge: gates.md
